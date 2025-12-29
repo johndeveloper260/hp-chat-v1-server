@@ -44,6 +44,9 @@ connectDB();
 const register = require("./routes/registerRoute");
 app.use("/register", register);
 
+const login = require("./routes/loginRoute");
+app.use("/login", login);
+
 // const auth = require("./routes/accountRoutes");
 // app.use("/auth", auth);
 
