@@ -8,62 +8,41 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const { StreamChat } = require("stream-chat");
 
+// --- UPDATED CORS CONFIGURATION ---
+// This replaces the old app.use(cors()) to allow DELETE and your custom headers
+const corsOptions = {
+  origin: ["https://9da42b3df893.ngrok-free.app"],
+  methods: ["GET", "POST", "PATCH", "DELETE", "PUT", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "x-auth-token", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+};
+
+// Apply to all requests
+app.use(cors(corsOptions));
+
 // Init Middleware
-app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// initialize Stream Chat SDK
-const serverSideClient = new StreamChat(
-  process.env.STREAM_API_KEY,
-  process.env.STREAM_APP_SECRET
-);
-
 const httpServer = require("http").createServer(app);
-// const io = require("socket.io")(httpServer, {
-//   cors: {
-//     origin: [
-//       "http://localhost:3000",
-//       "https://hp-web-ultra-dev.web.app",
-//       "https://forward-hp-ultra.horensoplus.com",
-//       "https://hp-web-ultra-prod.web.app",
-//     ],
-//     methods: ["GET", "POST", "PATCH"],
-//   },
-// });
 
 // Connect Database
 const connectDB = require("./config/db");
 connectDB();
 
-//Connect to websocket
-// const ioSocket = require("./config/ioSocket");
-// ioSocket(io);
-
+// Routes
 const register = require("./routes/registerRoute");
 app.use("/register", register);
 
 const login = require("./routes/loginRoute");
 app.use("/login", login);
 
-// const auth = require("./routes/accountRoutes");
-// app.use("/auth", auth);
-
 const access = require("./routes/accessRoutes");
 app.use("/access", access);
 
-// const profile = require("./routes/profileRoutes");
-// app.use("/profile", profile);
-
-// const config = require("./routes/configRoutes");
-// app.use("/config", config);
-
-// const ticket = require("./routes/ticketRoutes");
-// app.use("/ticket", ticket);
-
-// const chat = require("./routes/chatRoutes");
-// app.use("/chat", chat);
+// ... Other commented routes ...
 
 const PORT = process.env.PORT || 8010;
 
