@@ -7,8 +7,6 @@ const jwt = require("jsonwebtoken");
 
 require("dotenv").config();
 
-const router = express.Router();
-
 const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET
@@ -70,20 +68,11 @@ exports.loginUser = async (req, res) => {
         /[^a-zA-Z0-9]/g,
         ""
       ),
-      test_flag: "ALIVE",
     };
-
-    console.log("FINAL PAYLOAD STRINGS:", JSON.stringify(payload));
 
     const token = jwt.sign(payload, process.env.REACT_APP_SECRET_TOKEN.trim(), {
       expiresIn: "24h",
     });
-    console.log("--- TOKEN GENERATED AT LOGIN ---");
-    console.log(token);
-    console.log(
-      "DEBUG SECRET:",
-      process.env.REACT_APP_SECRET_TOKEN.substring(0, 3) + "***"
-    );
 
     // 4. Create a fresh Stream Token for this session
     const streamToken = streamClient.createToken(user.id);
@@ -207,8 +196,8 @@ exports.deleteUserAccount = async (req, res) => {
     // 1. Delete from GetStream
     // Using hard: true removes message history, user data, and IDs permanently
     await streamClient.deleteUser(userId, {
-      mark_messages_deleted: true,
-      hard: true,
+      mark_messages_deleted: false,
+      hard: false,
     });
 
     // 2. Delete from PostgreSQL

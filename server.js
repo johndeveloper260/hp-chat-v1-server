@@ -11,7 +11,7 @@ const { StreamChat } = require("stream-chat");
 // --- UPDATED CORS CONFIGURATION ---
 // This replaces the old app.use(cors()) to allow DELETE and your custom headers
 const corsOptions = {
-  origin: ["https://9da42b3df893.ngrok-free.app"],
+  origin: ["https://7ed3f9a27c26.ngrok-free.app"],
   methods: ["GET", "POST", "PATCH", "DELETE", "PUT", "OPTIONS"],
   allowedHeaders: ["Content-Type", "x-auth-token", "Authorization"],
   credentials: true,
@@ -41,6 +41,9 @@ app.use("/login", login);
 
 const access = require("./routes/accessRoutes");
 app.use("/access", access);
+
+const profile = require("./routes/profileRoutes");
+app.use("/profile", profile);
 
 // ... Other commented routes ...
 
