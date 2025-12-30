@@ -64,16 +64,26 @@ exports.loginUser = async (req, res) => {
 
     // 3. GENERATE JWT TOKEN (Option B Compatibility)
     // We use the keys your middleware expects: user_id and business_unit
-    const token = jwt.sign(
-      {
-        user_id: user.id,
-        business_unit: user.business_unit,
-      },
-      process.env.REACT_APP_SECRET_TOKEN,
-      { expiresIn: "24h" }
-    );
+    const payload = {
+      user_id: String(user.id).trim(),
+      business_unit: String(user.business_unit || "DEFAULT").replace(
+        /[^a-zA-Z0-9]/g,
+        ""
+      ),
+      test_flag: "ALIVE",
+    };
 
+    console.log("FINAL PAYLOAD STRINGS:", JSON.stringify(payload));
+
+    const token = jwt.sign(payload, process.env.REACT_APP_SECRET_TOKEN.trim(), {
+      expiresIn: "24h",
+    });
+    console.log("--- TOKEN GENERATED AT LOGIN ---");
     console.log(token);
+    console.log(
+      "DEBUG SECRET:",
+      process.env.REACT_APP_SECRET_TOKEN.substring(0, 3) + "***"
+    );
 
     // 4. Create a fresh Stream Token for this session
     const streamToken = streamClient.createToken(user.id);

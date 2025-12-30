@@ -15,7 +15,7 @@ router.post(`/loginUser`, loginUser);
 router.post(`/forgot-password`, handleForgotPassword);
 
 //Private
-router.post(`/updatePassword`, updatePassword);
-router.delete(`/deleteAccount`, deleteUserAccount);
+router.post(`/updatePassword`, auth, updatePassword);
+router.delete(`/deleteAccount`, auth, deleteUserAccount);
 
 module.exports = router;
