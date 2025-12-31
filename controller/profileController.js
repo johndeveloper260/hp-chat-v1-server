@@ -7,7 +7,7 @@ exports.updateWorkVisa = async (req, res) => {
   const { userId } = req.params;
   const data = req.body;
 
-  const client = await pool.connect();
+  const client = await getPool().connect();
 
   try {
     await client.query("BEGIN");
@@ -71,7 +71,8 @@ exports.getUserLegalProfile = async (req, res) => {
         p.position, p.company, p.company_branch,
         v.id as visa_record_id,
         v.visa_type, v.visa_number, v.visa_issue_date, v.visa_expiry_date,
-        v.passport_expiry,
+        v.passport_expiry,v.issuing_authority, v.passport_issuing_country,
+        v.passport_no,v.passport_name,
         v.joining_date, v.assignment_start_date
       FROM v4.user_profile_tbl p
       LEFT JOIN v4.user_visa_info_tbl v ON p.user_id = v.user_id
@@ -89,5 +90,74 @@ exports.getUserLegalProfile = async (req, res) => {
   } catch (error) {
     console.error("Database Error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.getUserProfile = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await getPool().query(
+      "SELECT * FROM v4.user_profile_tbl WHERE user_id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Profile not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+};
+
+exports.updateUserProfile = async (req, res) => {
+  const { userId } = req.params;
+  const {
+    first_name,
+    middle_name,
+    last_name,
+    user_type,
+    position,
+    company,
+    company_branch,
+    phone_number,
+    postal_code,
+    street_address,
+    city,
+    state_province,
+  } = req.body;
+
+  try {
+    const result = await getPool().query(
+      `UPDATE v4.user_profile_tbl SET 
+        first_name = $1, middle_name = $2, last_name = $3, 
+        user_type = $4, position = $5, company = $6, 
+        company_branch = $7, phone_number = $8, postal_code = $9, 
+        street_address = $10, city = $11, state_province = $12, 
+        updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $13 RETURNING *`,
+      [
+        first_name,
+        middle_name,
+        last_name,
+        user_type,
+        position,
+        company,
+        company_branch,
+        phone_number,
+        postal_code,
+        street_address,
+        city,
+        state_province,
+        userId,
+      ]
+    );
+
+    res.json({ message: "Profile updated successfully", data: result.rows[0] });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Database Error");
   }
 };

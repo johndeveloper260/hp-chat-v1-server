@@ -11,11 +11,6 @@ module.exports = function (req, res, next) {
 
   // 3. Verify token
   try {
-    console.log(
-      "MIDDLEWARE SECRET:",
-      process.env.REACT_APP_SECRET_TOKEN ? "EXISTS" : "MISSING"
-    );
-
     jwt.verify(token, process.env.REACT_APP_SECRET_TOKEN, (error, decoded) => {
       if (error) {
         console.log("JWT Verification Failed:", error.message);
