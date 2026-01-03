@@ -11,11 +11,20 @@ const { StreamChat } = require("stream-chat");
 // --- UPDATED CORS CONFIGURATION ---
 // This replaces the old app.use(cors()) to allow DELETE and your custom headers
 const corsOptions = {
-  origin: ["https://hp-ultra-chatv1-f47662ed467d.herokuapp.com"],
+  // Allow the Heroku URL (for web) AND allow requests with no origin (for mobile apps)
+  origin: function (origin, callback) {
+    const whitelist = ["https://hp-ultra-chatv1-f47662ed467d.herokuapp.com"];
+    // !origin allows mobile apps, curl, and postman
+    if (!origin || whitelist.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PATCH", "DELETE", "PUT", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "x-auth-token", "Authorization"],
+  allowedHeaders: ["Content-Type", "x-auth-token", "Authorization", "Accept"],
   credentials: true,
-  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
+  optionsSuccessStatus: 200,
 };
 
 // Apply to all requests
