@@ -12,11 +12,7 @@ const { getPool } = require("../config/getPool");
 exports.getAccess = async (req, res, next) => {
   try {
     // instantiate a new client (server side)
-    const client = new StreamChat(
-      "gj5tkargz4uc",
-      "ymx6awzfpwg9aut7yw8a3hb828mwty2aqqe52y6xge9t9y3j2uubzczwngutnasa",
-      { disableCache: true }
-    );
+    const client = new StreamChat("gj5tkargz4uc", "", { disableCache: true });
 
     const channel = client.channel("messaging", "teamOne", {});
     const message = await channel.sendMessage({

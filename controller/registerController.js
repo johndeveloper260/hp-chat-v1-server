@@ -75,10 +75,10 @@ exports.registerUser = async (req, res) => {
       INSERT INTO v4.user_profile_tbl (
         user_id, first_name, middle_name, last_name, 
         user_type, position, company, company_branch,
-        phone_number, visa_type, visa_expiry,
-        postal_code, street_address, city, state_province
+        phone_number, postal_code, street_address, 
+        city, state_province
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *;
     `;
 
@@ -92,8 +92,6 @@ exports.registerUser = async (req, res) => {
       company,
       companyBranch || null,
       phoneNumber || null,
-      visaType || null,
-      visaExpiry || null,
       postalCode || null,
       streetAddress || null,
       city || null,
