@@ -2,22 +2,23 @@
 //HoRenSo Plus v3
 require("dotenv").config();
 
+// ... [Keep your require statements at the top] ...
+
 const express = require("express");
 const app = express();
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const { StreamChat } = require("stream-chat");
 
-// --- UPDATED CORS CONFIGURATION ---
-// This replaces the old app.use(cors()) to allow DELETE and your custom headers
+// --- REVISED CORS CONFIGURATION ---
+const whitelist = ["https://hp-ultra-chatv1-f47662ed467d.herokuapp.com"];
+
 const corsOptions = {
-  // Allow the Heroku URL (for web) AND allow requests with no origin (for mobile apps)
   origin: function (origin, callback) {
-    const whitelist = ["https://hp-ultra-chatv1-f47662ed467d.herokuapp.com"];
-    // !origin allows mobile apps, curl, and postman
-    if (!origin || whitelist.indexOf(origin) !== -1) {
+    // !origin allows requests with no "Origin" header (Mobile Apps, Postman, Curl)
+    if (!origin || whitelist.includes(origin) || origin === "null") {
       callback(null, true);
     } else {
+      console.log("CORS Blocked for origin:", origin);
       callback(new Error("Not allowed by CORS"));
     }
   },
@@ -27,14 +28,22 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-// Apply to all requests
+// 1. Apply CORS first
 app.use(cors(corsOptions));
 
-// Init Middleware
+// 2. Add a Health Check Route (Essential for Safari testing)
+app.get("/", (req, res) => {
+  res
+    .status(200)
+    .send({ status: "ok", message: "Server is compliant and live!" });
+});
+
+// 3. Init Middleware
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// ... [Rest of your routes: register, login, etc.] ...
 const httpServer = require("http").createServer(app);
 
 // Connect Database
