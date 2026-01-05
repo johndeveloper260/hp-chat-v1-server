@@ -21,7 +21,7 @@ exports.createAnnouncement = async (req, res) => {
     INSERT INTO v4.announcement_tbl (
       business_unit, company, title, content_text, 
       date_from, date_to, active, comments_on, 
-      created_by, created_dttm, last_updated_by, last_updated_dt
+      created_by, created_at, last_updated_by, last_updated_dt
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $9, NOW())
     RETURNING *;
   `;
@@ -62,7 +62,7 @@ exports.getAnnouncements = async (req, res) => {
     values.push(company_filter);
   }
 
-  query += ` ORDER BY created_dttm DESC`;
+  query += ` ORDER BY created_at DESC`;
 
   try {
     const { rows } = await getPool().query(query, values);
