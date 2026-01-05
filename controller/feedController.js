@@ -67,7 +67,7 @@ exports.getAnnouncements = async (req, res) => {
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_dttm,
       u.first_name || ' ' || u.last_name as author_name
     FROM v4.announcement_tbl a
-    LEFT JOIN v4.users u ON a.created_by = u.id
+    LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     WHERE a.active = true 
     AND (a.dateto IS NULL OR a.dateto >= CURRENT_DATE)
   `;
