@@ -63,6 +63,9 @@ app.use("/access", access);
 const profile = require("./routes/profileRoutes");
 app.use("/profile", profile);
 
+const feed = require("./routes/feedRoutes");
+app.use("/feed", feed);
+
 const stream = require("./routes/streamRoutes");
 app.use("/stream", stream);
 
