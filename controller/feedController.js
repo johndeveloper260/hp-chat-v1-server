@@ -69,7 +69,7 @@ exports.getAnnouncements = async (req, res) => {
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     WHERE a.active = true 
-    AND (a.dateto IS NULL OR a.dateto >= CURRENT_DATE)
+    AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
   `;
 
   const values = [];
