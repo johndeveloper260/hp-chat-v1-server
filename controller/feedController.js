@@ -10,8 +10,8 @@ exports.createAnnouncement = async (req, res) => {
     company,
     title,
     content_text,
-    datefrom,
-    dateto,
+    date_from,
+    date_to,
     active,
     comments_on,
     created_by,
@@ -20,7 +20,7 @@ exports.createAnnouncement = async (req, res) => {
   const query = `
     INSERT INTO v4.announcement_tbl (
       business_unit, company, title, content_text, 
-      datefrom, dateto, active, comments_on, 
+      date_from, date_to, active, comments_on, 
       created_by, created_dttm, last_updated_by, last_updated_dt
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $9, NOW())
     RETURNING *;
@@ -32,8 +32,8 @@ exports.createAnnouncement = async (req, res) => {
       company,
       title,
       content_text,
-      datefrom,
-      dateto,
+      date_from,
+      date_to,
       active,
       comments_on,
       created_by,
@@ -52,7 +52,7 @@ exports.getAnnouncements = async (req, res) => {
   let query = `
     SELECT * FROM v4.announcement_tbl 
     WHERE active = true 
-    AND (dateto IS NULL OR dateto >= CURRENT_DATE)
+    AND (date_to IS NULL OR date_to >= CURRENT_DATE)
   `;
 
   const values = [];
@@ -80,8 +80,8 @@ exports.updateAnnouncement = async (req, res) => {
     company,
     title,
     content_text,
-    datefrom,
-    dateto,
+    date_from,
+    date_to,
     active,
     comments_on,
     updated_by,
@@ -91,7 +91,7 @@ exports.updateAnnouncement = async (req, res) => {
     UPDATE v4.announcement_tbl 
     SET 
       business_unit = $1, company = $2, title = $3, 
-      content_text = $4, datefrom = $5, dateto = $6, 
+      content_text = $4, date_from = $5, date_to = $6, 
       active = $7, comments_on = $8, 
       last_updated_by = $9, last_updated_dt = NOW()
     WHERE row_id = $10
@@ -104,8 +104,8 @@ exports.updateAnnouncement = async (req, res) => {
       company,
       title,
       content_text,
-      datefrom,
-      dateto,
+      date_from,
+      date_to,
       active,
       comments_on,
       updated_by,
