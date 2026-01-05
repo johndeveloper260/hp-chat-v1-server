@@ -45,29 +45,47 @@ exports.createAnnouncement = async (req, res) => {
   }
 };
 
-// GET /announcements
+/// GET /announcements
 exports.getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
 
+  // 1. We join with the users table to get the creator's name
+  // 2. We use to_char to force an ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)
+  //    This prevents the "NaN" error in React Native Hermes/Mobile engines.
   let query = `
-    SELECT * FROM v4.announcement_tbl 
-    WHERE active = true 
-    AND (date_to IS NULL OR date_to >= CURRENT_DATE)
+    SELECT 
+      a.row_id,
+      a.business_unit,
+      a.company,
+      a.title,
+      a.content_text,
+      a.date_from,
+      a.date_to,
+      a.active,
+      a.comments_on,
+      a.created_by,
+      to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_dttm,
+      u.first_name || ' ' || u.last_name as author_name
+    FROM v4.announcement_tbl a
+    LEFT JOIN v4.users u ON a.created_by = u.id
+    WHERE a.active = true 
+    AND (a.dateto IS NULL OR a.dateto >= CURRENT_DATE)
   `;
 
   const values = [];
   if (company_filter) {
-    // Uses the ANY operator to check if the filter exists in the company text[] array
-    query += ` AND $1 = ANY(company)`;
+    query += ` AND $1 = ANY(a.company)`;
     values.push(company_filter);
   }
 
-  query += ` ORDER BY created_at DESC`;
+  // Note: Updated to your actual column name 'created_dttm'
+  query += ` ORDER BY a.created_dttm DESC`;
 
   try {
     const { rows } = await getPool().query(query, values);
     res.json(rows);
   } catch (err) {
+    console.error("Database Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
