@@ -64,7 +64,7 @@ exports.getAnnouncements = async (req, res) => {
       a.active,
       a.comments_on,
       a.created_by,
-      to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_dttm,
+      to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
       u.first_name || ' ' || u.last_name as author_name
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
@@ -78,8 +78,8 @@ exports.getAnnouncements = async (req, res) => {
     values.push(company_filter);
   }
 
-  // Note: Updated to your actual column name 'created_dttm'
-  query += ` ORDER BY a.created_dttm DESC`;
+  // Note: Updated to your actual column name 'created_at'
+  query += ` ORDER BY a.created_at DESC`;
 
   try {
     const { rows } = await getPool().query(query, values);
