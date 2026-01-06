@@ -21,7 +21,7 @@ exports.createAnnouncement = async (req, res) => {
     INSERT INTO v4.announcement_tbl (
       business_unit, company, title, content_text, 
       date_from, date_to, active, comments_on, 
-      created_by, created_at, last_updated_by, last_updated_dt
+      created_by, created_at, last_updated_by, last_updated_at
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $9, NOW())
     RETURNING *;
   `;
@@ -111,7 +111,7 @@ exports.updateAnnouncement = async (req, res) => {
       business_unit = $1, company = $2, title = $3, 
       content_text = $4, date_from = $5, date_to = $6, 
       active = $7, comments_on = $8, 
-      last_updated_by = $9, last_updated_dt = NOW()
+      last_updated_by = $9, last_updated_at = NOW()
     WHERE row_id = $10
     RETURNING *;
   `;
