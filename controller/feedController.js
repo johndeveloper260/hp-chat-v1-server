@@ -92,7 +92,7 @@ exports.getAnnouncements = async (req, res) => {
 
 // PUT /announcements/:id
 exports.updateAnnouncement = async (req, res) => {
-  const { id } = req.params;
+  const { rowId } = req.params;
   const {
     business_unit,
     company,
@@ -127,7 +127,7 @@ exports.updateAnnouncement = async (req, res) => {
       active,
       comments_on,
       updated_by,
-      id,
+      rowId,
     ];
     const { rows } = await getPool().query(query, values);
 

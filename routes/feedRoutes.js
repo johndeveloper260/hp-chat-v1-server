@@ -12,6 +12,6 @@ const {
 //Private
 router.post(`/createAnnouncement`, auth, createAnnouncement);
 router.get(`/getAnnouncements`, auth, getAnnouncements);
-router.put(`/updateAnnouncement`, auth, updateAnnouncement);
+router.put(`/updateAnnouncement/:rowId`, auth, updateAnnouncement);
 
 module.exports = router;
