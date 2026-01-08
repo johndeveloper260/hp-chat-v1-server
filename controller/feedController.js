@@ -24,7 +24,7 @@ exports.createAnnouncement = async (req, res) => {
       business_unit, company, title, content_text, 
       date_from, date_to, active, comments_on, 
       created_by, created_at, last_updated_by, last_updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $9, NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid, NOW(), $9, NOW())
     RETURNING *;
   `;
 
