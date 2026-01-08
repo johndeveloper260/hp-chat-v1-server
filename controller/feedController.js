@@ -96,7 +96,6 @@ exports.getAnnouncements = async (req, res) => {
 exports.updateAnnouncement = async (req, res) => {
   const { rowId } = req.params;
   const {
-    business_unit,
     company,
     title,
     content_text,
@@ -110,17 +109,16 @@ exports.updateAnnouncement = async (req, res) => {
   const query = `
     UPDATE v4.announcement_tbl 
     SET 
-      business_unit = $1, company = $2, title = $3, 
-      content_text = $4, date_from = $5, date_to = $6, 
-      active = $7, comments_on = $8, 
-      last_updated_by = $9, last_updated_at = NOW()
-    WHERE row_id = $10
+       company = $1, title = $2, 
+      content_text = $3, date_from = $4, date_to = $5, 
+      active = $6, comments_on = $7, 
+      last_updated_by = $8, last_updated_at = NOW()
+    WHERE row_id = $9
     RETURNING *;
   `;
 
   try {
     const values = [
-      business_unit,
       company,
       title,
       content_text,
