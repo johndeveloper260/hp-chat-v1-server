@@ -5,9 +5,8 @@ const { getPool } = require("../config/getPool");
 
 // POST /announcements
 exports.createAnnouncement = async (req, res) => {
-  const { userId, business_unit } = req.params;
-
-  console.log(userId, business_unit);
+  // 1. Get user data from the middleware (req.user)
+  const { id: userId, business_unit: userBU } = req.user;
 
   const {
     company,
@@ -30,7 +29,7 @@ exports.createAnnouncement = async (req, res) => {
 
   try {
     const values = [
-      business_unit,
+      userBU,
       company,
       title,
       content_text,
