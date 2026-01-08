@@ -49,6 +49,7 @@ exports.createAnnouncement = async (req, res) => {
 /// GET /announcements
 exports.getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
+  const { id: userId, business_unit: userBU } = req.user;
 
   // 1. We join with the users table to get the creator's name
   // 2. We use to_char to force an ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)
@@ -77,6 +78,11 @@ exports.getAnnouncements = async (req, res) => {
   if (company_filter) {
     query += ` AND $1 = ANY(a.company)`;
     values.push(company_filter);
+  }
+
+  if (userBU) {
+    values.push(userBU);
+    query += ` AND business_unit = $${values.length}`;
   }
 
   // Note: Updated to your actual column name 'created_at'
