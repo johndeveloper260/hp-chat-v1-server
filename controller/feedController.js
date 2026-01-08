@@ -7,6 +7,8 @@ const { getPool } = require("../config/getPool");
 exports.createAnnouncement = async (req, res) => {
   const { userId, business_unit } = req.params;
 
+  console.log(userId, business_unit);
+
   const {
     company,
     title,
