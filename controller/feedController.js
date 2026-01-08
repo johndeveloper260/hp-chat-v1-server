@@ -5,6 +5,8 @@ const { getPool } = require("../config/getPool");
 
 // POST /announcements
 exports.createAnnouncement = async (req, res) => {
+  const { userId } = req.params;
+
   const {
     business_unit,
     company,
@@ -36,7 +38,7 @@ exports.createAnnouncement = async (req, res) => {
       date_to,
       active,
       comments_on,
-      created_by,
+      userId,
     ];
     const { rows } = await getPool().query(query, values);
     res.status(201).json(rows[0]);
