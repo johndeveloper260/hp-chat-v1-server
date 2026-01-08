@@ -66,6 +66,9 @@ app.use("/profile", profile);
 const feed = require("./routes/feedRoutes");
 app.use("/feed", feed);
 
+const inquiry = require("./routes/inquiryRoutes");
+app.use("/inquiry", inquiry);
+
 const stream = require("./routes/streamRoutes");
 app.use("/stream", stream);
 
