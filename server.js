@@ -69,6 +69,9 @@ app.use("/feed", feed);
 const inquiry = require("./routes/inquiryRoutes");
 app.use("/inquiry", inquiry);
 
+const company = require("./routes/companyRoutes");
+app.use("/company", company);
+
 const stream = require("./routes/streamRoutes");
 app.use("/stream", stream);
 
