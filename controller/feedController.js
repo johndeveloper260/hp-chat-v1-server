@@ -51,14 +51,17 @@ exports.getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
   const { id: userId, business_unit: userBU } = req.user;
 
-  // 1. We join with the users table to get the creator's name
-  // 2. We use to_char to force an ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)
-  //    This prevents the "NaN" error in React Native Hermes/Mobile engines.
   let query = `
     SELECT 
       a.row_id,
       a.business_unit,
-      a.company,
+      a.company as company_ids,
+      -- This subquery fetches names for all IDs in the company array
+      (
+        SELECT array_agg(c.company_name)
+        FROM v4.company_tbl c
+        WHERE c.company_id = ANY(a.company)
+      ) as company_names,
       a.title,
       a.content_text,
       a.date_from,
@@ -72,6 +75,7 @@ exports.getAnnouncements = async (req, res) => {
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     WHERE a.active = true 
     AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
+    ORDER BY a.created_at DESC
   `;
 
   const values = [];
