@@ -52,15 +52,16 @@ exports.getAnnouncements = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
 
   let query = `
-    SELECT 
+  
+SELECT 
       a.row_id,
       a.business_unit,
       a.company as company_ids,
       -- Subquery to get names: handles the array logic correctly
       ARRAY(
-        SELECT c.company_name 
-        FROM v4.company_tbl c 
-        WHERE c.company_id = ANY(a.company::uuid[])
+      SELECT c.company_name 
+      FROM v4.company_tbl c 
+      WHERE c.company_id = ANY(a.company::uuid[]) 
       ) as company_names,
       a.title,
       a.content_text,
