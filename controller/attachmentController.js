@@ -121,7 +121,7 @@ export const getViewingUrl = async (req, res) => {
 
   try {
     // 1. Get the s3_key and bucket from the DB
-    const query = `SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE row_id = $1`;
+    const query = `SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE attachment_id = $1`;
     const { rows } = await getPool().query(query, [id]);
 
     if (rows.length === 0) {
