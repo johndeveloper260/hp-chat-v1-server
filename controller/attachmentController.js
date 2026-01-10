@@ -3,8 +3,10 @@ import { getPool } from "../config/getPool.js";
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Initialize S3 Client
@@ -66,42 +68,82 @@ export const getPresignedUrl = async (
 
 /**
  * 2. Create DB Record (Confirmation)
+ * CORRECTED: Accepts (req, res) to work as a Route Handler
  */
-export const createAttachment = async (data) => {
-  const {
-    relation_type,
-    relation_id,
-    s3_key,
-    s3_bucket,
-    display_name,
-    file_type,
-  } = data;
+export const createAttachment = async (req, res) => {
+  try {
+    // Extract from req.body, NOT directly from arguments
+    const {
+      relation_type,
+      relation_id,
+      s3_key,
+      s3_bucket,
+      display_name,
+      file_type,
+    } = req.body;
 
-  // Crucial: Check for valid ID to prevent 500 errors during Step 4
-  if (!relation_id) {
-    throw new Error(
-      "Missing relation_id. Cannot link attachment to announcement."
-    );
+    // Safety Check
+    if (!relation_id) {
+      return res.status(400).json({ error: "Missing relation_id" });
+    }
+
+    const query = `
+      INSERT INTO v4.shared_attachments 
+      (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *;
+    `;
+
+    const values = [
+      relation_type,
+      relation_id.toString(),
+      s3_key,
+      s3_bucket,
+      display_name,
+      file_type,
+    ];
+
+    const result = await getPool().query(query, values);
+
+    // Return the created row to the frontend
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Create Attachment Error:", error);
+    res.status(500).json({ error: error.message });
   }
+};
 
-  const query = `
-    INSERT INTO v4.shared_attachments 
-    (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *;
-  `;
+/**
+ * Generate a temporary viewing URL for a private file
+ */
+export const getViewingUrl = async (req, res) => {
+  const { id } = req.params;
 
-  const values = [
-    relation_type,
-    relation_id.toString(),
-    s3_key,
-    s3_bucket,
-    display_name,
-    file_type,
-  ];
+  try {
+    // 1. Get the s3_key and bucket from the DB
+    const query = `SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE row_id = $1`;
+    const { rows } = await getPool().query(query, [id]);
 
-  const result = await getPool().query(query, values);
-  return result.rows[0];
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Attachment not found" });
+    }
+
+    // 2. Create the S3 Command
+    const command = new GetObjectCommand({
+      Bucket: rows[0].s3_bucket,
+      Key: rows[0].s3_key,
+    });
+
+    // 3. Generate a Signed URL valid for 1 hour (3600 seconds)
+    const signedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 3600,
+    });
+
+    res.json({ url: signedUrl });
+  } catch (error) {
+    console.error("Signed URL Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 };
 
 /**

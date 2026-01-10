@@ -29,7 +29,10 @@ router.post("/confirm", auth, async (req, res) => {
   }
 });
 
-// 2. Delete
-router.delete("/:id", auth, attachmentController.deleteAttachment);
+// 2. View
+router.get("/view/:id", attachmentController.getViewingUrl);
+
+// 3. Delete
+router.delete("/:id", attachmentController.deleteAttachment);
 
 module.exports = router;
