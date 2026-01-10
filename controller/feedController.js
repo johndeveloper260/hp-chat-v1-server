@@ -93,6 +93,8 @@ SELECT
   // Note: Updated to your actual column name 'created_at'
   query += ` ORDER BY a.created_at DESC`;
 
+  console.log(query);
+
   try {
     const { rows } = await getPool().query(query, values);
     res.json(rows);
