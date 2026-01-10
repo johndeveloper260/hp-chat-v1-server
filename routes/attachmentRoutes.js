@@ -29,4 +29,6 @@ router.post("/confirm", auth, async (req, res) => {
   }
 });
 
+router.delete("/:id", attachmentController.deleteAttachment);
+
 module.exports = router;

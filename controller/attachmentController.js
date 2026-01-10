@@ -82,13 +82,34 @@ export const createAttachment = async (data) => {
   const result = await getPool().query(query, values);
   return result.rows[0];
 };
+
 /**
- * 3. Delete Physical File from S3
+ * Unified Delete: Removes from S3 first, then Postgres
  */
-export const deleteFromS3 = async (s3Key) => {
-  const command = new DeleteObjectCommand({
-    Bucket: process.env.S3_BUCKET_NAME,
-    Key: s3Key,
-  });
-  return await s3Client.send(command);
+export const deleteAttachment = async (req, res) => {
+  const { id } = req.params; // attachment_id (row_id)
+
+  try {
+    // 1. Get the s3_key from DB first
+    const findQuery = `SELECT s3_key FROM v4.shared_attachments WHERE row_id = $1`;
+    const { rows } = await getPool().query(findQuery, [id]);
+
+    if (rows.length > 0) {
+      const s3Key = rows[0].s3_key;
+
+      // 2. Delete from S3
+      await deleteFromS3(s3Key);
+
+      // 3. Delete from Postgres
+      await getPool().query(
+        `DELETE FROM v4.shared_attachments WHERE row_id = $1`,
+        [id]
+      );
+    }
+
+    res.json({ message: "Attachment deleted successfully" });
+  } catch (error) {
+    console.error("Delete Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 };
