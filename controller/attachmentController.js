@@ -118,23 +118,29 @@ export const createAttachment = async (req, res) => {
  */
 export const getViewingUrl = async (req, res) => {
   const { id } = req.params;
+  console.log(id);
 
   try {
-    // 1. Get the s3_key and bucket from the DB
-    const query = `SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE attachment_id = $1`;
+    const query = `
+      SELECT s3_key, s3_bucket 
+      FROM v4.shared_attachments 
+      WHERE attachment_id = $1
+    `;
+
     const { rows } = await getPool().query(query, [id]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Attachment not found" });
+      return res
+        .status(404)
+        .json({ error: "Attachment not found in database" });
     }
 
-    // 2. Create the S3 Command
     const command = new GetObjectCommand({
       Bucket: rows[0].s3_bucket,
       Key: rows[0].s3_key,
     });
 
-    // 3. Generate a Signed URL valid for 1 hour (3600 seconds)
+    // Generate the Signed URL (Expires in 1 hour)
     const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
     });
