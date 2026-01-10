@@ -76,7 +76,6 @@ SELECT
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     WHERE a.active = true 
       AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
-    ORDER BY a.created_at DESC
   `;
 
   const values = [];
