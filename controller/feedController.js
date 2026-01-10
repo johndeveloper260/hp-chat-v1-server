@@ -56,10 +56,10 @@ exports.getAnnouncements = async (req, res) => {
       a.row_id,
       a.business_unit,
       a.company as company_ids,
-      -- This subquery fetches names for all IDs in the company array
-      (
-        SELECT array_agg(c.company_name)
-        FROM v4.company_tbl c
+      -- Subquery to get names: handles the array logic correctly
+      ARRAY(
+        SELECT c.company_name 
+        FROM v4.company_tbl c 
         WHERE c.company_id = ANY(a.company)
       ) as company_names,
       a.title,
@@ -74,7 +74,7 @@ exports.getAnnouncements = async (req, res) => {
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     WHERE a.active = true 
-    AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
+      AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
     ORDER BY a.created_at DESC
   `;
 
