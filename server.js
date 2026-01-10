@@ -75,6 +75,9 @@ app.use("/company", company);
 const stream = require("./routes/streamRoutes");
 app.use("/stream", stream);
 
+const attachmentRoutes = require("./routes/attachmentRoutes");
+app.use("/attachments", attachmentRoutes);
+
 // ... Other commented routes ...
 
 const PORT = process.env.PORT || 8010;
