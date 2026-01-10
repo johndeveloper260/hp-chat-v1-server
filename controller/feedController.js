@@ -81,7 +81,7 @@ SELECT
 
   const values = [];
   if (company_filter) {
-    query += ` AND $1 = ANY(a.company)`;
+    query += ` AND $1 = ANY(a.company::uuid[])`;
     values.push(company_filter);
   }
 
