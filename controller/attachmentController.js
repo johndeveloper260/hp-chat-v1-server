@@ -9,10 +9,10 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Initialize S3 Client
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.REACT_APP_AWS_REGION,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
   },
 });
 
@@ -31,7 +31,7 @@ export const getPresignedUrl = async (
     "_"
   )}`;
 
-  const bucketName = process.env.S3_BUCKET_NAME;
+  const bucketName = process.env.REACT_APP_AWS_BUCKET;
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
