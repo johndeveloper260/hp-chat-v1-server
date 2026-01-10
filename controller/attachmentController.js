@@ -19,8 +19,18 @@ const s3Client = new S3Client({
 /**
  * 1. Generate Pre-signed URL
  */
-export const getPresignedUrl = async (fileName, fileType) => {
-  const s3Key = `uploads/${Date.now()}-${fileName.replace(/\s/g, "_")}`;
+export const getPresignedUrl = async (
+  fileName,
+  fileType,
+  folder = "general"
+) => {
+  const dateFolder = new Date().toISOString().split("T")[0];
+  // Generates key: folder/YYYY-MM-DD/timestamp-filename.ext
+  const s3Key = `${folder}/${dateFolder}/${Date.now()}-${fileName.replace(
+    /\s/g,
+    "_"
+  )}`;
+
   const bucketName = process.env.S3_BUCKET_NAME;
 
   const command = new PutObjectCommand({
