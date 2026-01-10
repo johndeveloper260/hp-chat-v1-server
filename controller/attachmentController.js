@@ -19,7 +19,6 @@ const s3Client = new S3Client({
 /**
  * 1. Generate Pre-signed URL
  */
-
 export const getPresignedUrl = async (
   fileName,
   fileType,
@@ -61,6 +60,9 @@ export const createAttachment = async (data) => {
     file_type,
   } = data;
 
+  // Log to debug if relation_id is null/undefined during Step 4
+  console.log("Confirming for ID:", relation_id);
+
   const query = `
     INSERT INTO v4.shared_attachments 
     (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type)
@@ -70,7 +72,7 @@ export const createAttachment = async (data) => {
 
   const values = [
     relation_type,
-    relation_id.toString(),
+    relation_id.toString(), // Ensure this is not [object Object]
     s3_key,
     s3_bucket,
     display_name,
@@ -80,7 +82,6 @@ export const createAttachment = async (data) => {
   const result = await getPool().query(query, values);
   return result.rows[0];
 };
-
 /**
  * 3. Delete Physical File from S3
  */

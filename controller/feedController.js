@@ -52,16 +52,14 @@ exports.getAnnouncements = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
 
   let query = `
-  
-SELECT 
+    SELECT 
       a.row_id,
       a.business_unit,
       a.company as company_ids,
-      -- Subquery to get names: handles the array logic correctly
       ARRAY(
-      SELECT c.company_name 
-      FROM v4.company_tbl c 
-      WHERE c.company_id = ANY(a.company::uuid[]) 
+        SELECT c.company_name 
+        FROM v4.company_tbl c 
+        WHERE c.company_id = ANY(a.company::uuid[]) 
       ) as company_names,
       a.title,
       a.content_text,
@@ -71,7 +69,24 @@ SELECT
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-      u.first_name || ' ' || u.last_name as author_name
+      u.first_name || ' ' || u.last_name as author_name,
+      -- New: Subquery to fetch and group attachments
+      COALESCE(
+        (
+          SELECT json_agg(att)
+          FROM (
+            SELECT 
+              row_id as attachment_id,
+              s3_key,
+              s3_bucket,
+              display_name as name,
+              file_type as type
+            FROM v4.shared_attachments
+            WHERE relation_type = 'announcements' 
+              AND relation_id = a.row_id::text
+          ) att
+        ), '[]'
+      ) as attachments
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     WHERE a.active = true 
