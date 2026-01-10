@@ -60,7 +60,7 @@ exports.getAnnouncements = async (req, res) => {
       ARRAY(
         SELECT c.company_name 
         FROM v4.company_tbl c 
-        WHERE c.company_id = ANY(a.company)
+        WHERE c.company_id = ANY(a.company::uuid[])
       ) as company_names,
       a.title,
       a.content_text,
