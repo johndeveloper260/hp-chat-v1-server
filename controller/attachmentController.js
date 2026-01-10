@@ -19,29 +19,33 @@ const s3Client = new S3Client({
 /**
  * 1. Generate Pre-signed URL
  */
+
 export const getPresignedUrl = async (
   fileName,
   fileType,
   folder = "general"
 ) => {
-  const dateFolder = new Date().toISOString().split("T")[0];
-  // Generates key: folder/YYYY-MM-DD/timestamp-filename.ext
-  const s3Key = `${folder}/${dateFolder}/${Date.now()}-${fileName.replace(
-    /\s/g,
-    "_"
-  )}`;
+  try {
+    console.log("Generating URL for:", { fileName, fileType, folder }); // Debug log
 
-  const bucketName = process.env.REACT_APP_AWS_BUCKET;
+    const dateFolder = new Date().toISOString().split("T")[0];
+    const s3Key = `${folder}/${dateFolder}/${Date.now()}-${fileName.replace(
+      /\s/g,
+      "_"
+    )}`;
 
-  const command = new PutObjectCommand({
-    Bucket: bucketName,
-    Key: s3Key,
-    ContentType: fileType,
-  });
+    const command = new PutObjectCommand({
+      Bucket: process.env.REACT_APP_AWS_BUCKET,
+      Key: s3Key,
+      ContentType: fileType,
+    });
 
-  const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
-
-  return { uploadUrl, s3Key, bucketName };
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
+    return { uploadUrl, s3Key, bucketName: process.env.REACT_APP_AWS_BUCKET };
+  } catch (error) {
+    console.error("S3 SDK ERROR:", error); // This will tell you if it's a credential issue
+    throw error;
+  }
 };
 
 /**
