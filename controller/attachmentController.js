@@ -133,18 +133,24 @@ export const getViewingUrl = async (req, res) => {
 
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
+    // 1. Create Command
     const command = new GetObjectCommand({
       Bucket: rows[0].s3_bucket,
       Key: rows[0].s3_key,
+      ChecksumMode: undefined, // Explicitly attempt to clear it
     });
 
-    // The URL generated here will now be CLEAN because of the client config above
-    let signedUrl = await getSignedUrl(s3Client, command, {
+    // 2. Generate Clean URL using signableHeaders
+    // This forces the SDK to ignore complex checksum headers in the signature
+    const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
+      signableHeaders: new Set(["host"]),
     });
 
+    // 3. Return as a JSON object
     res.json({ url: signedUrl });
   } catch (error) {
+    console.error("Signing Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
