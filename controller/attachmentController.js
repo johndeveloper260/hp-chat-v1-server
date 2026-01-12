@@ -149,6 +149,9 @@ export const getViewingUrl = async (req, res) => {
     // Generate the Signed URL (Expires in 1 hour)
     let signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
+      // This ensures only the 'host' header is signed,
+      // keeping the URL as simple as possible for browsers
+      signableHeaders: new Set(["host"]),
     });
 
     res.json({ url: signedUrl });
