@@ -76,7 +76,7 @@ exports.getAnnouncements = async (req, res) => {
           SELECT json_agg(att)
           FROM (
             SELECT 
-              row_id as attachment_id,
+              attachment_id, 
               s3_key,
               s3_bucket,
               display_name as name,
