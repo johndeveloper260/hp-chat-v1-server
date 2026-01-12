@@ -1,26 +1,27 @@
-const { StreamChat } = require("stream-chat");
+import { StreamChat } from "stream-chat";
+import express from "express";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 
-const express = require("express");
-const bcrypt = require("bcrypt");
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
+// 1. Load environment variables
+dotenv.config();
 
-require("dotenv").config();
+// 2. Import your modernized services
+// IMPORTANT: You must include the .js extension in the import path
+import { getPool } from "../config/getPool.js";
+import * as emailService from "../config/systemMailer.js";
 
 const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET
 );
 
-// Ensure you import your pool and stream client correctly
-const { getPool } = require("../config/getPool");
-
-const emailService = require("../config/systemMailer");
-
-// const { getPool } = require('../db');
-// const streamClient = require('../streamConfig');
-
-exports.loginUser = async (req, res) => {
+/**
+ * Login User
+ */
+export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -28,7 +29,6 @@ exports.loginUser = async (req, res) => {
   }
 
   try {
-    // 1. Fetch user and profile (Added a.business_unit to the SELECT)
     const loginQuery = `
       SELECT 
         a.id, 
@@ -54,14 +54,11 @@ exports.loginUser = async (req, res) => {
 
     const user = result.rows[0];
 
-    // 2. Compare passwords
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // 3. GENERATE JWT TOKEN (Option B Compatibility)
-    // We use the keys your middleware expects: user_id and business_unit
     const payload = {
       user_id: String(user.id).trim(),
       business_unit: String(user.business_unit || "DEFAULT").replace(
@@ -74,13 +71,11 @@ exports.loginUser = async (req, res) => {
       expiresIn: "24h",
     });
 
-    // 4. Create a fresh Stream Token for this session
     const streamToken = streamClient.createToken(user.id);
 
-    // 5. Return user data (Now includes the x-auth-token compatible 'token')
     return res.status(200).json({
       message: "Login successful",
-      token, // Mobile app will save this as the auth token
+      token,
       user: {
         id: user.id,
         email: user.email,
@@ -88,7 +83,7 @@ exports.loginUser = async (req, res) => {
         lastName: user.last_name,
         userType: user.user_type,
         company: user.company,
-        businessUnit: user.business_unit, // Included for the UI
+        businessUnit: user.business_unit,
       },
       streamToken,
     });
@@ -98,58 +93,54 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-exports.handleForgotPassword = async (req, res) => {
+/**
+ * Handle Forgot Password
+ */
+export const handleForgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const lowerEmail = email.toLowerCase().trim();
 
-    // 1. Check if user exists in your specific schema/table
     const userResult = await getPool().query(
       "SELECT id FROM v4.user_account_tbl WHERE email = $1",
       [lowerEmail]
     );
 
     if (userResult.rows.length === 0) {
-      // Security: Keep response generic
       return res
         .status(200)
         .json({ message: "Check your email for a reset code." });
     }
 
-    // 2. Generate a random 8-character temporary password
     const resetCode = crypto.randomBytes(4).toString("hex");
-
-    // 3. Hash the code for the database
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(resetCode, salt);
 
-    // 4. Update the record in PostgreSQL
-    // I am assuming your column name is 'password'
     await getPool().query(
       "UPDATE v4.user_account_tbl SET password_hash = $1 WHERE email = $2",
       [hashedPassword, lowerEmail]
     );
 
-    // 5. Trigger the email function we modernized earlier
     const emailTitle = "Your Temporary Password";
     await emailService.passwordResetCode(lowerEmail, emailTitle, resetCode);
 
-    return res.status(200).json({
-      success: true,
-      message: "Temporary password sent.",
-    });
+    return res
+      .status(200)
+      .json({ success: true, message: "Temporary password sent." });
   } catch (error) {
     console.error("Postgres Forgot Password Error:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
-exports.updatePassword = async (req, res) => {
+/**
+ * Update Password
+ */
+export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id; // Assuming you have auth middleware providing this
+    const userId = req.user.id;
 
-    // 1. Fetch user from v4.user_account_tbl
     const userResult = await getPool().query(
       "SELECT password_hash FROM v4.user_account_tbl WHERE id = $1",
       [userId]
@@ -161,7 +152,6 @@ exports.updatePassword = async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // 2. Check if Current Password is correct
     const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
     if (!isMatch) {
       return res
@@ -169,11 +159,9 @@ exports.updatePassword = async (req, res) => {
         .json({ message: "Current password is incorrect." });
     }
 
-    // 3. Hash the New Password
     const salt = await bcrypt.genSalt(10);
     const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
-    // 4. Update the database
     await getPool().query(
       "UPDATE v4.user_account_tbl SET password_hash = $1 WHERE id = $2",
       [hashedNewPassword, userId]
@@ -188,21 +176,18 @@ exports.updatePassword = async (req, res) => {
   }
 };
 
-exports.deleteUserAccount = async (req, res) => {
-  const userId = req.user.id; // From your Auth Middleware
-  console.log(userId);
+/**
+ * Delete User Account
+ */
+export const deleteUserAccount = async (req, res) => {
+  const userId = req.user.id;
 
   try {
-    // 1. Delete from GetStream
-    // Using hard: true removes message history, user data, and IDs permanently
     await streamClient.deleteUser(userId, {
       mark_messages_deleted: false,
       hard: false,
     });
 
-    // 2. Delete from PostgreSQL
-    // Because of Foreign Key constraints, deleting from user_account_tbl
-    // will usually cascade to user_profile_tbl (if configured with ON DELETE CASCADE)
     const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
     const result = await getPool().query(deleteQuery, [userId]);
 

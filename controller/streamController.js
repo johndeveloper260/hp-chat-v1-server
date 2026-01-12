@@ -1,10 +1,16 @@
-const { StreamClient } = require("@stream-io/node-sdk"); // Use the Node SDK
+import { StreamClient } from "@stream-io/node-sdk";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const apiKey = process.env.STREAM_API_KEY;
 const apiSecret = process.env.STREAM_API_SECRET;
 
-const getStreamToken = async (req, res) => {
-  const { userId } = req.params; // Or get it from your auth middleware
+/**
+ * Generate a Stream Token for a specific user
+ */
+export const getStreamToken = async (req, res) => {
+  const { userId } = req.params;
 
   try {
     const client = new StreamClient(apiKey, apiSecret);
@@ -13,14 +19,12 @@ const getStreamToken = async (req, res) => {
     const validity = Math.floor(Date.now() / 1000) + 60 * 60;
     const token = client.generateUserToken({
       user_id: userId,
-      validity: validity,
+      validity_period_hs: 3600, // Alternatively, you can use validity_period_hs
     });
 
     res.json({ token });
   } catch (err) {
-    console.error(err);
+    console.error("Stream Token Error:", err);
     res.status(500).send("Failed to generate Stream token");
   }
 };
-
-module.exports = { getStreamToken };

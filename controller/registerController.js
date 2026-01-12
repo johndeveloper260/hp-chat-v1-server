@@ -6,7 +6,7 @@ import { getPool } from "../config/getPool.js";
 import express from "express";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import emailService from "../config/systemMailer.js"; // Note the .js extension
+import * as emailService from "../config/systemMailer.js";
 
 const router = express.Router();
 

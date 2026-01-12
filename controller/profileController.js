@@ -1,9 +1,12 @@
-require("dotenv").config();
+import dotenv from "dotenv";
+import { getPool } from "../config/getPool.js"; // Note the .js extension
 
-// Ensure you import your pool and stream client correctly
-const { getPool } = require("../config/getPool");
+dotenv.config();
 
-exports.updateWorkVisa = async (req, res) => {
+/**
+ * Update Work Visa
+ */
+export const updateWorkVisa = async (req, res) => {
   const { userId } = req.params;
   const data = req.body;
 
@@ -37,7 +40,6 @@ exports.updateWorkVisa = async (req, res) => {
     await client.query(visaQuery, visaValues);
 
     // 2. Optional: If user is Officer, update Timeline dates
-    // This adds a layer of backend security
     if (req.user.role === "OFFICER") {
       await client.query(
         "UPDATE v4.user_visa_info_tbl SET joining_date = $1, assignment_start_date = $2 WHERE user_id = $3",
@@ -56,14 +58,13 @@ exports.updateWorkVisa = async (req, res) => {
   }
 };
 
-exports.getUserLegalProfile = async (req, res) => {
+/**
+ * Get User Legal Profile (Profile + Visa)
+ */
+export const getUserLegalProfile = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    /**
-     * We use a LEFT JOIN to ensure that even if a visa record
-     * hasn't been created yet, we still get the user's profile data.
-     */
     const query = `
       SELECT 
         p.id as profile_id,
@@ -85,7 +86,6 @@ exports.getUserLegalProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Send the joined record back to the frontend
     res.status(200).json(result.rows[0]);
   } catch (error) {
     console.error("Database Error:", error);
@@ -93,7 +93,10 @@ exports.getUserLegalProfile = async (req, res) => {
   }
 };
 
-exports.getUserProfile = async (req, res) => {
+/**
+ * Get User Profile
+ */
+export const getUserProfile = async (req, res) => {
   const { userId } = req.params;
   try {
     const result = await getPool().query(
@@ -112,7 +115,10 @@ exports.getUserProfile = async (req, res) => {
   }
 };
 
-exports.updateUserProfile = async (req, res) => {
+/**
+ * Update User Profile
+ */
+export const updateUserProfile = async (req, res) => {
   const { userId } = req.params;
   const {
     first_name,

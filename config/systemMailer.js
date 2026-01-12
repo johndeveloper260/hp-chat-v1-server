@@ -1,15 +1,19 @@
-const nodemailer = require("nodemailer");
-const handlebars = require("handlebars");
-const fs = require("fs").promises; // Using standard promises API
-const path = require("path");
+import nodemailer from "nodemailer";
+import handlebars from "handlebars";
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// 1. Reconstruct __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
- * 1. Initialize Transporter once (Singleton)
- * Reusing the connection pool is significantly faster.
+ * 2. Initialize Transporter once (Singleton)
  */
 const transporter = nodemailer.createTransport({
   service: process.env.MAIL_SERVICE,
-  host: process.env.MAIL_HOST, // Better to have host/port for non-Gmail services
+  host: process.env.MAIL_HOST,
   port: process.env.MAIL_PORT || 587,
   secure: process.env.MAIL_SECURE === "true",
   auth: {
@@ -19,7 +23,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * 2. Helper to Compile and Render Handlebars Templates
+ * 3. Helper to Compile and Render Handlebars Templates
  */
 const renderTemplate = async (templateName, replacements) => {
   const filePath = path.join(
@@ -33,7 +37,7 @@ const renderTemplate = async (templateName, replacements) => {
 };
 
 /**
- * 3. Base Send Function
+ * 4. Base Send Function
  */
 async function sendEmail(recipient, subject, html) {
   try {
@@ -47,15 +51,15 @@ async function sendEmail(recipient, subject, html) {
     return info;
   } catch (error) {
     console.error("Error sending email:", error);
-    throw error; // Re-throw so the calling controller knows it failed
+    throw error;
   }
 }
 
 /**
- * 4. Exported Email Methods
+ * 5. Exported Email Methods (Using Named Exports)
  */
 
-exports.newRegistration = async (
+export const newRegistration = async (
   emailId,
   emailTitle,
   name,
@@ -70,7 +74,7 @@ exports.newRegistration = async (
   await sendEmail(emailId, emailTitle, html);
 };
 
-exports.additionalRegistration = async (
+export const additionalRegistration = async (
   emailId,
   emailTitle,
   name,
@@ -83,24 +87,19 @@ exports.additionalRegistration = async (
   await sendEmail(emailId, emailTitle, html);
 };
 
-exports.passwordResetCode = async (emailId, emailTitle, resetCode) => {
+export const passwordResetCode = async (emailId, emailTitle, resetCode) => {
   const html = await renderTemplate("getyourcode", { resetCode });
   await sendEmail(emailId, emailTitle, html);
 };
 
-// This is the one for your new "Simple Password" flow
-exports.newPasswordMail = async (emailId, emailTitle, password) => {
+export const newPasswordMail = async (emailId, emailTitle, password) => {
   const html = await renderTemplate("resetpassword", { password });
   await sendEmail(emailId, emailTitle, html);
 };
 
-exports.contactUs = async (senderEmail, emailTitle, message) => {
+export const contactUs = async (senderEmail, emailTitle, message) => {
   const html = await renderTemplate("contactus", { senderEmail, message });
-
-  // Clean up the recipient logic
   const supportEmail = "support@horensoplus.com";
-  // Send to support, but mention the user's email in the recipient list or body
   const recipientList = [supportEmail, senderEmail].join(", ");
-
   await sendEmail(recipientList, emailTitle, html);
 };

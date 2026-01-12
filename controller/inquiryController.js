@@ -1,10 +1,10 @@
-require("dotenv").config();
+import dotenv from "dotenv";
+import { getPool } from "../config/getPool.js";
 
-// Ensure you import your pool and stream client correctly
-const { getPool } = require("../config/getPool");
+dotenv.config();
 
 // 1. SEARCH / GET ALL (with filters)
-exports.searchInquiries = async (req, res) => {
+export const searchInquiries = async (req, res) => {
   const { status, type, business_unit } = req.query;
 
   // Build dynamic query
@@ -31,7 +31,7 @@ exports.searchInquiries = async (req, res) => {
 };
 
 // 2. CREATE
-exports.createInquiry = async (req, res) => {
+export const createInquiry = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
   const {
     company,
@@ -78,7 +78,7 @@ exports.createInquiry = async (req, res) => {
 };
 
 // 3. UPDATE
-exports.updateInquiry = async (req, res) => {
+export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
   const { id: userId } = req.user;
   const {
@@ -129,7 +129,7 @@ exports.updateInquiry = async (req, res) => {
 };
 
 // 4. DELETE
-exports.deleteInquiry = async (req, res) => {
+export const deleteInquiry = async (req, res) => {
   const { ticketId } = req.params;
   try {
     const { rowCount } = await getPool().query(

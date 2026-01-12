@@ -1,10 +1,10 @@
-require("dotenv").config();
+import dotenv from "dotenv";
+import { getPool } from "../config/getPool.js";
 
-// Ensure you import your pool and stream client correctly
-const { getPool } = require("../config/getPool");
+dotenv.config();
 
 // 1. GET ALL (Full list for management screen)
-exports.getCompanies = async (req, res) => {
+export const getCompanies = async (req, res) => {
   try {
     const { rows } = await getPool().query(
       "SELECT * FROM v4.company_tbl ORDER BY created_at DESC"
@@ -16,7 +16,7 @@ exports.getCompanies = async (req, res) => {
 };
 
 // 2. GET DROPDOWN (Simplified for Pickers)
-exports.getCompanyDropdown = async (req, res) => {
+export const getCompanyDropdown = async (req, res) => {
   try {
     const { rows } = await getPool().query(
       "SELECT company_id AS value, company_name->>'en' AS label FROM v4.company_tbl WHERE is_active = true ORDER BY label ASC"
@@ -28,7 +28,7 @@ exports.getCompanyDropdown = async (req, res) => {
 };
 
 // 3. CREATE
-exports.createCompany = async (req, res) => {
+export const createCompany = async (req, res) => {
   const { company_name, business_unit, website_url } = req.body;
   const userId = req.user.id; // From auth middleware
 
@@ -50,7 +50,7 @@ exports.createCompany = async (req, res) => {
 };
 
 // 4. UPDATE
-exports.updateCompany = async (req, res) => {
+export const updateCompany = async (req, res) => {
   const { id } = req.params;
   const { company_name, business_unit, website_url, is_active } = req.body;
   const userId = req.user.id;
@@ -77,7 +77,7 @@ exports.updateCompany = async (req, res) => {
 };
 
 // 5. DELETE
-exports.deleteCompany = async (req, res) => {
+export const deleteCompany = async (req, res) => {
   const { id } = req.params;
   try {
     await getPool().query("DELETE FROM v4.company_tbl WHERE company_id = $1", [

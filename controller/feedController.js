@@ -1,10 +1,13 @@
-require("dotenv").config();
+import dotenv from "dotenv";
+import { getPool } from "../config/getPool.js";
 
-// Ensure you import your pool and stream client correctly
-const { getPool } = require("../config/getPool");
+dotenv.config();
 
-// POST /announcements
-exports.createAnnouncement = async (req, res) => {
+/**
+ * POST /announcements
+ * Create a new announcement
+ */
+export const createAnnouncement = async (req, res) => {
   // 1. Get user data from the middleware (req.user)
   const { id: userId, business_unit: userBU } = req.user;
 
@@ -46,8 +49,11 @@ exports.createAnnouncement = async (req, res) => {
   }
 };
 
-/// GET /announcements
-exports.getAnnouncements = async (req, res) => {
+/**
+ * GET /announcements
+ * Fetch all active announcements with attachments
+ */
+export const getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
   const { id: userId, business_unit: userBU } = req.user;
 
@@ -70,7 +76,6 @@ exports.getAnnouncements = async (req, res) => {
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
       u.first_name || ' ' || u.last_name as author_name,
-      -- New: Subquery to fetch and group attachments
       COALESCE(
         (
           SELECT json_agg(att)
@@ -104,7 +109,6 @@ exports.getAnnouncements = async (req, res) => {
     query += ` AND business_unit = $${values.length}`;
   }
 
-  // Note: Updated to your actual column name 'created_at'
   query += ` ORDER BY a.created_at DESC`;
 
   try {
@@ -116,8 +120,11 @@ exports.getAnnouncements = async (req, res) => {
   }
 };
 
-// PUT /announcements/:id
-exports.updateAnnouncement = async (req, res) => {
+/**
+ * PUT /announcements/:id
+ * Update an existing announcement
+ */
+export const updateAnnouncement = async (req, res) => {
   const { rowId } = req.params;
   const {
     company,

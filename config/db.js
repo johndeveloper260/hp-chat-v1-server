@@ -1,7 +1,7 @@
-//01-May 2025
-//HoRenSo Plus v3
-
-const { Pool } = require("pg");
+// 01-May 2025
+// HoRenSo Plus v3
+import pg from "pg";
+const { Pool } = pg;
 
 const connectDB = async () => {
   const pool = new Pool({
@@ -19,11 +19,18 @@ const connectDB = async () => {
     },
   });
 
-  const results = await pool.query("SELECT NOW();");
-  // console.table(results.rows);
-  if (results.rows.length > 0) {
-    console.log("PostgresSQL Connected!");
+  try {
+    const results = await pool.query("SELECT NOW();");
+    if (results.rows.length > 0) {
+      console.log("PostgreSQL Connected!");
+    }
+    // It is common to return the pool or close it
+    // depending on how you use this specific connectDB file.
+    return pool;
+  } catch (err) {
+    console.error("PostgreSQL Connection Error:", err.message);
+    process.exit(1); // Exit process with failure
   }
 };
 
-module.exports = connectDB;
+export default connectDB;

@@ -1,4 +1,5 @@
-const { Pool } = require("pg");
+import pg from "pg";
+const { Pool } = pg;
 
 let mainPool = null;
 
@@ -21,7 +22,11 @@ const createPool = () => {
   return pool;
 };
 
-exports.getPool = () => {
+/**
+ * Named Export: getPool
+ * This matches your import statement: import { getPool } from "..."
+ */
+export const getPool = () => {
   if (!mainPool) {
     mainPool = createPool();
   }
