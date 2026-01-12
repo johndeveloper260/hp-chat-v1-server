@@ -145,7 +145,7 @@ export const getViewingUrl = async (req, res) => {
     });
 
     // Generate the Signed URL (Expires in 1 hour)
-    const signedUrl = await getSignedUrl(s3Client, command, {
+    let signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
     });
 
