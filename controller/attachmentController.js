@@ -20,6 +20,8 @@ const s3Client = new S3Client({
   requestHandler: new NodeHttpHandler({
     connectionTimeout: 5000,
   }),
+  responseChecksumValidation: "WHEN_REQUIRED",
+  requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
 /**
@@ -122,41 +124,27 @@ export const createAttachment = async (req, res) => {
  */
 export const getViewingUrl = async (req, res) => {
   const { id } = req.params;
-  console.log(id);
 
   try {
-    const query = `
-      SELECT s3_key, s3_bucket 
-      FROM v4.shared_attachments 
-      WHERE attachment_id = $1
-    `;
+    const { rows } = await getPool().query(
+      "SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE attachment_id = $1",
+      [id]
+    );
 
-    const { rows } = await getPool().query(query, [id]);
-
-    if (rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: "Attachment not found in database" });
-    }
+    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
     const command = new GetObjectCommand({
       Bucket: rows[0].s3_bucket,
       Key: rows[0].s3_key,
-      // This prevents the SDK from adding checksum parameters to the signed URL
-      ChecksumMode: undefined,
     });
 
-    // Generate the Signed URL (Expires in 1 hour)
+    // The URL generated here will now be CLEAN because of the client config above
     let signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
-      // This ensures only the 'host' header is signed,
-      // keeping the URL as simple as possible for browsers
-      signableHeaders: new Set(["host"]),
     });
 
     res.json({ url: signedUrl });
   } catch (error) {
-    console.error("Signed URL Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
