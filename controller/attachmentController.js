@@ -160,14 +160,22 @@ export const deleteAttachment = async (req, res) => {
 
   try {
     // 1. Get the s3_key from DB first
+    console.log("inside the cont");
+    console.log(id);
+
     const findQuery = `SELECT s3_key FROM v4.shared_attachments WHERE row_id = $1`;
     const { rows } = await getPool().query(findQuery, [id]);
+
+    console.log(rows);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "Attachment not found" });
     }
 
     const s3Key = rows[0].s3_key;
+
+    console.log("delete from S3");
+    console.log(s3Key);
 
     // 2. Delete from S3 using our new helper
     await deleteFromS3(s3Key);
