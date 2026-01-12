@@ -15,7 +15,7 @@ export const getComments = async (req, res) => {
         u.user_name, 
         u.avatar_url 
       FROM v4.shared_comments c
-      LEFT JOIN ultra.users_tbl u ON c.user_id = u.user_id
+      LEFT JOIN v4.user_account_tbl u ON c.user_id = u.id
       WHERE c.relation_type = $1 AND c.relation_id = $2
       ORDER BY c.created_at ASC;
     `;
