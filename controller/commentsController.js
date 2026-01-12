@@ -7,15 +7,22 @@ export const getComments = async (req, res) => {
   const { type, id } = req.params;
 
   try {
-    // We join with a user table (adjust 'ultra.users' to your actual user table name)
-    // to get the commenter's name/avatar along with the comment data.
     const query = `
       SELECT 
         c.*, 
-        u.user_name, 
-        u.avatar_url 
+        u.email,
+        u.business_unit,
+        p.first_name,
+        p.last_name,
+        p.position,
+        p.company as user_company,
+        -- Construct a full name for the frontend
+        CONCAT(p.first_name, ' ', p.last_name) as user_name
       FROM v4.shared_comments c
+      -- Join account to get email/unit
       LEFT JOIN v4.user_account_tbl u ON c.user_id = u.id
+      -- Join profile to get names and position
+      LEFT JOIN v4.user_profile_tbl p ON c.user_id = p.user_id
       WHERE c.relation_type = $1 AND c.relation_id = $2
       ORDER BY c.created_at ASC;
     `;
