@@ -18,21 +18,13 @@ router.post("/generate-url", auth, async (req, res) => {
   }
 });
 
-// 2. Confirm the upload (Now protected)
-router.post("/confirm", auth, async (req, res) => {
-  try {
-    // Ensure the user has permission to attach files to this specific relation_id
-    const result = await attachmentController.createAttachment(req.body);
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// 2. Confirm the upload
+router.post("/confirm", auth, attachmentController.createAttachment);
 
-// 2. View
+// 3. View
 router.get("/view/:id", auth, attachmentController.getViewingUrl);
 
-// 3. Delete
+// 4. Delete
 router.delete("/:id", auth, attachmentController.deleteAttachment);
 
 module.exports = router;
