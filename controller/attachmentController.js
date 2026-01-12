@@ -163,7 +163,7 @@ export const deleteAttachment = async (req, res) => {
     console.log("inside the cont");
     console.log(id);
 
-    const findQuery = `SELECT s3_key FROM v4.shared_attachments WHERE row_id = $1`;
+    const findQuery = `SELECT s3_key FROM v4.shared_attachments WHERE attachment_id = $1`;
     const { rows } = await getPool().query(findQuery, [id]);
 
     console.log(rows);
@@ -182,7 +182,7 @@ export const deleteAttachment = async (req, res) => {
 
     // 3. Delete from Postgres
     await getPool().query(
-      `DELETE FROM v4.shared_attachments WHERE row_id = $1`,
+      `DELETE FROM v4.shared_attachments WHERE attachment_id = $1`,
       [id]
     );
 
