@@ -1,11 +1,10 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
 
-const auth = require("../middleware/auth");
+import * as registerController from "../controller/registerController.js";
 
-const { registerUser } = require("../controller/registerController");
+// Public
+router.post(`/registerUser`, registerController.registerUser);
 
-//Public
-router.post(`/registerUser`, registerUser);
-
-module.exports = router;
+// CHANGE THIS:
+export default router;

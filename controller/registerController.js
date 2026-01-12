@@ -1,12 +1,12 @@
-const { StreamChat } = require("stream-chat");
+import "dotenv/config";
 
-const express = require("express");
-const bcrypt = require("bcrypt");
+import { StreamChat } from "stream-chat";
+import { getPool } from "../config/getPool.js";
 
-const crypto = require("crypto");
-const emailService = require("../config/systemMailer"); // The file with passwordResetCode
-
-require("dotenv").config();
+import express from "express";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import emailService from "../config/systemMailer.js"; // Note the .js extension
 
 const router = express.Router();
 
@@ -15,13 +15,11 @@ const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_SECRET
 );
 
-const { getPool } = require("../config/getPool");
-
 // Ensure you import your pool and stream client correctly
 // const { getPool } = require('../db');
 // const streamClient = require('../streamConfig');
 
-exports.registerUser = async (req, res) => {
+export const registerUser = async (req, res) => {
   const {
     email,
     password,

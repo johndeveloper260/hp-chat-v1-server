@@ -1,6 +1,6 @@
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
-module.exports = function (req, res, next) {
+const auth = (req, res, next) => {
   // 1. Get token from header
   const token = req.header("x-app-identity");
 
@@ -33,3 +33,5 @@ module.exports = function (req, res, next) {
     res.status(500).json({ msg: "Server Error" });
   }
 };
+
+export default auth;

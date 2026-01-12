@@ -1,43 +1,34 @@
-const express = require("express");
+import express from "express";
+import auth from "../middleware/auth.js";
 const router = express.Router();
 
-// Middleware
-const auth = require("../middleware/auth");
-
-// Controller
-const {
+// 1. Changed require to a named import and added .js
+import {
   searchInquiries,
   createInquiry,
   updateInquiry,
   deleteInquiry,
-} = require("../controller/inquiryController");
+} from "../controller/inquiryController.js";
 
 /**
  * @route   GET /api/inquiry/search
- * @desc    Search/Get all inquiries with filters
- * @access  Private
  */
 router.get("/search", auth, searchInquiries);
 
 /**
  * @route   POST /api/inquiry/create
- * @desc    Create a new inquiry ticket
- * @access  Private
  */
 router.post("/create", auth, createInquiry);
 
 /**
  * @route   PUT /api/inquiry/update/:ticketId
- * @desc    Update an existing inquiry
- * @access  Private
  */
 router.put("/update/:ticketId", auth, updateInquiry);
 
 /**
  * @route   DELETE /api/inquiry/delete/:ticketId
- * @desc    Delete an inquiry ticket
- * @access  Private
  */
 router.delete("/delete/:ticketId", auth, deleteInquiry);
 
-module.exports = router;
+// 2. Changed module.exports to export default
+export default router;

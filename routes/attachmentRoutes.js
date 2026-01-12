@@ -1,7 +1,9 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const attachmentController = require("../controller/attachmentController");
-const auth = require("../middleware/auth");
+
+// 1. Convert require to imports with .js extensions
+import * as attachmentController from "../controller/attachmentController.js";
+import auth from "../middleware/auth.js";
 
 // 1. Get the Signed URL (Now protected)
 router.post("/generate-url", auth, async (req, res) => {
@@ -27,4 +29,5 @@ router.get("/view/:id", auth, attachmentController.getViewingUrl);
 // 4. Delete
 router.delete("/:id", auth, attachmentController.deleteAttachment);
 
-module.exports = router;
+// 2. Change module.exports to export default
+export default router;
