@@ -142,17 +142,14 @@ export const getViewingUrl = async (req, res) => {
     const command = new GetObjectCommand({
       Bucket: rows[0].s3_bucket,
       Key: rows[0].s3_key,
+      // This prevents the SDK from adding checksum parameters to the signed URL
+      ChecksumMode: undefined,
     });
 
     // Generate the Signed URL (Expires in 1 hour)
     let signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
     });
-
-    // ADD THESE LINES:
-    if (signedUrl.includes("&x-amz-checksum-mode=ENABLED")) {
-      signedUrl = signedUrl.replace("&x-amz-checksum-mode=ENABLED", "");
-    }
 
     res.json({ url: signedUrl });
   } catch (error) {
