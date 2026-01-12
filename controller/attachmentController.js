@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-s3";
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 // Initialize S3 Client
 const s3Client = new S3Client({
@@ -16,6 +17,9 @@ const s3Client = new S3Client({
     accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
   },
+  requestHandler: new NodeHttpHandler({
+    connectionTimeout: 5000,
+  }),
 });
 
 /**
@@ -144,6 +148,11 @@ export const getViewingUrl = async (req, res) => {
     const signedUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 3600,
     });
+
+    // ADD THESE LINES:
+    if (signedUrl.includes("&x-amz-checksum-mode=ENABLED")) {
+      signedUrl = signedUrl.replace("&x-amz-checksum-mode=ENABLED", "");
+    }
 
     res.json({ url: signedUrl });
   } catch (error) {
