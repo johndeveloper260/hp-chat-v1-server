@@ -171,13 +171,13 @@ export const updateAnnouncement = async (req, res) => {
 };
 
 // feedController.js
-
 /**
  * Toggle Reaction
  */
 export const toggleReaction = async (req, res) => {
-  const { commentId, emoji } = req.body;
-  const userId = req.user.id;
+  const { rowId } = req.params; // Correctly matches router /:rowId/react
+  const { emoji } = req.body;
+  const userId = String(req.user.id); // Ensure userId is a string for JSONB comparison
 
   const allowedEmojis = ["👍", "❤️", "😄", "😮", "😢", "🔥"];
   if (!allowedEmojis.includes(emoji)) {
@@ -185,22 +185,37 @@ export const toggleReaction = async (req, res) => {
   }
 
   try {
+    // We use JSONB path logic to toggle the userId inside the specific emoji array
     const query = `
       UPDATE v4.announcement_tbl
       SET reactions = CASE
-        WHEN reactions->'${emoji}' @> $1::jsonb
-        THEN jsonb_set(reactions, ARRAY['${emoji}'], (reactions->'${emoji}') - $2)
-        ELSE jsonb_set(reactions, ARRAY['${emoji}'], COALESCE(reactions->'${emoji}', '[]'::jsonb) || $1::jsonb)
+        -- If the user already reacted with THIS specific emoji, remove them
+        WHEN reactions->($1::text) @> jsonb_build_array($2::text)
+        THEN jsonb_set(
+          reactions, 
+          ARRAY[$1::text], 
+          (reactions->($1::text)) - ($2::text)
+        )
+        -- Otherwise, add the user to that emoji's array (creating the array if it doesn't exist)
+        ELSE jsonb_set(
+          reactions, 
+          ARRAY[$1::text], 
+          COALESCE(reactions->($1::text), '[]'::jsonb) || jsonb_build_array($2::text)
+        )
       END
-      WHERE comment_id = $3
+      WHERE row_id = $3 -- Corrected from comment_id
       RETURNING reactions;
     `;
 
-    const userJson = JSON.stringify(userId);
-    const result = await getPool().query(query, [userJson, userId, commentId]);
+    const result = await getPool().query(query, [emoji, userId, rowId]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Announcement not found" });
+    }
 
     res.json(result.rows[0]);
   } catch (error) {
+    console.error("Toggle Reaction Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
