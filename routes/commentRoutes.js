@@ -5,7 +5,6 @@ import {
   addComment,
   editComment,
   deleteComment,
-  toggleReaction,
 } from "../controller/commentsController.js"; // Explicit named imports
 import auth from "../middleware/auth.js";
 
@@ -17,6 +16,5 @@ router.get("/:type/:id", auth, getComments);
 router.post("/", auth, addComment);
 router.put("/:commentId", auth, editComment);
 router.delete("/:commentId", auth, deleteComment);
-router.post("/react", auth, toggleReaction);
 
 export default router;

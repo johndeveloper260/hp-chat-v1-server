@@ -7,12 +7,14 @@ import {
   createAnnouncement,
   getAnnouncements,
   updateAnnouncement,
+  toggleReaction,
 } from "../controller/feedController.js";
 
 // Private
 router.post(`/createAnnouncement`, auth, createAnnouncement);
 router.get(`/getAnnouncements`, auth, getAnnouncements);
 router.put(`/updateAnnouncement/:rowId`, auth, updateAnnouncement);
+router.post("/react", auth, toggleReaction);
 
 // 2. Change module.exports to export default
 export default router;

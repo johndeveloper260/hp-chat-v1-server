@@ -69,6 +69,7 @@ export const getAnnouncements = async (req, res) => {
       ) as company_names,
       a.title,
       a.content_text,
+      a.reactions,
       a.date_from,
       a.date_to,
       a.active,
@@ -166,5 +167,40 @@ export const updateAnnouncement = async (req, res) => {
     res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+// feedController.js
+
+/**
+ * Toggle Reaction
+ */
+export const toggleReaction = async (req, res) => {
+  const { commentId, emoji } = req.body;
+  const userId = req.user.id;
+
+  const allowedEmojis = ["👍", "❤️", "😄", "😮", "😢", "🔥"];
+  if (!allowedEmojis.includes(emoji)) {
+    return res.status(400).json({ error: "Invalid emoji" });
+  }
+
+  try {
+    const query = `
+      UPDATE v4.announcement_tbl
+      SET reactions = CASE
+        WHEN reactions->'${emoji}' @> $1::jsonb
+        THEN jsonb_set(reactions, ARRAY['${emoji}'], (reactions->'${emoji}') - $2)
+        ELSE jsonb_set(reactions, ARRAY['${emoji}'], COALESCE(reactions->'${emoji}', '[]'::jsonb) || $1::jsonb)
+      END
+      WHERE comment_id = $3
+      RETURNING reactions;
+    `;
+
+    const userJson = JSON.stringify(userId);
+    const result = await getPool().query(query, [userJson, userId, commentId]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
