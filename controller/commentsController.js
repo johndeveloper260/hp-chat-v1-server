@@ -1,7 +1,7 @@
 import { getPool } from "../config/getPool.js";
 
 /**
- * Get Comments (The missing function)
+ * Get Comments
  */
 export const getComments = async (req, res) => {
   const { type, id } = req.params;
@@ -9,19 +9,21 @@ export const getComments = async (req, res) => {
   try {
     const query = `
       SELECT 
-        c.*, 
+        c.comment_id,
+        c.user_id,
+        c.content_text,
+        c.created_at,
+        c.updated_at,
+        c.is_edited,
         u.email,
         u.business_unit,
         p.first_name,
         p.last_name,
         p.position,
         p.company as user_company,
-        -- Construct a full name for the frontend
         CONCAT(p.first_name, ' ', p.last_name) as user_name
       FROM v4.shared_comments c
-      -- Join account to get email/unit
       LEFT JOIN v4.user_account_tbl u ON c.user_id = u.id
-      -- Join profile to get names and position
       LEFT JOIN v4.user_profile_tbl p ON c.user_id = p.user_id
       WHERE c.relation_type = $1 AND c.relation_id = $2
       ORDER BY c.created_at ASC;
@@ -46,6 +48,8 @@ export const addComment = async (req, res) => {
     parent_comment_id,
     metadata,
   } = req.body;
+
+  // Ensure we are getting the ID from the decoded token
   const user_id = req.user.id;
 
   try {
@@ -60,17 +64,19 @@ export const addComment = async (req, res) => {
       relation_id,
       user_id,
       content_text,
-      parent_comment_id,
+      parent_comment_id || null,
       metadata || {},
     ]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    console.error("Add Comment Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * Edit Comment
+ * Ensures only the owner can edit
  */
 export const editComment = async (req, res) => {
   const { commentId } = req.params;
@@ -90,29 +96,45 @@ export const editComment = async (req, res) => {
       user_id,
     ]);
 
-    if (result.rowCount === 0)
-      return res.status(403).json({ error: "Unauthorized or not found" });
+    if (result.rowCount === 0) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized or comment not found" });
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
+    console.error("Edit Comment Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * Delete Comment
+ * Ensures only the owner (or potentially an admin) can delete
  */
 export const deleteComment = async (req, res) => {
   const { commentId } = req.params;
   const user_id = req.user.id;
 
   try {
-    const query = `DELETE FROM v4.shared_comments WHERE comment_id = $1 AND user_id = $2`;
+    // Note: If you want admins to delete any comment,
+    // check req.user.role here and adjust the WHERE clause
+    const query = `
+      DELETE FROM v4.shared_comments 
+      WHERE comment_id = $1 AND user_id = $2
+      RETURNING comment_id;
+    `;
+
     const result = await getPool().query(query, [commentId, user_id]);
 
-    if (result.rowCount === 0)
-      return res.status(403).json({ error: "Unauthorized" });
-    res.json({ message: "Comment deleted" });
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: "Unauthorized or already deleted" });
+    }
+
+    res.json({ message: "Comment deleted successfully", commentId });
   } catch (error) {
+    console.error("Delete Comment Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
