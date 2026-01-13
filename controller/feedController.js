@@ -73,7 +73,7 @@ export const getAnnouncements = async (req, res) => {
       a.date_from,
       a.date_to,
       a.active,
-      (SELECT COUNT(*) FROM v4.comments WHERE relation_id = a.row_id AND relation_type = 'announcements') as comment_count,
+      (SELECT COUNT(*) FROM v4.shared_comments WHERE relation_id = a.row_id AND relation_type = 'announcements') as comment_count,
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
