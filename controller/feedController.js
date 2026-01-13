@@ -175,47 +175,49 @@ export const updateAnnouncement = async (req, res) => {
  * Toggle Reaction
  */
 export const toggleReaction = async (req, res) => {
-  const { rowId } = req.params; // Correctly matches router /:rowId/react
+  const { rowId } = req.params;
   const { emoji } = req.body;
-  const userId = String(req.user.id); // Ensure userId is a string for JSONB comparison
-
-  const allowedEmojis = ["👍", "❤️", "😄", "😮", "😢", "🔥"];
-  if (!allowedEmojis.includes(emoji)) {
-    return res.status(400).json({ error: "Invalid emoji" });
-  }
+  const userId = String(req.user.id);
 
   try {
-    // We use JSONB path logic to toggle the userId inside the specific emoji array
-    const query = `
-      UPDATE v4.announcement_tbl
-      SET reactions = CASE
-        -- If the user already reacted with THIS specific emoji, remove them
-        WHEN reactions->($1::text) @> jsonb_build_array($2::text)
-        THEN jsonb_set(
-          reactions, 
-          ARRAY[$1::text], 
-          (reactions->($1::text)) - ($2::text)
-        )
-        -- Otherwise, add the user to that emoji's array (creating the array if it doesn't exist)
-        ELSE jsonb_set(
-          reactions, 
-          ARRAY[$1::text], 
-          COALESCE(reactions->($1::text), '[]'::jsonb) || jsonb_build_array($2::text)
-        )
-      END
-      WHERE row_id = $3 -- Corrected from comment_id
-      RETURNING reactions;
-    `;
+    // 1. Fetch current reactions
+    const result = await getPool().query(
+      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1",
+      [rowId]
+    );
 
-    const result = await getPool().query(query, [emoji, userId, rowId]);
+    if (result.rowCount === 0)
+      return res.status(404).json({ error: "Not found" });
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Announcement not found" });
+    // Reactions is an object: { "👍": ["ID1"], "❤️": ["ID2"] }
+    let reactions = result.rows[0].reactions || {};
+
+    // 2. Remove this user's ID from EVERY emoji category first
+    // This enforces the "Only One Reaction" rule
+    Object.keys(reactions).forEach((key) => {
+      reactions[key] = reactions[key].filter((id) => id !== userId);
+      // Clean up empty arrays to keep DB small
+      if (reactions[key].length === 0) delete reactions[key];
+    });
+
+    // 3. If the new emoji is NOT the one they just removed, add it
+    // (This handles the "toggle off" if they click the same emoji twice)
+    const alreadyHadThisEmoji =
+      result.rows[0].reactions?.[emoji]?.includes(userId);
+
+    if (!alreadyHadThisEmoji) {
+      if (!reactions[emoji]) reactions[emoji] = [];
+      reactions[emoji].push(userId);
     }
 
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Toggle Reaction Error:", error.message);
-    res.status(500).json({ error: error.message });
+    // 4. Update Database
+    await getPool().query(
+      "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2",
+      [JSON.stringify(reactions), rowId]
+    );
+
+    res.json({ success: true, reactions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
