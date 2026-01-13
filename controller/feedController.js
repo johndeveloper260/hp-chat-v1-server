@@ -170,7 +170,6 @@ export const updateAnnouncement = async (req, res) => {
   }
 };
 
-// feedController.js
 /**
  * Toggle Reaction
  */
@@ -180,44 +179,45 @@ export const toggleReaction = async (req, res) => {
   const userId = String(req.user.id);
 
   try {
-    // 1. Fetch current reactions
     const result = await getPool().query(
       "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1",
       [rowId]
     );
 
     if (result.rowCount === 0)
-      return res.status(404).json({ error: "Not found" });
+      return res.status(404).json({ error: "Post not found" });
 
-    // Reactions is an object: { "👍": ["ID1"], "❤️": ["ID2"] }
+    // Ensure we start with an object
     let reactions = result.rows[0].reactions || {};
 
-    // 2. Remove this user's ID from EVERY emoji category first
-    // This enforces the "Only One Reaction" rule
+    // Check if the user ALREADY has THIS specific emoji active
+    const isSameEmoji = reactions[emoji]?.includes(userId);
+
+    // 1. Remove user ID from ALL emojis (Clears old reactions)
     Object.keys(reactions).forEach((key) => {
-      reactions[key] = reactions[key].filter((id) => id !== userId);
-      // Clean up empty arrays to keep DB small
+      if (Array.isArray(reactions[key])) {
+        reactions[key] = reactions[key].filter((id) => id !== userId);
+      }
+      // Delete the key if the array is now empty to save DB space
       if (reactions[key].length === 0) delete reactions[key];
     });
 
-    // 3. If the new emoji is NOT the one they just removed, add it
-    // (This handles the "toggle off" if they click the same emoji twice)
-    const alreadyHadThisEmoji =
-      result.rows[0].reactions?.[emoji]?.includes(userId);
-
-    if (!alreadyHadThisEmoji) {
+    // 2. If it WASN'T the same emoji, add the new one
+    // If it WAS the same emoji, we leave it removed (Toggle Off)
+    if (!isSameEmoji) {
       if (!reactions[emoji]) reactions[emoji] = [];
       reactions[emoji].push(userId);
     }
 
-    // 4. Update Database
-    await getPool().query(
-      "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2",
+    // 3. Save to Database
+    const finalUpdate = await getPool().query(
+      "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2 RETURNING reactions",
       [JSON.stringify(reactions), rowId]
     );
 
-    res.json({ success: true, reactions });
+    res.json(finalUpdate.rows[0]);
   } catch (err) {
+    console.error("Toggle Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 };
