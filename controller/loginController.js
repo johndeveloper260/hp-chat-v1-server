@@ -67,6 +67,13 @@ export const loginUser = async (req, res) => {
       ),
     };
 
+    // Right before jwt.sign
+    console.log(
+      "SIGNING SECRET:",
+      process.env.REACT_APP_SECRET_TOKEN?.length,
+      "chars"
+    );
+
     const token = jwt.sign(payload, process.env.REACT_APP_SECRET_TOKEN.trim(), {
       expiresIn: "24h",
     });

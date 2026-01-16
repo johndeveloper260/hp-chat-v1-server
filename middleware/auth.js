@@ -1,4 +1,4 @@
-// auth.js
+// auth.js (Backend Middleware)
 import jwt from "jsonwebtoken";
 
 const auth = (req, res, next) => {
@@ -9,20 +9,30 @@ const auth = (req, res, next) => {
   }
 
   try {
-    // 1. Get the secret and handle potential undefined/spaces
+    // 1. Get the secret from environment
     const rawSecret = process.env.REACT_APP_SECRET_TOKEN;
 
+    // 2. CRITICAL: Match the loginController's .trim() exactly
+    // If the secret is missing, use a fallback string to prevent "invalid signature"
+    // and instead throw a clear configuration error.
     if (!rawSecret) {
-      console.error("❌ CRITICAL: JWT Secret is missing in .env");
+      console.error(
+        "❌ BACKEND ERROR: REACT_APP_SECRET_TOKEN is not defined in .env"
+      );
       return res.status(500).json({ msg: "Server Configuration Error" });
     }
 
-    // 2. Use .trim() to match the loginController exactly
     const secret = rawSecret.trim();
+
+    // Inside the auth function, before jwt.verify
+    console.log("VERIFYING SECRET:", rawSecret?.length, "chars");
 
     jwt.verify(token, secret, (error, decoded) => {
       if (error) {
-        console.log("❌ JWT Verify Error:", error.message);
+        // If you see "invalid signature" here, the keys definitely don't match
+        console.log(
+          `❌ JWT Error: ${error.message} (Secret Length: ${secret.length})`
+        );
         return res.status(401).json({ msg: "Token is not valid" });
       }
 
@@ -30,11 +40,9 @@ const auth = (req, res, next) => {
         id: decoded.user_id,
         business_unit: decoded.business_unit,
       };
-
       next();
     });
   } catch (err) {
-    console.error("❌ Middleware Error:", err.message);
     res.status(500).json({ msg: "Server Error" });
   }
 };
