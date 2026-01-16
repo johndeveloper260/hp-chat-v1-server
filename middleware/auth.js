@@ -16,8 +16,7 @@ const auth = (req, res, next) => {
   // 3. Verify token
   try {
     // ENSURE THIS MATCHES YOUR LOGIN FILE EXACTLY
-    const secret =
-      process.env.SECRET_TOKEN || process.env.REACT_APP_SECRET_TOKEN;
+    const secret = process.env.REACT_APP_SECRET_TOKEN;
 
     // Debug the secret (Print first 3 chars only for safety)
     // console.log("🗝️ Using Secret starting with:", secret ? secret.substring(0, 3) : "UNDEFINED");
