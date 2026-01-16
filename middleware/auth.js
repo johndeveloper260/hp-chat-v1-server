@@ -10,15 +10,13 @@ const auth = (req, res, next) => {
 
   try {
     // 1. Get the secret from environment
-    const rawSecret = process.env.REACT_APP_SECRET_TOKEN;
+    const rawSecret = process.env.SECRET_TOKEN;
 
     // 2. CRITICAL: Match the loginController's .trim() exactly
     // If the secret is missing, use a fallback string to prevent "invalid signature"
     // and instead throw a clear configuration error.
     if (!rawSecret) {
-      console.error(
-        "❌ BACKEND ERROR: REACT_APP_SECRET_TOKEN is not defined in .env"
-      );
+      console.error("❌ BACKEND ERROR: SECRET_TOKEN is not defined in .env");
       return res.status(500).json({ msg: "Server Configuration Error" });
     }
 
