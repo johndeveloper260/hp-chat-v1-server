@@ -1,28 +1,37 @@
 import jwt from "jsonwebtoken";
 
 const auth = (req, res, next) => {
-  // 1. Get the token
+  // 1. Get token from header
   const token = req.header("x-app-identity");
 
-  // 2. Log exactly what the server sees (Check Heroku Logs)
-  console.log("--- AUTH ATTEMPT ---");
-  console.log(
-    "Token Received:",
-    token ? "YES (starts with " + token.substring(0, 10) + ")" : "NO"
-  );
-  console.log("Secret length in Middleware:", process.env.SECRET_TOKEN?.length);
-
+  // 2. Check if no token
   if (!token) {
     return res.status(401).json({ msg: "No token, authorization denied" });
   }
 
+  // 3. Verify token
   try {
-    const decoded = jwt.verify(token, process.env.SECRET_TOKEN.trim());
-    req.user = decoded;
-    next();
+    jwt.verify(token, process.env.REACT_APP_SECRET_TOKEN, (error, decoded) => {
+      if (error) {
+        console.log("JWT Verification Failed:", error.message);
+        return res.status(401).json({ msg: "Token is not valid" });
+      }
+
+      // 3. Attach the full data to req.user
+      req.user = {
+        id: decoded.user_id,
+        business_unit: decoded.business_unit,
+      };
+
+      console.log("User Authenticated:", req.user.id);
+
+      // 6. Move to the next middleware/controller
+      next();
+    });
   } catch (err) {
-    console.error("JWT Verify Error:", err.message);
-    res.status(401).json({ msg: "Token is not valid" });
+    console.error("Middleware System Error:", err.message);
+    res.status(500).json({ msg: "Server Error" });
   }
 };
+
 export default auth;
