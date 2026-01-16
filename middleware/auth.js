@@ -11,7 +11,7 @@ const auth = (req, res, next) => {
 
   // 3. Verify token
   try {
-    jwt.verify(token, process.env.REACT_APP_SECRET_TOKEN, (error, decoded) => {
+    jwt.verify(token, process.env.SECRET_TOKEN, (error, decoded) => {
       if (error) {
         console.log("JWT Verification Failed:", error.message);
         return res.status(401).json({ msg: "Token is not valid" });
