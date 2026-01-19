@@ -5,28 +5,55 @@ dotenv.config();
 
 // 1. SEARCH / GET ALL (with filters)
 export const searchInquiries = async (req, res) => {
-  const { status, type, business_unit } = req.query;
+  // 1. Get filters and language from query.
+  // lang defaults to 'en' if not provided by the frontend.
+  const { status, type, lang = "en" } = req.query;
 
-  // Build dynamic query
-  let query = `SELECT * FROM v4.inquiry_tbl WHERE 1=1`;
-  const values = [];
+  // 2. ENFORCE: Always use the BU from the JWT token (req.user)
+  // This is the key to multi-tenant security.
+  const businessUnit = req.user.business_unit;
 
+  /**
+   * 3. SQL with JOIN and forced BU filter.
+   * $1: Language key (e.g., 'ja', 'en', 'zh')
+   * $2: Business Unit string
+   * COALESCE: Tries requested lang, falls back to 'en', then 'N/A'
+   */
+  let query = `
+    SELECT 
+      i.*, 
+      COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text
+    FROM v4.inquiry_tbl i
+    LEFT JOIN v4.company_tbl c ON i.company = c.company_id
+    WHERE i.business_unit = $2
+  `;
+
+  // values[0] corresponds to $1 (lang)
+  // values[1] corresponds to $2 (businessUnit)
+  const values = [lang, businessUnit];
+
+  // 4. Additional Optional Filters
   if (status) {
     values.push(status);
-    query += ` AND status = $${values.length}`;
-  }
-  if (business_unit) {
-    values.push(business_unit);
-    query += ` AND business_unit = $${values.length}`;
+    query += ` AND i.status = $${values.length}`;
   }
 
-  query += ` ORDER BY last_update_dttm DESC`;
+  if (type) {
+    values.push(type);
+    query += ` AND i.type = $${values.length}`;
+  }
+
+  // Finalize ordering
+  query += ` ORDER BY i.last_update_dttm DESC`;
 
   try {
     const { rows } = await getPool().query(query, values);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Search Inquiries Error:", err);
+    res
+      .status(500)
+      .json({ error: "Failed to fetch inquiries. " + err.message });
   }
 };
 
@@ -134,7 +161,7 @@ export const deleteInquiry = async (req, res) => {
   try {
     const { rowCount } = await getPool().query(
       "DELETE FROM v4.inquiry_tbl WHERE ticket_id = $1",
-      [ticketId]
+      [ticketId],
     );
     if (rowCount === 0)
       return res.status(404).json({ error: "Ticket not found" });
