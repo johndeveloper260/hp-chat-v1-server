@@ -222,17 +222,18 @@ export const getOfficersByBU = async (req, res) => {
     // Query to find active officers in the BU
     // Returning 'id' as 'value' and 'full_name' as 'label' for the MultiSelectModal
     const query = `
-            SELECT 
-                id AS value, 
-                first_name || ' ' || last_name AS label
-            FROM users 
-            WHERE business_unit = $1 
-            AND user_type = 'OFFICER'
-            AND is_active = true
-            ORDER BY first_name ASC
+    SELECT 
+        p.user_id AS value, 
+        p.first_name || ' ' || p.last_name AS label
+    FROM v4.user_profile_tbl p
+    JOIN v4.user_account_tbl a ON p.user_id = a.id
+    WHERE a.business_unit = $1 
+      AND p.user_type = 'OFFICER'
+      AND a.is_active = true
+    ORDER BY p.first_name ASC
         `;
 
-    const { rows } = await pool.query(query, [bu]);
+    const { rows } = await getPool().query(query, [bu]);
 
     res.status(200).json(rows);
   } catch (error) {
