@@ -20,12 +20,32 @@ export const searchInquiries = async (req, res) => {
    * COALESCE: Tries requested lang, falls back to 'en', then 'N/A'
    */
   let query = `
-    SELECT 
-      i.*, 
-      COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text
-    FROM v4.inquiry_tbl i
-    LEFT JOIN v4.company_tbl c ON i.company = c.company_id
-    WHERE i.business_unit = $2
+  SELECT 
+  i.*, 
+  -- Resolve Company Name from JSONB
+  COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
+  
+  -- Resolve Names from user_profile_tbl
+  TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
+  TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
+  TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
+  TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
+  
+  -- Resolve Watcher Names (Array of UUIDs to String of Names)
+  (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
+   FROM v4.user_profile_tbl 
+   WHERE user_id = ANY(i.watcher)) AS watcher_names
+
+  FROM v4.inquiry_tbl i
+  LEFT JOIN v4.company_tbl c ON i.company = c.company_id
+  -- Joins for User Profiles
+  LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
+  LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
+  LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
+  LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
+
+  WHERE i.business_unit = $2
+  ORDER BY i.last_update_dttm DESC;
   `;
 
   // values[0] corresponds to $1 (lang)
