@@ -90,7 +90,6 @@ export const deleteCompany = async (req, res) => {
 };
 
 // 6. GET EMPLOYEES BY COMPANY (Filtered by Officer's Business Unit)
-
 export const getEmployeesByCompany = async (req, res) => {
   const { companyId } = req.params;
   const officerBusinessUnit = req.user.business_unit;
