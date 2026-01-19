@@ -35,7 +35,6 @@ export const searchInquiries = async (req, res) => {
   (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
    FROM v4.user_profile_tbl 
    WHERE user_id = ANY(i.watcher)) AS watcher_names
-
   FROM v4.inquiry_tbl i
   LEFT JOIN v4.company_tbl c ON i.company = c.company_id
   -- Joins for User Profiles
@@ -43,9 +42,7 @@ export const searchInquiries = async (req, res) => {
   LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
   LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
   LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
-
   WHERE i.business_unit = $2
-  ORDER BY i.last_update_dttm DESC;
   `;
 
   // values[0] corresponds to $1 (lang)
