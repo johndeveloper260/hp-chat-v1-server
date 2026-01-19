@@ -170,3 +170,25 @@ export const deleteInquiry = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+//5. GET ISSUE TYPE
+export const getIssues = async (req, res) => {
+  const { lang = "en" } = req.query;
+  const bu = req.user.business_unit; // Extracted from JWT
+
+  try {
+    const query = `
+      SELECT 
+        code AS value, 
+        COALESCE(descr->>$1, descr->>'en', code) AS label,
+        active
+      FROM v4.issue_tbl
+      WHERE business_unit = $2 AND active = true
+      ORDER BY sort_order ASC
+    `;
+    const { rows } = await getPool().query(query, [lang, bu]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

@@ -8,6 +8,7 @@ import {
   createInquiry,
   updateInquiry,
   deleteInquiry,
+  getIssues,
 } from "../controller/inquiryController.js";
 
 /**
@@ -30,5 +31,9 @@ router.put("/update/:ticketId", auth, updateInquiry);
  */
 router.delete("/delete/:ticketId", auth, deleteInquiry);
 
+/**
+ * @route   get /api/inquiry/issues
+ */
+router.get("/issues", auth, getIssues);
 // 2. Changed module.exports to export default
 export default router;
