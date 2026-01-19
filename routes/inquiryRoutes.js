@@ -40,7 +40,7 @@ router.get("/issues", auth, getIssues);
 /**
  * @route   get /api/inquiry/issues
  */
-router.get("/getOfficersByBU", auth, getIssues);
+router.get("/getOfficersByBU", auth, getOfficersByBU);
 
 // 2. Changed module.exports to export default
 export default router;
