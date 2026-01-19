@@ -213,14 +213,17 @@ export const getIssues = async (req, res) => {
 //6. GET Officer
 export const getOfficersByBU = async (req, res) => {
   try {
-    const bu = req.user.business_unit; // Extracted from JWT
+    // 1. Extract BU from JWT (Decoded by your 'auth' middleware)
+    const bu = req.user.business_unit;
 
     if (!bu) {
-      return res.status(400).json({ error: "Business Unit ID is required" });
+      return res
+        .status(400)
+        .json({ error: "Business Unit missing from user token" });
     }
 
-    // Query to find active officers in the BU
-    // Returning 'id' as 'value' and 'full_name' as 'label' for the MultiSelectModal
+    // 2. The JOIN logic is correct based on your schema:
+    // Profile has name/type, Account has BU/active status
     const query = `
     SELECT 
         p.user_id AS value, 
@@ -231,11 +234,12 @@ export const getOfficersByBU = async (req, res) => {
       AND p.user_type = 'OFFICER'
       AND a.is_active = true
     ORDER BY p.first_name ASC
-        `;
+    `;
 
     const { rows } = await getPool().query(query, [bu]);
 
-    res.status(200).json(rows);
+    // 3. Return 'rows' or an empty array [] if no officers found
+    res.status(200).json(rows || []);
   } catch (error) {
     console.error("Backend Error (getOfficersByBU):", error.message);
     res.status(500).json({ error: "Internal Server Error" });
