@@ -15,7 +15,7 @@ import * as emailService from "../config/systemMailer.js";
 
 const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
-  process.env.STREAM_API_SECRET
+  process.env.STREAM_API_SECRET,
 );
 
 /**
@@ -61,9 +61,10 @@ export const loginUser = async (req, res) => {
 
     const payload = {
       user_id: String(user.id).trim(),
+      userType: user.user_type,
       business_unit: String(user.business_unit || "DEFAULT").replace(
         /[^a-zA-Z0-9]/g,
-        ""
+        "",
       ),
     };
 
@@ -106,7 +107,7 @@ export const handleForgotPassword = async (req, res) => {
 
     const userResult = await getPool().query(
       "SELECT id FROM v4.user_account_tbl WHERE email = $1",
-      [lowerEmail]
+      [lowerEmail],
     );
 
     if (userResult.rows.length === 0) {
@@ -121,7 +122,7 @@ export const handleForgotPassword = async (req, res) => {
 
     await getPool().query(
       "UPDATE v4.user_account_tbl SET password_hash = $1 WHERE email = $2",
-      [hashedPassword, lowerEmail]
+      [hashedPassword, lowerEmail],
     );
 
     const emailTitle = "Your Temporary Password";
@@ -146,7 +147,7 @@ export const updatePassword = async (req, res) => {
 
     const userResult = await getPool().query(
       "SELECT password_hash FROM v4.user_account_tbl WHERE id = $1",
-      [userId]
+      [userId],
     );
 
     if (userResult.rows.length === 0) {
@@ -167,7 +168,7 @@ export const updatePassword = async (req, res) => {
 
     await getPool().query(
       "UPDATE v4.user_account_tbl SET password_hash = $1 WHERE id = $2",
-      [hashedNewPassword, userId]
+      [hashedNewPassword, userId],
     );
 
     res
