@@ -3,24 +3,39 @@ import { getPool } from "../config/getPool.js";
 
 dotenv.config();
 
-// 1. GET ALL (Full list for management screen)
+// 1. GET ALL COMPANIES (Filtered by Business Unit)
 export const getCompanies = async (req, res) => {
   try {
-    const { rows } = await getPool().query(
-      "SELECT * FROM v4.company_tbl ORDER BY created_at DESC",
-    );
+    // GET requests usually use req.query (e.g., /companies?business_unit=finance)
+    const { business_unit } = req.query;
+
+    const query = `
+      SELECT * FROM v4.company_tbl 
+      WHERE ($1::text IS NULL OR business_unit = $1)
+      ORDER BY created_at DESC
+    `;
+
+    const { rows } = await getPool().query(query, [business_unit]);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// 2. GET DROPDOWN (Simplified for Pickers)
+// 2. GET DROPDOWN (Filtered by Business Unit)
 export const getCompanyDropdown = async (req, res) => {
   try {
-    const { rows } = await getPool().query(
-      "SELECT company_id AS value, company_name->>'en' AS label FROM v4.company_tbl WHERE is_active = true ORDER BY label ASC",
-    );
+    const { business_unit } = req.query;
+
+    const query = `
+      SELECT company_id AS value, company_name->>'en' AS label 
+      FROM v4.company_tbl 
+      WHERE is_active = true 
+      AND ($1::text IS NULL OR business_unit = $1)
+      ORDER BY label ASC
+    `;
+
+    const { rows } = await getPool().query(query, [business_unit]);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
