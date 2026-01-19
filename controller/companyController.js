@@ -7,7 +7,7 @@ dotenv.config();
 export const getCompanies = async (req, res) => {
   try {
     const { rows } = await getPool().query(
-      "SELECT * FROM v4.company_tbl ORDER BY created_at DESC"
+      "SELECT * FROM v4.company_tbl ORDER BY created_at DESC",
     );
     res.json(rows);
   } catch (err) {
@@ -19,7 +19,7 @@ export const getCompanies = async (req, res) => {
 export const getCompanyDropdown = async (req, res) => {
   try {
     const { rows } = await getPool().query(
-      "SELECT company_id AS value, company_name->>'en' AS label FROM v4.company_tbl WHERE is_active = true ORDER BY label ASC"
+      "SELECT company_id AS value, company_name->>'en' AS label FROM v4.company_tbl WHERE is_active = true ORDER BY label ASC",
     );
     res.json(rows);
   } catch (err) {
@@ -84,6 +84,37 @@ export const deleteCompany = async (req, res) => {
       id,
     ]);
     res.json({ message: "Company deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// 6. GET EMPLOYEES BY COMPANY (Filtered by Officer's Business Unit)
+
+export const getEmployeesByCompany = async (req, res) => {
+  const { companyId } = req.params;
+  const officerBusinessUnit = req.user.business_unit;
+
+  try {
+    const query = `
+      SELECT 
+        a.id, 
+        p.first_name, 
+        p.last_name, 
+        (p.first_name || ' ' || p.last_name) AS full_name,
+        a.email
+      FROM v4.user_account_tbl a
+      JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      WHERE p.company = $1 
+        AND a.business_unit = $2
+      ORDER BY p.first_name ASC;
+    `;
+
+    const { rows } = await getPool().query(query, [
+      companyId,
+      officerBusinessUnit,
+    ]);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

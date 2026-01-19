@@ -9,6 +9,7 @@ import {
   createCompany,
   updateCompany,
   deleteCompany,
+  getEmployeesByCompany,
 } from "../controller/companyController.js";
 
 /**
@@ -35,6 +36,12 @@ router.put("/update/:id", auth, updateCompany);
  * @route   DELETE /api/company/delete/:id
  */
 router.delete("/delete/:id", auth, deleteCompany);
+
+/**
+ * @route   GET /api/company/:companyId/employees
+ * @desc    Get employees for a specific company within the officer's business unit
+ */
+router.get("/:companyId/employees", auth, getEmployeesByCompany);
 
 // 2. Change module.exports to export default
 export default router;
