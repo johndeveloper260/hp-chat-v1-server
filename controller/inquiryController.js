@@ -23,7 +23,12 @@ export const searchInquiries = async (req, res) => {
     TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
     TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
     TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name
+    -- Resolve Watcher Names (Array of UUIDs to String of Names)
+  (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
+   FROM v4.user_profile_tbl 
+   WHERE user_id = ANY(i.watcher)) AS watcher_names
   FROM v4.inquiry_tbl i
+  LEFT JOIN v4.company_tbl c ON i.company = c.company_id
   LEFT JOIN v4.company_tbl c ON i.company = c.company_id
   LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
   LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
