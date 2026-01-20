@@ -3,41 +3,32 @@ import { getPool } from "../config/getPool.js";
 
 dotenv.config();
 
-// 1. SEARCH / GET ALL (with filters)
 export const searchInquiries = async (req, res) => {
-  // 1. Get filters and language from query.
-  // lang defaults to 'en' if not provided by the frontend.
-  const { status, type, lang = "en" } = req.query;
+  // 1. Extract all possible filters from the query
+  const {
+    status,
+    type,
+    lang = "en",
+    company_id, // Added
+    assigned_to, // Added
+    high_pri, // Added
+  } = req.query;
 
-  // 2. ENFORCE: Always use the BU from the JWT token (req.user)
-  // This is the key to multi-tenant security.
   const businessUnit = req.user.business_unit;
 
-  /**
-   * 3. SQL with JOIN and forced BU filter.
-   * $1: Language key (e.g., 'ja', 'en', 'zh')
-   * $2: Business Unit string
-   * COALESCE: Tries requested lang, falls back to 'en', then 'N/A'
-   */
   let query = `
   SELECT 
-  i.*, 
-  -- Resolve Company Name from JSONB
-  COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
-  
-  -- Resolve Names from user_profile_tbl
-  TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
-  TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
-  TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
-  TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
-  
-  -- Resolve Watcher Names (Array of UUIDs to String of Names)
-  (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
-   FROM v4.user_profile_tbl 
-   WHERE user_id = ANY(i.watcher)) AS watcher_names
+    i.*, 
+    COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
+    TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
+    TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
+    TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
+    TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
+    (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
+     FROM v4.user_profile_tbl 
+     WHERE user_id = ANY(i.watcher)) AS watcher_names
   FROM v4.inquiry_tbl i
   LEFT JOIN v4.company_tbl c ON i.company = c.company_id
-  -- Joins for User Profiles
   LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
   LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
   LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
@@ -45,12 +36,11 @@ export const searchInquiries = async (req, res) => {
   WHERE i.business_unit = $2
   `;
 
-  // values[0] corresponds to $1 (lang)
-  // values[1] corresponds to $2 (businessUnit)
   const values = [lang, businessUnit];
 
-  // 4. Additional Optional Filters
-  if (status) {
+  // 2. Apply Filters dynamically
+  if (status && status !== "All") {
+    // Added check for "All"
     values.push(status);
     query += ` AND i.status = $${values.length}`;
   }
@@ -60,7 +50,24 @@ export const searchInquiries = async (req, res) => {
     query += ` AND i.type = $${values.length}`;
   }
 
-  // Finalize ordering
+  // Filter by Company ID
+  if (company_id && company_id !== "null") {
+    values.push(company_id);
+    query += ` AND i.company = $${values.length}`;
+  }
+
+  // Filter by Assigned Officer
+  if (assigned_to && assigned_to !== "null") {
+    values.push(assigned_to);
+    query += ` AND i.assigned_to = $${values.length}::uuid`;
+  }
+
+  // Filter by High Priority (boolean)
+  if (high_pri !== undefined && high_pri !== null && high_pri !== "null") {
+    values.push(high_pri === "true" || high_pri === true);
+    query += ` AND i.high_pri = $${values.length}`;
+  }
+
   query += ` ORDER BY i.last_update_dttm DESC`;
 
   try {
