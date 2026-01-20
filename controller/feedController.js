@@ -55,7 +55,9 @@ export const createAnnouncement = async (req, res) => {
  */
 export const getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
-  const { id: userId, business_unit: userBU } = req.user;
+  // 1. Extract role from the user token
+  const { id: userId, business_unit: userBU, role } = req.user;
+  const userRole = (role || "").toUpperCase();
 
   let query = `
     SELECT 
@@ -96,16 +98,20 @@ export const getAnnouncements = async (req, res) => {
 
   const values = [];
 
-  // LOGIC UPDATE:
-  // Show if: 1. Matches filtered company OR 2. Company field is NULL OR 3. Company array is empty
-  if (company_filter) {
+  // 2. Logic for Role-Based Filtering
+  if (userRole === "ADMIN" || userRole === "OFFICER") {
+    // ADMIN/OFFICER sees everything in the BU
+    // No company filter added to the WHERE clause
+  } else if (company_filter) {
+    // Regular users see their company OR empty company arrays
     values.push(company_filter);
-    query += ` AND ($1 = ANY(a.company::uuid[]) OR a.company IS NULL OR cardinality(a.company) = 0)`;
+    query += ` AND ($${values.length} = ANY(a.company::uuid[]) OR a.company IS NULL OR cardinality(a.company) = 0)`;
   } else {
-    // If no specific company filter is sent, show only 'global' announcements for that BU
+    // Users with no company see only 'global' announcements
     query += ` AND (a.company IS NULL OR cardinality(a.company) = 0)`;
   }
 
+  // 3. Ensure Business Unit constraint always applies
   if (userBU) {
     values.push(userBU);
     query += ` AND business_unit = $${values.length}`;
@@ -117,6 +123,7 @@ export const getAnnouncements = async (req, res) => {
     const { rows } = await getPool().query(query, values);
     res.json(rows);
   } catch (err) {
+    console.error("Database Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
