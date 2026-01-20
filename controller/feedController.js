@@ -118,6 +118,8 @@ export const getAnnouncements = async (req, res) => {
   }
 
   query += ` ORDER BY a.created_at DESC`;
+  console.log(userRole);
+
   console.log(query);
 
   try {
