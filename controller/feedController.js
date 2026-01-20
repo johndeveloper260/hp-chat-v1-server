@@ -118,6 +118,7 @@ export const getAnnouncements = async (req, res) => {
   }
 
   query += ` ORDER BY a.created_at DESC`;
+  console.log(query);
 
   try {
     const { rows } = await getPool().query(query, values);
