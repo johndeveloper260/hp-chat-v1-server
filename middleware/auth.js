@@ -21,6 +21,7 @@ const auth = (req, res, next) => {
       req.user = {
         id: decoded.user_id,
         business_unit: decoded.business_unit,
+        userType: decoded.userType,
       };
 
       console.log("User Authenticated:", req.user.id);

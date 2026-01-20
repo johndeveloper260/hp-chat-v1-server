@@ -56,7 +56,7 @@ export const createAnnouncement = async (req, res) => {
 export const getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
   // 1. Extract role from the user token
-  const { id: userId, business_unit: userBU, userType } = req.user;
+  const { id: userId, business_unit: userBU, userType: userType } = req.user;
   const userRole = (userType || "").toUpperCase();
 
   let query = `
