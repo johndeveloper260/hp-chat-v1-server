@@ -58,15 +58,16 @@ export const getAnnouncements = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
 
   let query = `
-    SELECT 
+   SELECT 
       a.row_id,
       a.business_unit,
       a.company as company_ids,
+      -- 1. CHANGE: Alias this as 'target_companies' for the frontend
       ARRAY(
         SELECT c.company_name 
         FROM v4.company_tbl c 
         WHERE c.company_id = ANY(a.company::uuid[]) 
-      ) as company_names,
+      ) as target_companies, 
       a.title,
       a.content_text,
       a.reactions,
@@ -77,7 +78,8 @@ export const getAnnouncements = async (req, res) => {
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-      u.first_name || ' ' || u.last_name as author_name,
+      -- 2. CHANGE: Alias this as 'created_by_name' for the frontend
+      u.first_name || ' ' || u.last_name as created_by_name,
       COALESCE(
         (
           SELECT json_agg(att)
@@ -182,7 +184,7 @@ export const toggleReaction = async (req, res) => {
   try {
     const result = await getPool().query(
       "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1",
-      [rowId]
+      [rowId],
     );
 
     if (result.rowCount === 0)
@@ -213,7 +215,7 @@ export const toggleReaction = async (req, res) => {
     // 3. Save to Database
     const finalUpdate = await getPool().query(
       "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2 RETURNING reactions",
-      [JSON.stringify(reactions), rowId]
+      [JSON.stringify(reactions), rowId],
     );
 
     res.json(finalUpdate.rows[0]);
