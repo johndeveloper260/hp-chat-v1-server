@@ -4,14 +4,13 @@ import { getPool } from "../config/getPool.js";
 dotenv.config();
 
 export const searchInquiries = async (req, res) => {
-  // 1. Extract all possible filters from the query
   const {
     status,
     type,
     lang = "en",
-    company_id, // Added
-    assigned_to, // Added
-    high_pri, // Added
+    company_id,
+    assigned_to,
+    high_pri,
   } = req.query;
 
   const businessUnit = req.user.business_unit;
@@ -23,10 +22,7 @@ export const searchInquiries = async (req, res) => {
     TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
     TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
     TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
-    TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
-    (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
-     FROM v4.user_profile_tbl 
-     WHERE user_id = ANY(i.watcher)) AS watcher_names
+    TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name
   FROM v4.inquiry_tbl i
   LEFT JOIN v4.company_tbl c ON i.company = c.company_id
   LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
@@ -38,34 +34,29 @@ export const searchInquiries = async (req, res) => {
 
   const values = [lang, businessUnit];
 
-  // 2. Apply Filters dynamically
+  // --- STATUS FILTER LOGIC ---
   if (status && status !== "All") {
-    // Added check for "All"
     values.push(status);
     query += ` AND i.status = $${values.length}`;
+  } else if (!status || status === "All") {
+    // DEFAULT BEHAVIOR: If no specific status is requested, hide Closed/Hold
+    // This allows "All" to mean "All relevant/active"
+    query += ` AND i.status NOT IN ('Completed', 'Hold')`;
   }
 
-  if (type) {
-    values.push(type);
-    query += ` AND i.type = $${values.length}`;
-  }
-
-  // Filter by Company ID
+  // --- NEW FILTERS ---
   if (company_id && company_id !== "null") {
     values.push(company_id);
     query += ` AND i.company = $${values.length}`;
   }
 
-  // Filter by Assigned Officer
   if (assigned_to && assigned_to !== "null") {
     values.push(assigned_to);
     query += ` AND i.assigned_to = $${values.length}::uuid`;
   }
 
-  // Filter by High Priority (boolean)
-  if (high_pri !== undefined && high_pri !== null && high_pri !== "null") {
-    values.push(high_pri === "true" || high_pri === true);
-    query += ` AND i.high_pri = $${values.length}`;
+  if (high_pri === "true" || high_pri === true) {
+    query += ` AND i.high_pri = true`;
   }
 
   query += ` ORDER BY i.last_update_dttm DESC`;
@@ -75,9 +66,7 @@ export const searchInquiries = async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error("Search Inquiries Error:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch inquiries. " + err.message });
+    res.status(500).json({ error: "Search failed" });
   }
 };
 
