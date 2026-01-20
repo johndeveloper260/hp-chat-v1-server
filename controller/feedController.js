@@ -58,16 +58,15 @@ export const getAnnouncements = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
 
   let query = `
-   SELECT 
+    SELECT 
       a.row_id,
       a.business_unit,
       a.company as company_ids,
-      -- 1. CHANGE: Alias this as 'target_companies' for the frontend
       ARRAY(
         SELECT c.company_name 
         FROM v4.company_tbl c 
         WHERE c.company_id = ANY(a.company::uuid[]) 
-      ) as target_companies, 
+      ) as target_companies,
       a.title,
       a.content_text,
       a.reactions,
@@ -78,21 +77,14 @@ export const getAnnouncements = async (req, res) => {
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-      -- 2. CHANGE: Alias this as 'created_by_name' for the frontend
       u.first_name || ' ' || u.last_name as created_by_name,
       COALESCE(
         (
           SELECT json_agg(att)
           FROM (
-            SELECT 
-              attachment_id, 
-              s3_key,
-              s3_bucket,
-              display_name as name,
-              file_type as type
+            SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
             FROM v4.shared_attachments
-            WHERE relation_type = 'announcements' 
-              AND relation_id = a.row_id::text
+            WHERE relation_type = 'announcements' AND relation_id = a.row_id::text
           ) att
         ), '[]'
       ) as attachments
@@ -103,9 +95,15 @@ export const getAnnouncements = async (req, res) => {
   `;
 
   const values = [];
+
+  // LOGIC UPDATE:
+  // Show if: 1. Matches filtered company OR 2. Company field is NULL OR 3. Company array is empty
   if (company_filter) {
-    query += ` AND $1 = ANY(a.company::uuid[])`;
     values.push(company_filter);
+    query += ` AND ($1 = ANY(a.company::uuid[]) OR a.company IS NULL OR cardinality(a.company) = 0)`;
+  } else {
+    // If no specific company filter is sent, show only 'global' announcements for that BU
+    query += ` AND (a.company IS NULL OR cardinality(a.company) = 0)`;
   }
 
   if (userBU) {
@@ -119,7 +117,6 @@ export const getAnnouncements = async (req, res) => {
     const { rows } = await getPool().query(query, values);
     res.json(rows);
   } catch (err) {
-    console.error("Database Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
