@@ -36,6 +36,7 @@ export const loginUser = async (req, res) => {
         a.password_hash, 
         a.business_unit, 
         a.is_active,
+        p.user_id, 
         p.first_name, 
         p.middle_name,
         p.last_name, 
