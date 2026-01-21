@@ -19,9 +19,10 @@ const auth = (req, res, next) => {
 
       // 3. Attach the full data to req.user
       req.user = {
-        id: decoded.user_id,
+        id: decoded.id,
         business_unit: decoded.business_unit,
-        userType: decoded.userType,
+        userType: decoded.user_type,
+        company: decoded.company,
       };
 
       console.log("User Authenticated:", req.user.id);

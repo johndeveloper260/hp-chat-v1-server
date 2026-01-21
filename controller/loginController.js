@@ -78,6 +78,7 @@ export const loginUser = async (req, res) => {
       id: String(user.id).trim(),
       role: user.user_type,
       business_unit: user.business_unit,
+      company: user.company,
     };
 
     const token = jwt.sign(payload, process.env.SECRET_TOKEN.trim(), {
