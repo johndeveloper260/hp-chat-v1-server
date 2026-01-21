@@ -15,25 +15,29 @@ export const searchInquiries = async (req, res) => {
 
   const businessUnit = req.user.business_unit;
 
+  // Image of SQL JOIN logic connecting inquiry_tbl to user_profile_tbl multiple times
+
   let query = `
   SELECT 
-  i.*, 
-  -- Resolve Company Name from JSONB
-  COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
-  
-  -- Resolve Names from user_profile_tbl
-  TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
-  TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
-  TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
-  TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
-  
-  -- Resolve Watcher Names (Array of UUIDs to String of Names)
-  (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
-   FROM v4.user_profile_tbl 
-   WHERE user_id = ANY(i.watcher)) AS watcher_names
+    i.*, 
+    -- Explicitly alias the date if your DB column is named updated_at
+    i.updated_at AS last_update_dttm, 
+    
+    -- Resolve Company Name
+    COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
+    
+    -- Resolve Names
+    TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
+    TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
+    TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
+    TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
+    
+    -- Resolve Watcher Names
+    (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
+     FROM v4.user_profile_tbl 
+     WHERE user_id = ANY(i.watcher)) AS watcher_names
   FROM v4.inquiry_tbl i
   LEFT JOIN v4.company_tbl c ON i.company = c.company_id
-  -- Joins for User Profiles
   LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
   LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
   LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
@@ -43,32 +47,39 @@ export const searchInquiries = async (req, res) => {
 
   const values = [lang, businessUnit];
 
-  // --- STATUS FILTER LOGIC ---
+  // 1. Status Filter
   if (status && status !== "All") {
     values.push(status);
     query += ` AND i.status = $${values.length}`;
   } else if (!status || status === "All") {
-    // DEFAULT BEHAVIOR: If no specific status is requested, hide Closed/Hold
-    // This allows "All" to mean "All relevant/active"
     query += ` AND i.status NOT IN ('Completed', 'Hold')`;
   }
 
-  // --- NEW FILTERS ---
-  if (company_id && company_id !== "null") {
-    values.push(company_id);
-    query += ` AND i.company = $${values.length}`;
+  // 2. Type Filter (New)
+  if (type && type !== "" && type !== "null") {
+    values.push(type);
+    query += ` AND i.type = $${values.length}`;
   }
 
-  if (assigned_to && assigned_to !== "null") {
+  // 3. Company Filter (Safe UUID check)
+  if (company_id && company_id !== "null" && company_id !== "") {
+    values.push(company_id);
+    query += ` AND i.company = $${values.length}::uuid`;
+  }
+
+  // 4. Assignee Filter
+  if (assigned_to && assigned_to !== "null" && assigned_to !== "") {
     values.push(assigned_to);
     query += ` AND i.assigned_to = $${values.length}::uuid`;
   }
 
+  // 5. Priority Filter
   if (high_pri === "true" || high_pri === true) {
     query += ` AND i.high_pri = true`;
   }
 
-  query += ` ORDER BY i.last_update_dttm DESC`;
+  // Use the alias or the real column name here
+  query += ` ORDER BY i.updated_at DESC`;
 
   try {
     const { rows } = await getPool().query(query, values);
@@ -78,7 +89,6 @@ export const searchInquiries = async (req, res) => {
     res.status(500).json({ error: "Search failed" });
   }
 };
-
 // 2. CREATE
 export const createInquiry = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
