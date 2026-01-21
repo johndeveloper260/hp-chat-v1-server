@@ -131,6 +131,8 @@ export const createInquiry = async (req, res) => {
 // 3. UPDATE
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
+  const { userId } = req.user.id;
+
   console.log(req.user);
 
   const {
@@ -141,7 +143,6 @@ export const updateInquiry = async (req, res) => {
     high_pri,
     watcher,
     closed_dt,
-    last_updated_by,
   } = req.body;
 
   const query = `
@@ -169,7 +170,7 @@ export const updateInquiry = async (req, res) => {
       high_pri,
       watcher,
       closed_dt,
-      last_updated_by,
+      userId,
       ticketId,
     ];
     const { rows } = await getPool().query(query, values);

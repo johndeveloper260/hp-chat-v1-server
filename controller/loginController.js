@@ -76,7 +76,7 @@ export const loginUser = async (req, res) => {
     // Prepare JWT Payload (keep this lightweight)
     const payload = {
       id: String(user.id).trim(),
-      role: user.user_type,
+      user_type: user.user_type,
       business_unit: user.business_unit,
       company: user.company,
     };
