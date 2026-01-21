@@ -131,9 +131,7 @@ export const createInquiry = async (req, res) => {
 // 3. UPDATE
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
-  const { userId } = req.user.id;
-
-  console.log(req.user);
+  const userId = req.user.id;
 
   const {
     status,
