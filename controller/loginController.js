@@ -19,7 +19,7 @@ const streamClient = StreamChat.getInstance(
 );
 
 /**
- * Login User
+ * Login User - Updated to include full profile & visa details
  */
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
@@ -35,12 +35,24 @@ export const loginUser = async (req, res) => {
         a.email, 
         a.password_hash, 
         a.business_unit, 
+        a.is_active,
         p.first_name, 
+        p.middle_name,
         p.last_name, 
         p.user_type, 
-        p.company
+        p.position,
+        p.company, 
+        p.company_branch,
+        p.phone_number,
+        p.postal_code,
+        p.street_address,
+        p.city,
+        p.state_province,
+        v.visa_type,
+        v.visa_expiry_date
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
       WHERE a.email = $1;
     `;
 
@@ -54,40 +66,48 @@ export const loginUser = async (req, res) => {
 
     const user = result.rows[0];
 
+    // Verify password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Prepare JWT Payload (keep this lightweight)
     const payload = {
-      user_id: String(user.id).trim(),
-      userType: user.user_type,
-      business_unit: String(user.business_unit || "DEFAULT").replace(
-        /[^a-zA-Z0-9]/g,
-        "",
-      ),
+      id: String(user.id).trim(),
+      role: user.user_type,
+      business_unit: user.business_unit,
     };
-
-    // Right before jwt.sign
-    console.log("SIGNING SECRET:", process.env.SECRET_TOKEN?.length, "chars");
 
     const token = jwt.sign(payload, process.env.SECRET_TOKEN.trim(), {
       expiresIn: "24h",
     });
 
-    const streamToken = streamClient.createToken(user.id);
+    const streamToken = streamClient.createToken(String(user.id));
 
+    // 2. Return the COMPLETE user object for AuthContext
     return res.status(200).json({
       message: "Login successful",
       token,
       user: {
         id: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        userType: user.user_type,
-        company: user.company,
         businessUnit: user.business_unit,
+        isActive: user.is_active,
+        firstName: user.first_name,
+        middleName: user.middle_name,
+        lastName: user.last_name,
+        userType: user.user_type, // This is your role (ADMIN/OFFICER/USER)
+        position: user.position,
+        company: user.company,
+        companyBranch: user.company_branch,
+        phoneNumber: user.phone_number,
+        postalCode: user.postal_code,
+        streetAddress: user.street_address,
+        city: user.city,
+        stateProvince: user.state_province,
+        visaType: user.visa_type,
+        visaExpiry: user.visa_expiry_date,
       },
       streamToken,
     });
