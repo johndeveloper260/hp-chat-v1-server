@@ -45,22 +45,56 @@ export const getCompanyDropdown = async (req, res) => {
 // 3. CREATE
 export const createCompany = async (req, res) => {
   const { company_name, business_unit, website_url } = req.body;
-  const userId = req.user.id; // From auth middleware
+  const userId = req.user.id;
+
+  const client = await getPool().connect();
 
   try {
-    const query = `
+    await client.query("BEGIN");
+
+    // 1. Insert the new company
+    const companyQuery = `
       INSERT INTO v4.company_tbl (company_name, business_unit, website_url, last_updated_by)
-      VALUES ($1, $2, $3, $4) RETURNING *;
+      VALUES ($1, $2, $3, $4) 
+      RETURNING *;
     `;
-    const { rows } = await getPool().query(query, [
+    const companyRes = await client.query(companyQuery, [
       company_name,
       business_unit,
       website_url,
       userId,
     ]);
-    res.status(201).json(rows[0]);
+
+    const newCompanyId = companyRes.rows[0].company_id;
+
+    // 2. Populate xref table with 3 rows (USER, OFFICER, ADMIN)
+    // We use a single multi-row INSERT query for efficiency
+    const xrefQuery = `
+      INSERT INTO v4.customer_xref_tbl (business_unit, role_name, company)
+      VALUES 
+        ($1, 'USER', $2),
+        ($1, 'OFFICER', $2),
+        ($1, 'ADMIN', $2)
+      RETURNING *;
+    `;
+    const xrefRes = await client.query(xrefQuery, [
+      business_unit,
+      newCompanyId,
+    ]);
+
+    await client.query("COMMIT");
+
+    // Return the company and the newly generated codes
+    res.status(201).json({
+      company: companyRes.rows[0],
+      registration_codes: xrefRes.rows,
+    });
   } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Creation Error:", err.message);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
 
