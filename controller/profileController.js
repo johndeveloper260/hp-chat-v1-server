@@ -39,14 +39,6 @@ export const updateWorkVisa = async (req, res) => {
     ];
     await client.query(visaQuery, visaValues);
 
-    // 2. Optional: If user is Officer, update Timeline dates
-    if (req.user.role === "OFFICER") {
-      await client.query(
-        "UPDATE v4.user_visa_info_tbl SET joining_date = $1, assignment_start_date = $2 WHERE user_id = $3",
-        [data.joining_date, data.assignment_start_date, userId]
-      );
-    }
-
     await client.query("COMMIT");
     res.status(200).json({ message: "Update successful" });
   } catch (error) {
@@ -101,7 +93,7 @@ export const getUserProfile = async (req, res) => {
   try {
     const result = await getPool().query(
       "SELECT * FROM v4.user_profile_tbl WHERE user_id = $1",
-      [userId]
+      [userId],
     );
 
     if (result.rows.length === 0) {
@@ -158,7 +150,7 @@ export const updateUserProfile = async (req, res) => {
         city,
         state_province,
         userId,
-      ]
+      ],
     );
 
     res.json({ message: "Profile updated successfully", data: result.rows[0] });
