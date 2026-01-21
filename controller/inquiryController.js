@@ -91,6 +91,7 @@ export const createInquiry = async (req, res) => {
     high_pri,
     watcher,
     owner_id,
+    opened_by,
   } = req.body;
 
   const query = `
@@ -101,7 +102,7 @@ export const createInquiry = async (req, res) => {
       last_updated_by, last_update_dttm
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8::uuid[], 
-      $9::uuid, $10::uuid, 'OPEN', CURRENT_DATE,
+      $9::uuid, $10::uuid, 'New', CURRENT_DATE,
       $9::uuid, NOW()
     ) RETURNING *;
   `;
@@ -116,7 +117,7 @@ export const createInquiry = async (req, res) => {
       type,
       high_pri,
       watcher || [],
-      userId,
+      opened_by,
       owner_id || userId,
     ];
     const { rows } = await getPool().query(query, values);
