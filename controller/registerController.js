@@ -52,7 +52,7 @@ export const registerUser = async (req, res) => {
     firstName,
     middleName,
     lastName,
-    registrationCode, // Required
+    registrationCode,
     position,
     companyBranch,
     phoneNumber,
@@ -61,13 +61,11 @@ export const registerUser = async (req, res) => {
     postalCode,
     streetAddress,
     city,
-    state,
+    state, // This maps to state_province in your table
   } = req.body;
 
   if (!email || !password || !firstName || !lastName || !registrationCode) {
-    return res.status(400).json({
-      error: "Missing required fields.",
-    });
+    return res.status(400).json({ error: "Missing required fields." });
   }
 
   const pool = getPool();
@@ -76,8 +74,7 @@ export const registerUser = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Re-validate Code (Security Step)
-    // We use the column 'company' as per your schema
+    // 1. Validate Registration Code
     const xrefQuery = `
       SELECT business_unit, role_name, company 
       FROM v4.customer_xref_tbl 
@@ -93,50 +90,57 @@ export const registerUser = async (req, res) => {
     const { business_unit, role_name, company } = xrefRes.rows[0];
     const userRole = (role_name || "USER").toUpperCase();
 
-    // 2. Create User
+    // 2. Insert into user_account_tbl
     const normalizedEmail = email.toLowerCase().trim();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const profileQuery = `
-      INSERT INTO v4.user_profile_tbl (
-        email, password_hash, first_name, middle_name, last_name, 
-        user_type, role, business_unit, company, 
-        position, company_branch, phone_number, 
-        postal_code, street_address, city, state,
-        created_at, updated_at
+    const accountQuery = `
+      INSERT INTO v4.user_account_tbl (
+        email, password_hash, business_unit, is_active, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
-      RETURNING user_id;
+      VALUES ($1, $2, $3, true, NOW(), NOW())
+      RETURNING id as user_id;
     `;
-
-    const profileValues = [
+    const accountRes = await client.query(accountQuery, [
       normalizedEmail,
       hashedPassword,
+      business_unit,
+    ]);
+    const userId = accountRes.rows[0].user_id;
+
+    // 3. Insert into user_profile_tbl
+    const profileQuery = `
+      INSERT INTO v4.user_profile_tbl (
+        user_id, first_name, middle_name, last_name, 
+        user_type, position, company, company_branch, 
+        phone_number, postal_code, street_address, city, state_province,
+        created_at, updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+    `;
+    const profileValues = [
+      userId,
       firstName,
       middleName,
       lastName,
-      userRole, // From XREF
-      userRole, // From XREF
-      business_unit, // From XREF
-      company, // From XREF (UUID)
+      userRole,
       position,
+      company, // UUID from XREF
       companyBranch,
       phoneNumber,
       postalCode,
       streetAddress,
       city,
-      state,
+      state, // UI "state" maps to DB "state_province"
     ];
+    await client.query(profileQuery, profileValues);
 
-    const profileRes = await client.query(profileQuery, profileValues);
-    const userId = profileRes.rows[0].user_id;
-
-    // 3. Visa & Stream Chat
+    // 4. Insert into user_visa_info_tbl
     const visaQuery = `
-      INSERT INTO v4.visa_status_tbl (
-        user_id, visa_type, visa_expiry_date, visa_issue_date, joining_date
+      INSERT INTO v4.user_visa_info_tbl (
+        user_id, visa_type, visa_expiry_date, created_at, updated_at
       )
-      VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_DATE);
+      VALUES ($1, $2, $3, NOW(), NOW());
     `;
     const defaultVisaType = visaType || "Standard Work Visa";
     const defaultVisaExpiry =
@@ -145,6 +149,7 @@ export const registerUser = async (req, res) => {
 
     await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry]);
 
+    // 5. Stream Chat Integration
     const fullName = middleName
       ? `${lastName} ${firstName} ${middleName}`
       : `${lastName} ${firstName}`;
@@ -171,6 +176,7 @@ export const registerUser = async (req, res) => {
   } catch (err) {
     await client.query("ROLLBACK");
     if (err.code === "23505") {
+      // Unique violation for email
       return res.status(409).json({ error: "Email already exists" });
     }
     console.error("Registration Error:", err);
