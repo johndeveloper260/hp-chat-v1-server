@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
+import { log } from "node:console";
 
 dotenv.config();
 
@@ -130,7 +131,7 @@ export const createInquiry = async (req, res) => {
 // 3. UPDATE
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
-  const userId = req.user.id;
+  console.log(req.user);
 
   const {
     status,
