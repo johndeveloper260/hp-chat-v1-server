@@ -36,6 +36,17 @@ export const searchInquiries = async (req, res) => {
    FROM v4.user_profile_tbl 
    WHERE user_id = ANY(i.watcher)) AS watcher_names
 
+   COALESCE(
+        (
+          SELECT json_agg(att)
+          FROM (
+            SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
+            FROM v4.shared_attachments
+            WHERE relation_type = 'inquiries' AND relation_id = a.row_id::text
+          ) att
+        ), '[]'
+      ) as attachments
+
 FROM v4.inquiry_tbl i
 -- Joins
 LEFT JOIN v4.company_tbl c ON i.company = c.company_id
