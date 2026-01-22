@@ -36,7 +36,7 @@ export const searchInquiries = async (req, res) => {
    FROM v4.user_profile_tbl 
    WHERE user_id = ANY(i.watcher)) AS watcher_names,
 
-  -- Corrected Attachments Subquery
+  -- Attachments Subquery
   COALESCE(
     (
       SELECT json_agg(json_build_object(
