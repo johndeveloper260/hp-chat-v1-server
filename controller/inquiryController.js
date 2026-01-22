@@ -19,10 +19,10 @@ export const searchInquiries = async (req, res) => {
   let query = `
   SELECT 
   i.*, 
-  -- Resolve Company Name (Language Sensitive)
+  -- 1. Dynamic Company Name based on $1 (lang)
   COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
   
-  -- Resolve Issue Type Description (Language Sensitive)
+  -- 2. Dynamic Issue Type Description based on $1 (lang)
   COALESCE(iss.descr->>$1, iss.descr->>'en', 'General Inquiry') AS type_name,
 
   -- Resolve User Names
@@ -34,25 +34,22 @@ export const searchInquiries = async (req, res) => {
   -- Resolve Watcher Names
   (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
    FROM v4.user_profile_tbl 
-   WHERE user_id = ANY(i.watcher)) AS watcher_names,
+   WHERE user_id = ANY(i.watcher)) AS watcher_names, 
 
-  -- Attachments Subquery
-  COALESCE(
-    (
-      SELECT json_agg(json_build_object(
-        'attachment_id', attachment_id,
-        's3_key', s3_key,
-        's3_bucket', s3_bucket,
-        'name', display_name,
-        'type', file_type
-      ))
-      FROM v4.shared_attachments
-      WHERE relation_type = 'inquiries' 
-      AND relation_id = i.ticket_id::text -- Ensure this matches your attachment storage logic
-    ), '[]'::json
-  ) as attachments
+   -- Resolve Attachments
+   COALESCE(
+        (
+          SELECT json_agg(att)
+          FROM (
+            SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
+            FROM v4.shared_attachments
+            WHERE relation_type = 'inquiries' AND relation_id = i.row_id::text
+          ) att
+        ), '[]'::json -- Best practice: Cast fallback to json
+      ) as attachments
 
 FROM v4.inquiry_tbl i
+-- Joins
 LEFT JOIN v4.company_tbl c ON i.company = c.company_id
 LEFT JOIN v4.issue_tbl iss ON i.type = iss.code AND i.business_unit = iss.business_unit
 LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
@@ -60,7 +57,7 @@ LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
 LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
 LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
 
-WHERE i.business_unit = $2; -- Use $2 for 'FWARD' to stay consistent with parameters
+WHERE i.business_unit = $2;
   `;
 
   const values = [lang, businessUnit];
