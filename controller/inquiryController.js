@@ -39,6 +39,12 @@ export const searchInquiries = async (req, res) => {
      FROM v4.user_profile_tbl 
      WHERE user_id = ANY(i.watcher)) AS watcher_names, 
 
+     -- NEW: Resolve Comment Count
+    (SELECT COUNT(*) 
+     FROM v4.shared_comments 
+     WHERE relation_type = 'inquiries' 
+     AND relation_id = i.ticket_id) AS comment_count,
+
      -- Resolve Attachments using json_build_object to avoid subquery scoping issues
      COALESCE(
       (
