@@ -43,7 +43,7 @@ export const searchInquiries = async (req, res) => {
           FROM (
             SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
             FROM v4.shared_attachments
-            WHERE relation_type = 'inquiries' AND relation_id = i.row_id::text
+            WHERE relation_type = 'inquiries' AND relation_id = i.ticket_id::text
           ) att
         ), '[]'::json -- Best practice: Cast fallback to json
       ) as attachments
