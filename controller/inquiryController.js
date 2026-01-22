@@ -16,9 +16,9 @@ export const searchInquiries = async (req, res) => {
   } = req.query;
 
   const businessUnit = req.user.business_unit;
+  const userId = req.user.id;
+  const userRole = req.user.userType?.toUpperCase() || ""; // Match the role check in ManageInquiryModal
 
-  // REMOVED the semicolon from the end of the base string
-  // Added "WHERE 1=1" to safely append dynamic "AND" conditions
   let query = `
   SELECT 
     i.*, 
@@ -39,13 +39,13 @@ export const searchInquiries = async (req, res) => {
      FROM v4.user_profile_tbl 
      WHERE user_id = ANY(i.watcher)) AS watcher_names, 
 
-     -- NEW: Resolve Comment Count
+    -- Resolve Comment Count
     (SELECT COUNT(*) 
      FROM v4.shared_comments 
      WHERE relation_type = 'inquiries' 
      AND relation_id = i.ticket_id) AS comment_count,
 
-     -- Resolve Attachments using json_build_object to avoid subquery scoping issues
+     -- Resolve Attachments
      COALESCE(
       (
         SELECT json_agg(
@@ -77,12 +77,18 @@ export const searchInquiries = async (req, res) => {
 
   const values = [lang, businessUnit];
 
+  // --- ROLE-BASED VISIBILITY LOGIC ---
+  // If NOT an officer, restrict to only their own inquiries
+  if (userRole !== "OFFICER") {
+    values.push(userId);
+    query += ` AND i.owner_id = $${values.length}::uuid`;
+  }
+
   // --- STATUS FILTER LOGIC ---
   if (status && status !== "All") {
     values.push(status);
     query += ` AND i.status = $${values.length}`;
   } else if (!status || status === "All") {
-    // Hide Completed/Hold by default for "All" view
     query += ` AND i.status NOT IN ('Completed', 'Hold')`;
   }
 
@@ -92,7 +98,7 @@ export const searchInquiries = async (req, res) => {
     query += ` AND i.type = $${values.length}`;
   }
 
-  // --- NEW FILTERS ---
+  // --- ADDITIONAL FILTERS ---
   if (company_id && company_id !== "null") {
     values.push(company_id);
     query += ` AND i.company = $${values.length}`;
