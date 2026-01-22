@@ -162,15 +162,43 @@ export const updateUserProfile = async (req, res) => {
       ],
     );
 
+    const loginQuery = `
+      SELECT 
+        a.id, 
+        a.email, 
+        a.business_unit, 
+        p.first_name, 
+        p.middle_name,
+        p.last_name, 
+        p.company, 
+      FROM v4.user_account_tbl a
+      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
+      WHERE a.id = $1;
+    `;
+
+    const resultForUpdate = await getPool().query(loginQuery, [userId]);
+
+    // Check if user exists to avoid "cannot read property of undefined" errors
+    if (resultForUpdate.rows.length === 0) {
+      return res.status(404).send("User not found");
+    }
+
+    // Extract the first row
+    const user = resultForUpdate.rows[0];
+
     // 2. Sync with GetStream
-    // Combine names for Stream's 'name' field
-    const fullName = `${first_name} ${last_name}`.trim();
+    // Reference fields from the 'user' variable (the specific row)
+    const fullName = `${user.first_name} ${user.last_name}`.trim();
+    const normalizedEmail = user.email.toLowerCase().trim();
 
     await serverClient.upsertUser({
       id: userId,
       name: fullName,
+      email: normalizedEmail, // Added email to sync if needed
       // Custom fields in Stream
-      company: company,
+      company: user.company,
+      business_unit: user.business_unit,
     });
 
     res.json({ message: "Profile updated successfully", data: result.rows[0] });
