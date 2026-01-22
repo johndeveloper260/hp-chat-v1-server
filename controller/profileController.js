@@ -1,3 +1,5 @@
+import { StreamChat } from 'stream-chat';
+
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js"; // Note the .js extension
 
@@ -110,6 +112,13 @@ export const getUserProfile = async (req, res) => {
 /**
  * Update User Profile
  */
+
+// Initialize Stream Client (usually in a config file)
+const serverClient = StreamChat.getInstance(
+  process.env.STREAM_API_KEY, 
+  process.env.STREAM_API_SECRET
+);
+
 export const updateUserProfile = async (req, res) => {
   const { userId } = req.params;
   const {
@@ -119,43 +128,41 @@ export const updateUserProfile = async (req, res) => {
     user_type,
     position,
     company,
-    company_branch,
-    phone_number,
-    postal_code,
-    street_address,
-    city,
-    state_province,
+    // ... other fields
   } = req.body;
 
   try {
+    // 1. Update Database
     const result = await getPool().query(
       `UPDATE v4.user_profile_tbl SET 
         first_name = $1, middle_name = $2, last_name = $3, 
         user_type = $4, position = $5, company = $6, 
-        company_branch = $7, phone_number = $8, postal_code = $9, 
-        street_address = $10, city = $11, state_province = $12, 
+        ... 
         updated_at = CURRENT_TIMESTAMP
       WHERE user_id = $13 RETURNING *`,
-      [
-        first_name,
-        middle_name,
-        last_name,
-        user_type,
-        position,
-        company,
-        company_branch,
-        phone_number,
-        postal_code,
-        street_address,
-        city,
-        state_province,
-        userId,
-      ],
+      [first_name, middle_name, last_name, user_type, position, company, ..., userId]
     );
 
-    res.json({ message: "Profile updated successfully", data: result.rows[0] });
+    const updatedUser = result.rows[0];
+
+    // 2. Sync with GetStream
+    // Combine names for Stream's 'name' field
+    const fullName = `${first_name} ${last_name}`.trim();
+
+    await serverClient.upsertUser({
+      id: userId,
+      name: fullName,
+      company: company,
+      position: position,
+      user_type: user_type,
+    });
+
+    res.json({ 
+      message: "Profile and Stream updated successfully", 
+      data: updatedUser 
+    });
   } catch (err) {
-    console.error(err.message);
+    console.error("Update Error:", err.message);
     res.status(500).send("Database Error");
   }
 };

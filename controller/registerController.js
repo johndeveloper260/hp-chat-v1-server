@@ -150,9 +150,7 @@ export const registerUser = async (req, res) => {
     await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry]);
 
     // 5. Stream Chat Integration
-    const fullName = middleName
-      ? `${lastName} ${firstName} ${middleName}`
-      : `${lastName} ${firstName}`;
+    const fullName = `${firstName} ${lastName}`.trim();
 
     await streamClient.upsertUser({
       id: userId,
