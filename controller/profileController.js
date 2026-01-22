@@ -170,7 +170,8 @@ export const updateUserProfile = async (req, res) => {
         p.first_name, 
         p.middle_name,
         p.last_name, 
-        p.company
+        p.company,
+        p.user_type
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
       LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
@@ -195,10 +196,10 @@ export const updateUserProfile = async (req, res) => {
     await serverClient.upsertUser({
       id: user.id,
       name: fullName,
-      email: normalizedEmail, // Added email to sync if needed
-      // Custom fields in Stream
+      email: normalizedEmail,
       company: user.company,
       business_unit: user.business_unit,
+      user_type: user.user_type,
     });
 
     res.json({ message: "Profile updated successfully", data: result.rows[0] });
