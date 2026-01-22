@@ -4,6 +4,7 @@ import { log } from "node:console";
 
 dotenv.config();
 
+// 1. SEARCH
 export const searchInquiries = async (req, res) => {
   const {
     status,
@@ -16,54 +17,56 @@ export const searchInquiries = async (req, res) => {
 
   const businessUnit = req.user.business_unit;
 
+  // REMOVED the semicolon from the end of the base string
+  // Added "WHERE 1=1" to safely append dynamic "AND" conditions
   let query = `
   SELECT 
-  i.*, 
-  -- 1. Dynamic Company Name based on $1 (lang)
-  COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
-  
-  -- 2. Dynamic Issue Type Description based on $1 (lang)
-  COALESCE(iss.descr->>$1, iss.descr->>'en', 'General Inquiry') AS type_name,
+    i.*, 
+    -- 1. Dynamic Company Name based on $1 (lang)
+    COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
+    
+    -- 2. Dynamic Issue Type Description based on $1 (lang)
+    COALESCE(iss.descr->>$1, iss.descr->>'en', 'General Inquiry') AS type_name,
 
-  -- Resolve User Names
-  TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
-  TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
-  TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
-  TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
-  
-  -- Resolve Watcher Names
-  (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
-   FROM v4.user_profile_tbl 
-   WHERE user_id = ANY(i.watcher)) AS watcher_names, 
+    -- Resolve User Names
+    TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
+    TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
+    TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
+    TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
+    
+    -- Resolve Watcher Names
+    (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
+     FROM v4.user_profile_tbl 
+     WHERE user_id = ANY(i.watcher)) AS watcher_names, 
 
-   -- FIXED: Resolve Attachments using json_build_object
-   COALESCE(
-    (
-      SELECT json_agg(
-        json_build_object(
-          'attachment_id', attachment_id,
-          's3_key', s3_key,
-          's3_bucket', s3_bucket,
-          'name', display_name,
-          'type', file_type
+     -- Resolve Attachments using json_build_object to avoid subquery scoping issues
+     COALESCE(
+      (
+        SELECT json_agg(
+          json_build_object(
+            'attachment_id', attachment_id,
+            's3_key', s3_key,
+            's3_bucket', s3_bucket,
+            'name', display_name,
+            'type', file_type
+          )
         )
-      )
-      FROM v4.shared_attachments
-      WHERE relation_type = 'inquiries' 
-      AND relation_id = i.ticket_id::text
-    ), '[]'::json
-  ) as attachments
+        FROM v4.shared_attachments
+        WHERE relation_type = 'inquiries' 
+        AND relation_id = i.ticket_id::text
+      ), '[]'::json
+    ) as attachments
 
-FROM v4.inquiry_tbl i
--- Joins
-LEFT JOIN v4.company_tbl c ON i.company = c.company_id
-LEFT JOIN v4.issue_tbl iss ON i.type = iss.code AND i.business_unit = iss.business_unit
-LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
-LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
-LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
-LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
+  FROM v4.inquiry_tbl i
+  -- Joins
+  LEFT JOIN v4.company_tbl c ON i.company = c.company_id
+  LEFT JOIN v4.issue_tbl iss ON i.type = iss.code AND i.business_unit = iss.business_unit
+  LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
+  LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
+  LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
+  LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
 
-WHERE i.business_unit = $2;
+  WHERE i.business_unit = $2
   `;
 
   const values = [lang, businessUnit];
@@ -73,9 +76,14 @@ WHERE i.business_unit = $2;
     values.push(status);
     query += ` AND i.status = $${values.length}`;
   } else if (!status || status === "All") {
-    // DEFAULT BEHAVIOR: If no specific status is requested, hide Closed/Hold
-    // This allows "All" to mean "All relevant/active"
+    // Hide Completed/Hold by default for "All" view
     query += ` AND i.status NOT IN ('Completed', 'Hold')`;
+  }
+
+  // --- ISSUE TYPE FILTER ---
+  if (type && type !== "All") {
+    values.push(type);
+    query += ` AND i.type = $${values.length}`;
   }
 
   // --- NEW FILTERS ---
