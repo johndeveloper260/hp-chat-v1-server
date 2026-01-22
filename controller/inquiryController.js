@@ -36,17 +36,23 @@ export const searchInquiries = async (req, res) => {
    FROM v4.user_profile_tbl 
    WHERE user_id = ANY(i.watcher)) AS watcher_names, 
 
-   -- Resolve Attachments
+   -- FIXED: Resolve Attachments using json_build_object
    COALESCE(
-        (
-          SELECT json_agg(att)
-          FROM (
-            SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
-            FROM v4.shared_attachments
-            WHERE relation_type = 'inquiries' AND relation_id = i.ticket_id::text
-          ) att
-        ), '[]'::json -- Best practice: Cast fallback to json
-      ) as attachments
+    (
+      SELECT json_agg(
+        json_build_object(
+          'attachment_id', attachment_id,
+          's3_key', s3_key,
+          's3_bucket', s3_bucket,
+          'name', display_name,
+          'type', file_type
+        )
+      )
+      FROM v4.shared_attachments
+      WHERE relation_type = 'inquiries' 
+      AND relation_id = i.ticket_id::text
+    ), '[]'::json
+  ) as attachments
 
 FROM v4.inquiry_tbl i
 -- Joins
