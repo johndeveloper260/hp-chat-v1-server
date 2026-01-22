@@ -35,14 +35,13 @@ export const searchInquiries = async (req, res) => {
   (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
    FROM v4.user_profile_tbl 
    WHERE user_id = ANY(i.watcher)) AS watcher_names
-
    COALESCE(
         (
           SELECT json_agg(att)
           FROM (
             SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
             FROM v4.shared_attachments
-            WHERE relation_type = 'inquiries' AND relation_id = a.row_id::text
+            WHERE relation_type = 'inquiries' AND relation_id = i.row_id::text
           ) att
         ), '[]'
       ) as attachments
