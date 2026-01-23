@@ -30,7 +30,11 @@ router.get("/view/:id", auth, attachmentController.getViewingUrl);
 router.delete("/:id", auth, attachmentController.deleteAttachment);
 
 // 5. Delete Profile Pic
-router.delete("/profile/:userId", auth, deleteProfilePicture);
+router.delete(
+  "/profile/:userId",
+  auth,
+  attachmentController.deleteProfilePicture,
+);
 
 // 6. Change module.exports to export default
 export default router;
