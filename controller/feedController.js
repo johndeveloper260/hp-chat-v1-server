@@ -246,13 +246,13 @@ export const updateAnnouncement = async (req, res) => {
 
       // Get targeted users (same logic as create)
       let recipientQuery = `
-      SELECT DISTINCT a.id::text as user_id -- Cast UUID to text for the notification function
-      FROM v4.user_account_tbl a
-      JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      WHERE a.business_unit = $1 
-    AND a.is_active = true
-    AND a.id != $2::uuid -- Explicitly cast the 'not equal' check to UUID
-    `;
+        SELECT DISTINCT a.id as user_id
+        FROM v4.user_account_tbl a
+        JOIN v4.user_profile_tbl p ON a.id = p.user_id
+        WHERE a.business_unit = $1 
+          AND a.is_active = true
+          AND a.id != $2::uuid -- ADD ::uuid HERE
+      `;
 
       const queryValues = [updatedAnnouncement.business_unit, userId];
 
