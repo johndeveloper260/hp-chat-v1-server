@@ -49,13 +49,13 @@ export const deleteFromS3 = async (s3Key) => {
 export const getPresignedUrl = async (
   fileName,
   fileType,
-  folder = "general"
+  folder = "general",
 ) => {
   try {
     const dateFolder = new Date().toISOString().split("T")[0];
     const s3Key = `${folder}/${dateFolder}/${Date.now()}-${fileName.replace(
       /\s/g,
-      "_"
+      "_",
     )}`;
 
     const command = new PutObjectCommand({
@@ -128,7 +128,7 @@ export const getViewingUrl = async (req, res) => {
   try {
     const { rows } = await getPool().query(
       "SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE attachment_id = $1",
-      [id]
+      [id],
     );
 
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
@@ -186,12 +186,57 @@ export const deleteAttachment = async (req, res) => {
     // 3. Delete from Postgres
     await getPool().query(
       `DELETE FROM v4.shared_attachments WHERE attachment_id = $1`,
-      [id]
+      [id],
     );
 
     res.json({ message: "Attachment deleted successfully from S3 and DB" });
   } catch (error) {
     console.error("Delete Route Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Delete profile picture by user ID
+ * Finds and deletes the existing profile picture for a specific user
+ */
+export const deleteProfilePicture = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // 1. Find the existing profile picture for this user
+    const findQuery = `
+      SELECT attachment_id, s3_key 
+      FROM v4.shared_attachments 
+      WHERE relation_type = 'profile' 
+      AND relation_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    const { rows } = await getPool().query(findQuery, [userId.toString()]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "No profile picture found" });
+    }
+
+    const { attachment_id, s3_key } = rows[0];
+
+    // 2. Delete from S3
+    await deleteFromS3(s3_key);
+
+    // 3. Delete from database
+    await getPool().query(
+      `DELETE FROM v4.shared_attachments WHERE attachment_id = $1`,
+      [attachment_id],
+    );
+
+    res.json({
+      message: "Profile picture deleted successfully",
+      attachment_id,
+    });
+  } catch (error) {
+    console.error("Delete Profile Picture Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

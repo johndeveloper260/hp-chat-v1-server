@@ -12,7 +12,7 @@ router.post("/generate-url", auth, async (req, res) => {
     const data = await attachmentController.getPresignedUrl(
       fileName,
       fileType,
-      folder
+      folder,
     );
     res.json(data);
   } catch (err) {
@@ -29,5 +29,8 @@ router.get("/view/:id", auth, attachmentController.getViewingUrl);
 // 4. Delete
 router.delete("/:id", auth, attachmentController.deleteAttachment);
 
-// 2. Change module.exports to export default
+// 5. Delete Profile Pic
+router.delete("/profile/:userId", auth, deleteProfilePicture);
+
+// 6. Change module.exports to export default
 export default router;
