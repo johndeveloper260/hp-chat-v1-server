@@ -5,105 +5,6 @@ import { sendNotificationToMultipleUsers } from "./notificationController.js";
 dotenv.config();
 
 /**
- * POST /announcements
- * Create a new announcement - WITH PUSH NOTIFICATIONS
- */
-export const createAnnouncement = async (req, res) => {
-  const { id: userId, business_unit: userBU } = req.user;
-
-  const {
-    company,
-    title,
-    content_text,
-    date_from,
-    date_to,
-    active,
-    comments_on,
-  } = req.body;
-
-  const query = `
-    INSERT INTO v4.announcement_tbl (
-      business_unit, company, title, content_text, 
-      date_from, date_to, active, comments_on, 
-      created_by, created_at, last_updated_by, last_updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid, NOW(), $9::uuid, NOW())
-    RETURNING *;
-  `;
-
-  try {
-    const values = [
-      userBU,
-      company,
-      title,
-      content_text,
-      date_from,
-      date_to,
-      active,
-      comments_on,
-      userId,
-    ];
-    const { rows } = await getPool().query(query, values);
-    const newAnnouncement = rows[0];
-
-    // Get creator's name for notification
-    const creatorQuery = await getPool().query(
-      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
-      [userId],
-    );
-    const creatorName = creatorQuery.rows[0]
-      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
-      : "Someone";
-
-    // SEND PUSH NOTIFICATIONS TO TARGETED USERS
-    // Logic mirrors your getAnnouncements query
-    let recipientQuery = `
-      SELECT DISTINCT a.id as user_id
-      FROM v4.user_account_tbl a
-      JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      WHERE a.business_unit = $1 
-        AND a.is_active = true
-        AND a.id != $2
-    `;
-
-    const queryValues = [userBU, userId];
-
-    // If specific companies are targeted, only notify users in those companies
-    if (company && Array.isArray(company) && company.length > 0) {
-      queryValues.push(company);
-      recipientQuery += ` AND (p.company = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
-    }
-    // If no companies specified, it's a global announcement - notify all users in BU
-
-    const recipientResult = await getPool().query(recipientQuery, queryValues);
-    const recipientIds = recipientResult.rows.map((row) => row.user_id);
-
-    // Send notifications
-    if (recipientIds.length > 0 && active) {
-      await sendNotificationToMultipleUsers(
-        recipientIds,
-        `New Announcement: ${title}`,
-        `${creatorName} posted a new announcement`,
-        {
-          type: "announcement",
-          announcementId: newAnnouncement.row_id,
-          screen: "HomeScreen",
-          params: { rowId: newAnnouncement.row_id },
-        },
-      );
-
-      console.log(
-        `📢 Sent announcement notification to ${recipientIds.length} users`,
-      );
-    }
-
-    res.status(201).json(newAnnouncement);
-  } catch (err) {
-    console.error("Create Announcement Error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
  * GET /announcements
  * Fetch all active announcements with attachments
  */
@@ -177,6 +78,98 @@ export const getAnnouncements = async (req, res) => {
 };
 
 /**
+ * POST /announcements
+ * Create a new announcement - WITH PUSH NOTIFICATIONS
+ */
+export const createAnnouncement = async (req, res) => {
+  const { id: userId, business_unit: userBU } = req.user;
+
+  const {
+    company,
+    title,
+    content_text,
+    date_from,
+    date_to,
+    active,
+    comments_on,
+  } = req.body;
+
+  const query = `
+    INSERT INTO v4.announcement_tbl (
+      business_unit, company, title, content_text, 
+      date_from, date_to, active, comments_on, 
+      created_by, created_at, last_updated_by, last_updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid, NOW(), $9::uuid, NOW())
+    RETURNING *;
+  `;
+
+  try {
+    const values = [
+      userBU,
+      company,
+      title,
+      content_text,
+      date_from,
+      date_to,
+      active,
+      comments_on,
+      userId,
+    ];
+    const { rows } = await getPool().query(query, values);
+    const newAnnouncement = rows[0];
+
+    // Get creator's name - ADDED ::uuid
+    const creatorQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
+      [userId],
+    );
+    const creatorName = creatorQuery.rows[0]
+      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
+      : "Someone";
+
+    // UPDATED: Recipient Query with explicit casts
+    let recipientQuery = `
+      SELECT DISTINCT a.id::text as user_id
+      FROM v4.user_account_tbl a
+      JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      WHERE a.business_unit = $1::text 
+        AND a.is_active = true
+        AND a.id != $2::uuid
+    `;
+
+    const queryValues = [userBU, userId];
+
+    if (company && Array.isArray(company) && company.length > 0) {
+      queryValues.push(company);
+      // Ensure the ANY check uses uuid array cast
+      recipientQuery += ` AND (p.company = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
+    }
+
+    const recipientResult = await getPool().query(recipientQuery, queryValues);
+    const recipientIds = recipientResult.rows.map((row) => row.user_id);
+
+    if (recipientIds.length > 0 && active) {
+      await sendNotificationToMultipleUsers(
+        recipientIds,
+        `New Announcement: ${title}`,
+        `${creatorName} posted a new announcement`,
+        {
+          type: "announcement",
+          announcementId: newAnnouncement.row_id,
+          screen: "HomeScreen",
+          params: { rowId: newAnnouncement.row_id },
+        },
+      );
+    }
+
+    res.status(201).json(newAnnouncement);
+  } catch (err) {
+    console.error("Create Announcement Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
  * PUT /announcements/:id
  * Update an existing announcement - WITH PUSH NOTIFICATIONS
  */
@@ -193,22 +186,22 @@ export const updateAnnouncement = async (req, res) => {
     comments_on,
   } = req.body;
 
+  // Ensure row_id cast matches your schema (integer vs uuid)
   const query = `
-  UPDATE v4.announcement_tbl 
-  SET 
-    company = $1, title = $2, 
-    content_text = $3, date_from = $4, date_to = $5, 
-    active = $6, comments_on = $7, 
-    last_updated_by = $8::uuid,
-    last_updated_at = NOW()
-  WHERE row_id = $9::integer  
-  RETURNING *;
-`;
+    UPDATE v4.announcement_tbl 
+    SET 
+      company = $1, title = $2, 
+      content_text = $3, date_from = $4, date_to = $5, 
+      active = $6, comments_on = $7, 
+      last_updated_by = $8::uuid,
+      last_updated_at = NOW()
+    WHERE row_id = $9::integer  
+    RETURNING *;
+  `;
 
   try {
-    // Get old announcement data
     const oldData = await getPool().query(
-      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::integer", // Cast to integer if row_id is a serial
+      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::integer",
       [rowId],
     );
 
@@ -228,14 +221,11 @@ export const updateAnnouncement = async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
     const updatedAnnouncement = rows[0];
-
-    // Send notification if announcement was just activated or significantly updated
     const wasActivated = !oldData.rows[0].active && active;
     const titleChanged = oldData.rows[0].title !== title;
     const contentChanged = oldData.rows[0].content_text !== content_text;
 
     if (wasActivated || (active && (titleChanged || contentChanged))) {
-      // Get updater's name
       const updaterQuery = await getPool().query(
         `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
         [userId],
@@ -244,14 +234,14 @@ export const updateAnnouncement = async (req, res) => {
         ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
         : "Someone";
 
-      // Get targeted users (same logic as create)
+      // UPDATED: Recipient Query with explicit casts
       let recipientQuery = `
-        SELECT DISTINCT a.id as user_id
+        SELECT DISTINCT a.id::text as user_id
         FROM v4.user_account_tbl a
         JOIN v4.user_profile_tbl p ON a.id = p.user_id
-        WHERE a.business_unit = $1 
+        WHERE a.business_unit = $1::text 
           AND a.is_active = true
-          AND a.id != $2::uuid -- ADD ::uuid HERE
+          AND a.id != $2::uuid
       `;
 
       const queryValues = [updatedAnnouncement.business_unit, userId];
@@ -282,10 +272,6 @@ export const updateAnnouncement = async (req, res) => {
             screen: "HomeScreen",
             params: { rowId: rowId },
           },
-        );
-
-        console.log(
-          `📢 Sent announcement update notification to ${recipientIds.length} users`,
         );
       }
     }
