@@ -194,21 +194,21 @@ export const updateAnnouncement = async (req, res) => {
   } = req.body;
 
   const query = `
-    UPDATE v4.announcement_tbl 
-    SET 
-      company = $1, title = $2, 
-      content_text = $3, date_from = $4, date_to = $5, 
-      active = $6, comments_on = $7, 
-      last_updated_by = $8::uuid, 
-      last_updated_at = NOW()
-    WHERE row_id = $9::uuid    
-    RETURNING *;
-  `;
+  UPDATE v4.announcement_tbl 
+  SET 
+    company = $1, title = $2, 
+    content_text = $3, date_from = $4, date_to = $5, 
+    active = $6, comments_on = $7, 
+    last_updated_by = $8::uuid,
+    last_updated_at = NOW()
+  WHERE row_id = $9::integer  
+  RETURNING *;
+`;
 
   try {
     // Get old announcement data
     const oldData = await getPool().query(
-      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::uuid",
+      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::integer", // Cast to integer if row_id is a serial
       [rowId],
     );
 
@@ -246,13 +246,13 @@ export const updateAnnouncement = async (req, res) => {
 
       // Get targeted users (same logic as create)
       let recipientQuery = `
-        SELECT DISTINCT a.id as user_id
-        FROM v4.user_account_tbl a
-        JOIN v4.user_profile_tbl p ON a.id = p.user_id
-        WHERE a.business_unit = $1 
-          AND a.is_active = true
-          AND a.id != $2
-      `;
+      SELECT DISTINCT a.id::text as user_id -- Cast UUID to text for the notification function
+      FROM v4.user_account_tbl a
+      JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      WHERE a.business_unit = $1 
+    AND a.is_active = true
+    AND a.id != $2::uuid -- Explicitly cast the 'not equal' check to UUID
+    `;
 
       const queryValues = [updatedAnnouncement.business_unit, userId];
 
