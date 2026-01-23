@@ -1,3 +1,7 @@
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
+
 import dotenv from "dotenv";
 
 import { getPool } from "../config/getPool.js"; // Note the .js extension
@@ -11,6 +15,20 @@ const serverClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET,
 );
+
+// Add S3 Client
+const s3Client = new S3Client({
+  region: process.env.REACT_APP_AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+  },
+  requestHandler: new NodeHttpHandler({
+    connectionTimeout: 5000,
+  }),
+  responseChecksumValidation: "WHEN_REQUIRED",
+  requestChecksumCalculation: "WHEN_REQUIRED",
+});
 
 /**
  * Update Work Visa
@@ -119,6 +137,9 @@ export const getUserProfile = async (req, res) => {
 /**
  * Update User Profile
  */
+/**
+ * Update User Profile - WITH STREAM SYNC INCLUDING PROFILE PICTURE
+ */
 export const updateUserProfile = async (req, res) => {
   const { userId } = req.params;
   const {
@@ -171,36 +192,69 @@ export const updateUserProfile = async (req, res) => {
         p.middle_name,
         p.last_name, 
         p.company,
-        p.user_type
+        p.user_type,
+        sa.s3_key as profile_pic_s3_key,
+        sa.s3_bucket as profile_pic_s3_bucket
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
+      LEFT JOIN LATERAL (
+        SELECT s3_key, s3_bucket
+        FROM v4.shared_attachments
+        WHERE relation_type = 'profile'
+          AND relation_id = a.id::text
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) sa ON true
       WHERE a.id = $1;
     `;
 
     const resultForUpdate = await getPool().query(loginQuery, [userId]);
 
-    // Check if user exists to avoid "cannot read property of undefined" errors
     if (resultForUpdate.rows.length === 0) {
       return res.status(404).send("User not found");
     }
 
-    // Extract the first row
     const user = resultForUpdate.rows[0];
-
-    // 2. Sync with GetStream
-    // Reference fields from the 'user' variable (the specific row)
     const fullName = `${user.first_name} ${user.last_name}`.trim();
     const normalizedEmail = user.email.toLowerCase().trim();
 
-    await serverClient.upsertUser({
+    // Generate profile picture URL for Stream if exists
+    let profileImageUrl = null;
+    if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: user.profile_pic_s3_bucket,
+          Key: user.profile_pic_s3_key,
+        });
+
+        profileImageUrl = await getSignedUrl(s3Client, command, {
+          expiresIn: 86400, // 24 hours for Stream
+          signableHeaders: new Set(["host"]),
+        });
+      } catch (error) {
+        console.error(
+          "Error generating profile picture URL for Stream:",
+          error,
+        );
+      }
+    }
+
+    // Sync with GetStream including profile picture
+    const streamUserData = {
       id: user.id,
       name: fullName,
       email: normalizedEmail,
       company: user.company,
       business_unit: user.business_unit,
       user_type: user.user_type,
-    });
+    };
+
+    // Only add image if URL was generated successfully
+    if (profileImageUrl) {
+      streamUserData.image = profileImageUrl;
+    }
+
+    await serverClient.upsertUser(streamUserData);
 
     res.json({ message: "Profile updated successfully", data: result.rows[0] });
   } catch (err) {

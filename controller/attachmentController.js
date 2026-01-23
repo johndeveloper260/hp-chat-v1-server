@@ -1,3 +1,5 @@
+import { StreamChat } from "stream-chat";
+
 import "dotenv/config";
 import { getPool } from "../config/getPool.js";
 import {
@@ -24,6 +26,12 @@ const s3Client = new S3Client({
   requestChecksumCalculation: "WHEN_REQUIRED",
 });
 
+// Initialize Stream Client
+const streamClient = StreamChat.getInstance(
+  process.env.STREAM_API_KEY,
+  process.env.STREAM_API_SECRET,
+);
+
 /**
  * Helper: Delete physical file from S3 bucket
  */
@@ -38,13 +46,46 @@ export const deleteFromS3 = async (s3Key) => {
     console.log(`Successfully deleted ${s3Key} from S3`);
   } catch (err) {
     console.error("S3 Deletion Error:", err);
-    // We throw the error so the controller doesn't delete the DB record if S3 fails
     throw new Error("Failed to delete file from S3 storage.");
   }
 };
 
 /**
- * 1. Generate Pre-signed URL
+ * Helper: Sync profile picture with GetStream
+ * Only called for profile picture uploads
+ */
+export const syncProfilePictureToStream = async (userId, s3Key, s3Bucket) => {
+  try {
+    // Generate signed URL for Stream (24 hours)
+    const command = new GetObjectCommand({
+      Bucket: s3Bucket,
+      Key: s3Key,
+    });
+
+    const profileImageUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 86400, // 24 hours
+      signableHeaders: new Set(["host"]),
+    });
+
+    // Update Stream user with profile picture
+    await streamClient.partialUpdateUser({
+      id: userId.toString(),
+      set: {
+        image: profileImageUrl,
+      },
+    });
+
+    console.log(`Profile picture synced to Stream for user ${userId}`);
+    return profileImageUrl;
+  } catch (error) {
+    console.error("Error syncing profile picture to Stream:", error);
+    throw error;
+  }
+};
+
+/**
+ * 1. Generate Pre-signed URL for Upload
+ * Used by: Profile pictures, Feed attachments, Inquiry attachments
  */
 export const getPresignedUrl = async (
   fileName,
@@ -73,12 +114,12 @@ export const getPresignedUrl = async (
 };
 
 /**
- * 2. Create DB Record (Confirmation)
- * CORRECTED: Accepts (req, res) to work as a Route Handler
+ * 2. Create DB Record (Confirmation) with Conditional Stream Sync
+ * Used by: Profile pictures, Feed attachments, Inquiry attachments
+ * Only syncs to Stream for profile pictures (relation_type = 'profile')
  */
 export const createAttachment = async (req, res) => {
   try {
-    // Extract from req.body, NOT directly from arguments
     const {
       relation_type,
       relation_id,
@@ -111,6 +152,17 @@ export const createAttachment = async (req, res) => {
 
     const result = await getPool().query(query, values);
 
+    // ONLY sync to GetStream if this is a profile picture
+    if (relation_type === "profile") {
+      try {
+        await syncProfilePictureToStream(relation_id, s3_key, s3_bucket);
+        console.log("Profile picture successfully synced to GetStream");
+      } catch (streamError) {
+        console.error("Stream sync failed but attachment saved:", streamError);
+        // Don't fail the request if Stream sync fails
+      }
+    }
+
     // Return the created row to the frontend
     res.json(result.rows[0]);
   } catch (error) {
@@ -120,7 +172,8 @@ export const createAttachment = async (req, res) => {
 };
 
 /**
- * Generate a temporary viewing URL for a private file
+ * 3. Generate a temporary viewing URL for a private file
+ * Used by: All attachment types (profile, feed, inquiry)
  */
 export const getViewingUrl = async (req, res) => {
   const { id } = req.params;
@@ -133,21 +186,20 @@ export const getViewingUrl = async (req, res) => {
 
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
-    // 1. Create Command
+    // Create Command
     const command = new GetObjectCommand({
       Bucket: rows[0].s3_bucket,
       Key: rows[0].s3_key,
-      ChecksumMode: undefined, // Explicitly attempt to clear it
+      ChecksumMode: undefined,
     });
 
-    // 2. Generate Clean URL using signableHeaders
-    // This forces the SDK to ignore complex checksum headers in the signature
+    // Generate Clean URL using signableHeaders
     const signedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600,
+      expiresIn: 3600, // 1 hour for viewing
       signableHeaders: new Set(["host"]),
     });
 
-    // 3. Return as a JSON object
+    // Return as a JSON object
     res.json({ url: signedUrl });
   } catch (error) {
     console.error("Signing Error:", error);
@@ -156,38 +208,91 @@ export const getViewingUrl = async (req, res) => {
 };
 
 /**
- * Unified Delete: Removes from S3 first, then Postgres
+ * 4. Get all attachments for a specific relation
+ * Used by: Feed posts, Inquiry threads to fetch multiple attachments
+ */
+export const getAttachmentsByRelation = async (req, res) => {
+  const { relationType, relationId } = req.params;
+
+  try {
+    const query = `
+      SELECT 
+        attachment_id,
+        relation_type,
+        relation_id,
+        s3_key,
+        s3_bucket,
+        display_name,
+        file_type,
+        file_size,
+        created_at,
+        updated_at
+      FROM v4.shared_attachments
+      WHERE relation_type = $1 AND relation_id = $2
+      ORDER BY created_at DESC
+    `;
+
+    const { rows } = await getPool().query(query, [
+      relationType,
+      relationId.toString(),
+    ]);
+
+    res.json({ attachments: rows });
+  } catch (error) {
+    console.error("Get Attachments Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * 5. Unified Delete: Removes from S3 first, then Postgres
+ * Used by: All attachment types (profile, feed, inquiry)
  */
 export const deleteAttachment = async (req, res) => {
   const { id } = req.params;
 
   try {
-    // 1. Get the s3_key from DB first
-    console.log("inside the cont");
-    console.log(id);
+    // Get the attachment details from DB first
+    console.log("Deleting attachment with ID:", id);
 
-    const findQuery = `SELECT s3_key FROM v4.shared_attachments WHERE attachment_id = $1`;
+    const findQuery = `
+      SELECT s3_key, relation_type, relation_id 
+      FROM v4.shared_attachments 
+      WHERE attachment_id = $1
+    `;
     const { rows } = await getPool().query(findQuery, [id]);
-
-    console.log(rows);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "Attachment not found" });
     }
 
-    const s3Key = rows[0].s3_key;
+    const { s3_key, relation_type, relation_id } = rows[0];
+    console.log("Deleting from S3:", s3_key);
 
-    console.log("delete from S3");
-    console.log(s3Key);
+    // Delete from S3
+    await deleteFromS3(s3_key);
 
-    // 2. Delete from S3 using our new helper
-    await deleteFromS3(s3Key);
-
-    // 3. Delete from Postgres
+    // Delete from Postgres
     await getPool().query(
       `DELETE FROM v4.shared_attachments WHERE attachment_id = $1`,
       [id],
     );
+
+    // If this was a profile picture, remove from Stream
+    if (relation_type === "profile") {
+      try {
+        await streamClient.partialUpdateUser({
+          id: relation_id.toString(),
+          unset: ["image"],
+        });
+        console.log(
+          `Profile picture removed from Stream for user ${relation_id}`,
+        );
+      } catch (streamError) {
+        console.error("Stream sync failed during delete:", streamError);
+        // Continue even if Stream sync fails
+      }
+    }
 
     res.json({ message: "Attachment deleted successfully from S3 and DB" });
   } catch (error) {
@@ -197,14 +302,14 @@ export const deleteAttachment = async (req, res) => {
 };
 
 /**
- * Delete profile picture by user ID
- * Finds and deletes the existing profile picture for a specific user
+ * 6. Delete profile picture by user ID with Stream Sync
+ * Specialized endpoint for profile picture deletion
  */
 export const deleteProfilePicture = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // 1. Find the existing profile picture for this user
+    // Find the existing profile picture for this user
     const findQuery = `
       SELECT attachment_id, s3_key 
       FROM v4.shared_attachments 
@@ -222,14 +327,26 @@ export const deleteProfilePicture = async (req, res) => {
 
     const { attachment_id, s3_key } = rows[0];
 
-    // 2. Delete from S3
+    // Delete from S3
     await deleteFromS3(s3_key);
 
-    // 3. Delete from database
+    // Delete from database
     await getPool().query(
       `DELETE FROM v4.shared_attachments WHERE attachment_id = $1`,
       [attachment_id],
     );
+
+    // Remove profile picture from Stream
+    try {
+      await streamClient.partialUpdateUser({
+        id: userId.toString(),
+        unset: ["image"],
+      });
+      console.log(`Profile picture removed from Stream for user ${userId}`);
+    } catch (streamError) {
+      console.error("Stream sync failed during delete:", streamError);
+      // Continue even if Stream sync fails
+    }
 
     res.json({
       message: "Profile picture deleted successfully",
@@ -237,6 +354,64 @@ export const deleteProfilePicture = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete Profile Picture Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * 7. Batch delete attachments for a relation
+ * Used by: When deleting entire feed posts or inquiry threads
+ */
+export const deleteAttachmentsByRelation = async (req, res) => {
+  const { relationType, relationId } = req.params;
+
+  try {
+    // Get all attachments for this relation
+    const findQuery = `
+      SELECT attachment_id, s3_key 
+      FROM v4.shared_attachments 
+      WHERE relation_type = $1 AND relation_id = $2
+    `;
+    const { rows } = await getPool().query(findQuery, [
+      relationType,
+      relationId.toString(),
+    ]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "No attachments found" });
+    }
+
+    // Delete all files from S3
+    const deletePromises = rows.map((row) => deleteFromS3(row.s3_key));
+    await Promise.all(deletePromises);
+
+    // Delete all records from database
+    await getPool().query(
+      `DELETE FROM v4.shared_attachments WHERE relation_type = $1 AND relation_id = $2`,
+      [relationType, relationId.toString()],
+    );
+
+    // If these were profile pictures, remove from Stream
+    if (relationType === "profile") {
+      try {
+        await streamClient.partialUpdateUser({
+          id: relationId.toString(),
+          unset: ["image"],
+        });
+        console.log(
+          `Profile pictures removed from Stream for user ${relationId}`,
+        );
+      } catch (streamError) {
+        console.error("Stream sync failed during batch delete:", streamError);
+      }
+    }
+
+    res.json({
+      message: `Successfully deleted ${rows.length} attachment(s)`,
+      count: rows.length,
+    });
+  } catch (error) {
+    console.error("Batch Delete Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

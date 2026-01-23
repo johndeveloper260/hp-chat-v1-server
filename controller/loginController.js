@@ -1,5 +1,7 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 import { StreamChat } from "stream-chat";
 import express from "express";
@@ -20,6 +22,20 @@ const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET,
 );
+
+//  Add S3 Client initialization (same as attachmentController)
+const s3Client = new S3Client({
+  region: process.env.REACT_APP_AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+  },
+  requestHandler: new NodeHttpHandler({
+    connectionTimeout: 5000,
+  }),
+  responseChecksumValidation: "WHEN_REQUIRED",
+  requestChecksumCalculation: "WHEN_REQUIRED",
+});
 
 /**
  * Login User - Updated to include full profile & visa details

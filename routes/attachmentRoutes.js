@@ -1,14 +1,13 @@
 import express from "express";
 const router = express.Router();
 
-// 1. Convert require to imports with .js extensions
 import * as attachmentController from "../controller/attachmentController.js";
 import auth from "../middleware/auth.js";
 
-// 1. Get the Signed URL (Now protected)
+// 1. Get the Signed URL for Upload
 router.post("/generate-url", auth, async (req, res) => {
   try {
-    const { fileName, fileType, folder } = req.body; // 'announcements' or 'profiles'
+    const { fileName, fileType, folder } = req.body; // 'profile', 'feed', 'inquiry', etc.
     const data = await attachmentController.getPresignedUrl(
       fileName,
       fileType,
@@ -20,21 +19,34 @@ router.post("/generate-url", auth, async (req, res) => {
   }
 });
 
-// 2. Confirm the upload
+// 2. Confirm the upload (saves to DB, syncs profile pics to Stream)
 router.post("/confirm", auth, attachmentController.createAttachment);
 
-// 3. View
+// 3. View single attachment (generates signed viewing URL)
 router.get("/view/:id", auth, attachmentController.getViewingUrl);
 
-// 4. Delete
+// 4. Get all attachments for a specific relation (e.g., all attachments on a feed post)
+router.get(
+  "/:relationType/:relationId",
+  auth,
+  attachmentController.getAttachmentsByRelation,
+);
+
+// 5. Delete single attachment (also removes from Stream if profile pic)
 router.delete("/:id", auth, attachmentController.deleteAttachment);
 
-// 5. Delete Profile Pic
+// 6. Delete profile picture by user ID (specialized endpoint)
 router.delete(
   "/profile/:userId",
   auth,
   attachmentController.deleteProfilePicture,
 );
 
-// 6. Change module.exports to export default
+// 7. Batch delete all attachments for a relation (e.g., delete all attachments when deleting a post)
+router.delete(
+  "/relation/:relationType/:relationId",
+  auth,
+  attachmentController.deleteAttachmentsByRelation,
+);
+
 export default router;
