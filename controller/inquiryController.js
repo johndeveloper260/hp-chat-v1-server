@@ -190,7 +190,7 @@ export const createInquiry = async (req, res) => {
         {
           type: "inquiry",
           inquiryId: newInquiry.ticket_id,
-          screen: "InquiryDetail",
+          screen: "InquiryScreen",
           params: { ticketId: newInquiry.ticket_id },
         },
       );
@@ -313,7 +313,7 @@ export const updateInquiry = async (req, res) => {
         {
           type: "inquiry",
           inquiryId: ticketId,
-          screen: "InquiryDetail",
+          screen: "InquiryScreen",
           params: { ticketId: ticketId },
         },
       );

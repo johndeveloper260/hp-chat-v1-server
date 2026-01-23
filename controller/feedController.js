@@ -199,15 +199,16 @@ export const updateAnnouncement = async (req, res) => {
       company = $1, title = $2, 
       content_text = $3, date_from = $4, date_to = $5, 
       active = $6, comments_on = $7, 
-      last_updated_by = $8, last_updated_at = NOW()
-    WHERE row_id = $9
+      last_updated_by = $8::uuid, 
+      last_updated_at = NOW()
+    WHERE row_id = $9::uuid    
     RETURNING *;
   `;
 
   try {
     // Get old announcement data
     const oldData = await getPool().query(
-      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1",
+      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::uuid",
       [rowId],
     );
 
@@ -236,7 +237,7 @@ export const updateAnnouncement = async (req, res) => {
     if (wasActivated || (active && (titleChanged || contentChanged))) {
       // Get updater's name
       const updaterQuery = await getPool().query(
-        `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+        `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
         [userId],
       );
       const updaterName = updaterQuery.rows[0]
@@ -278,7 +279,7 @@ export const updateAnnouncement = async (req, res) => {
           {
             type: "announcement",
             announcementId: rowId,
-            screen: "AnnouncementDetail",
+            screen: "HomeScreen",
             params: { rowId: rowId },
           },
         );
