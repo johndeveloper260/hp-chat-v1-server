@@ -1,3 +1,6 @@
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
 import { StreamChat } from "stream-chat";
 import express from "express";
 import bcrypt from "bcrypt";
@@ -91,6 +94,25 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Generate profile picture URL if exists
+    let profilePictureUrl = null;
+    if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: user.profile_pic_s3_bucket,
+          Key: user.profile_pic_s3_key,
+        });
+
+        profilePictureUrl = await getSignedUrl(s3Client, command, {
+          expiresIn: 3600, // 1 hour
+          signableHeaders: new Set(["host"]),
+        });
+      } catch (error) {
+        console.error("Error generating profile picture URL:", error);
+        // Continue without profile picture URL if generation fails
+      }
+    }
+
     // Prepare JWT Payload (keep this lightweight)
     const payload = {
       id: String(user.id).trim(),
@@ -105,7 +127,7 @@ export const loginUser = async (req, res) => {
 
     const streamToken = streamClient.createToken(String(user.id));
 
-    // 2. Return the COMPLETE user object for AuthContext
+    // Return the COMPLETE user object for AuthContext
     return res.status(200).json({
       message: "Login successful",
       token,
@@ -118,7 +140,7 @@ export const loginUser = async (req, res) => {
         firstName: user.first_name,
         middleName: user.middle_name,
         lastName: user.last_name,
-        userType: user.user_type, // This is your role (ADMIN/OFFICER/USER)
+        userType: user.user_type,
         position: user.position,
         company: user.company,
         companyBranch: user.company_branch,
@@ -129,6 +151,11 @@ export const loginUser = async (req, res) => {
         stateProvince: user.state_province,
         visaType: user.visa_type,
         visaExpiry: user.visa_expiry_date,
+        // Profile picture fields
+        profilePicId: user.profile_pic_id,
+        profilePictureUrl: profilePictureUrl,
+        profilePicS3Key: user.profile_pic_s3_key,
+        profilePicS3Bucket: user.profile_pic_s3_bucket,
       },
       streamToken,
     });
