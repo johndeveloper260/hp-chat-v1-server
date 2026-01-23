@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
-import { log } from "node:console";
+import {
+  sendNotificationToUser,
+  sendNotificationToMultipleUsers,
+} from "./notificationController.js";
 
 dotenv.config();
 
@@ -17,35 +20,24 @@ export const searchInquiries = async (req, res) => {
 
   const businessUnit = req.user.business_unit;
   const userId = req.user.id;
-  const userRole = req.user.userType?.toUpperCase() || ""; // Match the role check in ManageInquiryModal
+  const userRole = req.user.userType?.toUpperCase() || "";
 
   let query = `
   SELECT 
     i.*, 
-    -- 1. Dynamic Company Name based on $1 (lang)
     COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
-    
-    -- 2. Dynamic Issue Type Description based on $1 (lang)
     COALESCE(iss.descr->>$1, iss.descr->>'en', 'General Inquiry') AS type_name,
-
-    -- Resolve User Names
     TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
     TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
     TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
     TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
-    
-    -- Resolve Watcher Names
     (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
      FROM v4.user_profile_tbl 
      WHERE user_id = ANY(i.watcher)) AS watcher_names, 
-
-    -- Resolve Comment Count
     (SELECT COUNT(*) 
      FROM v4.shared_comments 
      WHERE relation_type = 'inquiries' 
      AND relation_id = i.ticket_id) AS comment_count,
-
-     -- Resolve Attachments
      COALESCE(
       (
         SELECT json_agg(
@@ -62,29 +54,23 @@ export const searchInquiries = async (req, res) => {
         AND relation_id = i.ticket_id::text
       ), '[]'::json
     ) as attachments
-
   FROM v4.inquiry_tbl i
-  -- Joins
   LEFT JOIN v4.company_tbl c ON i.company = c.company_id
   LEFT JOIN v4.issue_tbl iss ON i.type = iss.code AND i.business_unit = iss.business_unit
   LEFT JOIN v4.user_profile_tbl u_assign ON i.assigned_to = u_assign.user_id
   LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
   LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
   LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
-
   WHERE i.business_unit = $2
   `;
 
   const values = [lang, businessUnit];
 
-  // --- ROLE-BASED VISIBILITY LOGIC ---
-  // If NOT an officer, restrict to only their own inquiries
   if (userRole !== "OFFICER") {
     values.push(userId);
     query += ` AND i.owner_id = $${values.length}::uuid`;
   }
 
-  // --- STATUS FILTER LOGIC ---
   if (status && status !== "All") {
     values.push(status);
     query += ` AND i.status = $${values.length}`;
@@ -92,13 +78,11 @@ export const searchInquiries = async (req, res) => {
     query += ` AND i.status NOT IN ('Completed', 'Hold')`;
   }
 
-  // --- ISSUE TYPE FILTER ---
   if (type && type !== "All") {
     values.push(type);
     query += ` AND i.type = $${values.length}`;
   }
 
-  // --- ADDITIONAL FILTERS ---
   if (company_id && company_id !== "null") {
     values.push(company_id);
     query += ` AND i.company = $${values.length}`;
@@ -124,7 +108,7 @@ export const searchInquiries = async (req, res) => {
   }
 };
 
-// 2. CREATE
+// 2. CREATE - WITH PUSH NOTIFICATIONS
 export const createInquiry = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
   const {
@@ -166,13 +150,60 @@ export const createInquiry = async (req, res) => {
       owner_id || userId,
     ];
     const { rows } = await getPool().query(query, values);
-    res.status(201).json(rows[0]);
+    const newInquiry = rows[0];
+
+    // Get creator's name for notification
+    const creatorQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [userId],
+    );
+    const creatorName = creatorQuery.rows[0]
+      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
+      : "Someone";
+
+    // SEND PUSH NOTIFICATIONS
+    // 1. Notify all officers in the same business unit
+    const officersQuery = await getPool().query(
+      `SELECT p.user_id 
+       FROM v4.user_profile_tbl p
+       JOIN v4.user_account_tbl a ON p.user_id = a.id
+       WHERE a.business_unit = $1 
+         AND p.user_type = 'OFFICER'
+         AND a.is_active = true
+         AND p.user_id != $2`,
+      [userBU, userId],
+    );
+
+    const officerIds = officersQuery.rows.map((row) => row.user_id);
+
+    // 2. Add watchers to notification list
+    const notificationRecipients = [
+      ...new Set([...officerIds, ...(watcher || [])]),
+    ];
+
+    // 3. Send notifications
+    if (notificationRecipients.length > 0) {
+      await sendNotificationToMultipleUsers(
+        notificationRecipients,
+        `New Inquiry${high_pri ? " (High Priority)" : ""}: ${title}`,
+        `${creatorName} created a new inquiry`,
+        {
+          type: "inquiry",
+          inquiryId: newInquiry.ticket_id,
+          screen: "InquiryDetail",
+          params: { ticketId: newInquiry.ticket_id },
+        },
+      );
+    }
+
+    res.status(201).json(newInquiry);
   } catch (err) {
+    console.error("Create Inquiry Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// 3. UPDATE
+// 3. UPDATE - WITH PUSH NOTIFICATIONS
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
   const userId = req.user.id;
@@ -204,6 +235,12 @@ export const updateInquiry = async (req, res) => {
   `;
 
   try {
+    // Get old inquiry data before update
+    const oldInquiry = await getPool().query(
+      "SELECT * FROM v4.inquiry_tbl WHERE ticket_id = $1",
+      [ticketId],
+    );
+
     const values = [
       status,
       assigned_to,
@@ -218,8 +255,73 @@ export const updateInquiry = async (req, res) => {
     const { rows } = await getPool().query(query, values);
     if (rows.length === 0)
       return res.status(404).json({ error: "Ticket not found" });
-    res.json(rows[0]);
+
+    const updatedInquiry = rows[0];
+
+    // Get updater's name
+    const updaterQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [userId],
+    );
+    const updaterName = updaterQuery.rows[0]
+      ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
+      : "Someone";
+
+    // SEND NOTIFICATIONS
+    const recipientsSet = new Set();
+
+    // 1. Notify owner if status changed
+    if (oldInquiry.rows[0].owner_id && oldInquiry.rows[0].owner_id !== userId) {
+      recipientsSet.add(oldInquiry.rows[0].owner_id);
+    }
+
+    // 2. Notify assigned user if changed
+    if (
+      assigned_to &&
+      assigned_to !== userId &&
+      assigned_to !== oldInquiry.rows[0].assigned_to
+    ) {
+      recipientsSet.add(assigned_to);
+    }
+
+    // 3. Notify watchers (excluding the updater)
+    if (watcher && Array.isArray(watcher)) {
+      watcher.forEach((w) => {
+        if (w !== userId) recipientsSet.add(w);
+      });
+    }
+
+    const recipients = Array.from(recipientsSet);
+
+    if (recipients.length > 0) {
+      let notificationBody = `${updaterName} updated the inquiry`;
+
+      // Customize message based on what changed
+      if (status && status !== oldInquiry.rows[0].status) {
+        notificationBody = `${updaterName} changed status to ${status}`;
+      } else if (
+        assigned_to &&
+        assigned_to !== oldInquiry.rows[0].assigned_to
+      ) {
+        notificationBody = `${updaterName} assigned this inquiry to you`;
+      }
+
+      await sendNotificationToMultipleUsers(
+        recipients,
+        `Inquiry Updated: ${updatedInquiry.title}`,
+        notificationBody,
+        {
+          type: "inquiry",
+          inquiryId: ticketId,
+          screen: "InquiryDetail",
+          params: { ticketId: ticketId },
+        },
+      );
+    }
+
+    res.json(updatedInquiry);
   } catch (err) {
+    console.error("Update Inquiry Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -243,7 +345,7 @@ export const deleteInquiry = async (req, res) => {
 //5. GET ISSUE TYPE
 export const getIssues = async (req, res) => {
   const { lang = "en" } = req.query;
-  const bu = req.user.business_unit; // Extracted from JWT
+  const bu = req.user.business_unit;
 
   try {
     const query = `
@@ -265,7 +367,6 @@ export const getIssues = async (req, res) => {
 //6. GET Officer
 export const getOfficersByBU = async (req, res) => {
   try {
-    // 1. Extract BU from JWT (Decoded by your 'auth' middleware)
     const bu = req.user.business_unit;
 
     if (!bu) {
@@ -274,8 +375,6 @@ export const getOfficersByBU = async (req, res) => {
         .json({ error: "Business Unit missing from user token" });
     }
 
-    // 2. The JOIN logic is correct based on your schema:
-    // Profile has name/type, Account has BU/active status
     const query = `
     SELECT 
         p.user_id AS value, 
@@ -289,8 +388,6 @@ export const getOfficersByBU = async (req, res) => {
     `;
 
     const { rows } = await getPool().query(query, [bu]);
-
-    // 3. Return 'rows' or an empty array [] if no officers found
     res.status(200).json(rows || []);
   } catch (error) {
     console.error("Backend Error (getOfficersByBU):", error.message);

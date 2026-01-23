@@ -1,14 +1,14 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
+import { sendNotificationToMultipleUsers } from "./notificationController.js";
 
 dotenv.config();
 
 /**
  * POST /announcements
- * Create a new announcement
+ * Create a new announcement - WITH PUSH NOTIFICATIONS
  */
 export const createAnnouncement = async (req, res) => {
-  // 1. Get user data from the middleware (req.user)
   const { id: userId, business_unit: userBU } = req.user;
 
   const {
@@ -43,8 +43,62 @@ export const createAnnouncement = async (req, res) => {
       userId,
     ];
     const { rows } = await getPool().query(query, values);
-    res.status(201).json(rows[0]);
+    const newAnnouncement = rows[0];
+
+    // Get creator's name for notification
+    const creatorQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [userId],
+    );
+    const creatorName = creatorQuery.rows[0]
+      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
+      : "Someone";
+
+    // SEND PUSH NOTIFICATIONS TO TARGETED USERS
+    // Logic mirrors your getAnnouncements query
+    let recipientQuery = `
+      SELECT DISTINCT a.id as user_id
+      FROM v4.user_account_tbl a
+      JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      WHERE a.business_unit = $1 
+        AND a.is_active = true
+        AND a.id != $2
+    `;
+
+    const queryValues = [userBU, userId];
+
+    // If specific companies are targeted, only notify users in those companies
+    if (company && Array.isArray(company) && company.length > 0) {
+      queryValues.push(company);
+      recipientQuery += ` AND (p.company = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
+    }
+    // If no companies specified, it's a global announcement - notify all users in BU
+
+    const recipientResult = await getPool().query(recipientQuery, queryValues);
+    const recipientIds = recipientResult.rows.map((row) => row.user_id);
+
+    // Send notifications
+    if (recipientIds.length > 0 && active) {
+      await sendNotificationToMultipleUsers(
+        recipientIds,
+        `New Announcement: ${title}`,
+        `${creatorName} posted a new announcement`,
+        {
+          type: "announcement",
+          announcementId: newAnnouncement.row_id,
+          screen: "HomeScreen",
+          params: { rowId: newAnnouncement.row_id },
+        },
+      );
+
+      console.log(
+        `📢 Sent announcement notification to ${recipientIds.length} users`,
+      );
+    }
+
+    res.status(201).json(newAnnouncement);
   } catch (err) {
+    console.error("Create Announcement Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -55,7 +109,6 @@ export const createAnnouncement = async (req, res) => {
  */
 export const getAnnouncements = async (req, res) => {
   const { company_filter } = req.query;
-  // 1. Extract role from the user token
   const { id: userId, business_unit: userBU, userType: userType } = req.user;
   const userRole = (userType || "").toUpperCase();
 
@@ -98,20 +151,15 @@ export const getAnnouncements = async (req, res) => {
 
   const values = [];
 
-  // 2. Logic for Role-Based Filtering
   if (userRole === "ADMIN" || userRole === "OFFICER") {
     // ADMIN/OFFICER sees everything in the BU
-    // No company filter added to the WHERE clause
   } else if (company_filter) {
-    // Regular users see their company OR empty company arrays
     values.push(company_filter);
     query += ` AND ($${values.length} = ANY(a.company::uuid[]) OR a.company IS NULL OR cardinality(a.company) = 0)`;
   } else {
-    // Users with no company see only 'global' announcements
     query += ` AND (a.company IS NULL OR cardinality(a.company) = 0)`;
   }
 
-  // 3. Ensure Business Unit constraint always applies
   if (userBU) {
     values.push(userBU);
     query += ` AND business_unit = $${values.length}`;
@@ -130,10 +178,11 @@ export const getAnnouncements = async (req, res) => {
 
 /**
  * PUT /announcements/:id
- * Update an existing announcement
+ * Update an existing announcement - WITH PUSH NOTIFICATIONS
  */
 export const updateAnnouncement = async (req, res) => {
   const { rowId } = req.params;
+  const userId = req.user.id;
   const {
     company,
     title,
@@ -142,13 +191,12 @@ export const updateAnnouncement = async (req, res) => {
     date_to,
     active,
     comments_on,
-    updated_by,
   } = req.body;
 
   const query = `
     UPDATE v4.announcement_tbl 
     SET 
-       company = $1, title = $2, 
+      company = $1, title = $2, 
       content_text = $3, date_from = $4, date_to = $5, 
       active = $6, comments_on = $7, 
       last_updated_by = $8, last_updated_at = NOW()
@@ -157,6 +205,12 @@ export const updateAnnouncement = async (req, res) => {
   `;
 
   try {
+    // Get old announcement data
+    const oldData = await getPool().query(
+      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1",
+      [rowId],
+    );
+
     const values = [
       company,
       title,
@@ -165,14 +219,79 @@ export const updateAnnouncement = async (req, res) => {
       date_to,
       active,
       comments_on,
-      updated_by,
+      userId,
       rowId,
     ];
     const { rows } = await getPool().query(query, values);
 
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
-    res.json(rows[0]);
+
+    const updatedAnnouncement = rows[0];
+
+    // Send notification if announcement was just activated or significantly updated
+    const wasActivated = !oldData.rows[0].active && active;
+    const titleChanged = oldData.rows[0].title !== title;
+    const contentChanged = oldData.rows[0].content_text !== content_text;
+
+    if (wasActivated || (active && (titleChanged || contentChanged))) {
+      // Get updater's name
+      const updaterQuery = await getPool().query(
+        `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+        [userId],
+      );
+      const updaterName = updaterQuery.rows[0]
+        ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
+        : "Someone";
+
+      // Get targeted users (same logic as create)
+      let recipientQuery = `
+        SELECT DISTINCT a.id as user_id
+        FROM v4.user_account_tbl a
+        JOIN v4.user_profile_tbl p ON a.id = p.user_id
+        WHERE a.business_unit = $1 
+          AND a.is_active = true
+          AND a.id != $2
+      `;
+
+      const queryValues = [updatedAnnouncement.business_unit, userId];
+
+      if (company && Array.isArray(company) && company.length > 0) {
+        queryValues.push(company);
+        recipientQuery += ` AND (p.company = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
+      }
+
+      const recipientResult = await getPool().query(
+        recipientQuery,
+        queryValues,
+      );
+      const recipientIds = recipientResult.rows.map((row) => row.user_id);
+
+      if (recipientIds.length > 0) {
+        await sendNotificationToMultipleUsers(
+          recipientIds,
+          wasActivated
+            ? `New Announcement: ${title}`
+            : `Announcement Updated: ${title}`,
+          wasActivated
+            ? `${updaterName} posted an announcement`
+            : `${updaterName} updated an announcement`,
+          {
+            type: "announcement",
+            announcementId: rowId,
+            screen: "AnnouncementDetail",
+            params: { rowId: rowId },
+          },
+        );
+
+        console.log(
+          `📢 Sent announcement update notification to ${recipientIds.length} users`,
+        );
+      }
+    }
+
+    res.json(updatedAnnouncement);
   } catch (err) {
+    console.error("Update Announcement Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -194,29 +313,21 @@ export const toggleReaction = async (req, res) => {
     if (result.rowCount === 0)
       return res.status(404).json({ error: "Post not found" });
 
-    // Ensure we start with an object
     let reactions = result.rows[0].reactions || {};
-
-    // Check if the user ALREADY has THIS specific emoji active
     const isSameEmoji = reactions[emoji]?.includes(userId);
 
-    // 1. Remove user ID from ALL emojis (Clears old reactions)
     Object.keys(reactions).forEach((key) => {
       if (Array.isArray(reactions[key])) {
         reactions[key] = reactions[key].filter((id) => id !== userId);
       }
-      // Delete the key if the array is now empty to save DB space
       if (reactions[key].length === 0) delete reactions[key];
     });
 
-    // 2. If it WASN'T the same emoji, add the new one
-    // If it WAS the same emoji, we leave it removed (Toggle Off)
     if (!isSameEmoji) {
       if (!reactions[emoji]) reactions[emoji] = [];
       reactions[emoji].push(userId);
     }
 
-    // 3. Save to Database
     const finalUpdate = await getPool().query(
       "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2 RETURNING reactions",
       [JSON.stringify(reactions), rowId],
