@@ -50,10 +50,28 @@ export const loginUser = async (req, res) => {
         p.city,
         p.state_province,
         v.visa_type,
-        v.visa_expiry_date
+        v.visa_expiry_date,
+        sa.attachment_id as profile_pic_id,
+        sa.s3_key as profile_pic_s3_key,
+        sa.s3_bucket as profile_pic_s3_bucket,
+        sa.display_name as profile_pic_name,
+        sa.file_type as profile_pic_type
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
       LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
+      LEFT JOIN LATERAL (
+        SELECT 
+          attachment_id,
+          s3_key,
+          s3_bucket,
+          display_name,
+          file_type
+        FROM v4.shared_attachments
+        WHERE relation_type = 'profile'
+          AND relation_id = a.id::text
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) sa ON true
       WHERE a.email = $1;
     `;
 
