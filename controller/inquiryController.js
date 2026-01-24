@@ -235,7 +235,7 @@ export const updateInquiry = async (req, res) => {
       last_update_dttm = NOW(),
       title=$10,
       type=$11,
-      occur_date=$12,
+      occur_date=$12
     WHERE ticket_id = $9
     RETURNING *;
   `;
