@@ -216,6 +216,9 @@ export const updateInquiry = async (req, res) => {
     high_pri,
     watcher,
     closed_dt,
+    title,
+    type,
+    occur_date,
   } = req.body;
 
   const query = `
@@ -229,7 +232,10 @@ export const updateInquiry = async (req, res) => {
       watcher = $6::uuid[],
       closed_dt = $7,
       last_updated_by = $8::uuid,
-      last_update_dttm = NOW()
+      last_update_dttm = NOW(),
+      title=$10,
+      type=$11,
+      occur_date=$12,
     WHERE ticket_id = $9
     RETURNING *;
   `;
@@ -251,6 +257,9 @@ export const updateInquiry = async (req, res) => {
       closed_dt,
       userId,
       ticketId,
+      title,
+      type,
+      occur_date,
     ];
     const { rows } = await getPool().query(query, values);
     if (rows.length === 0)
