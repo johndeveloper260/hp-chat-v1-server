@@ -116,20 +116,38 @@ export const editComment = async (req, res) => {
 export const deleteComment = async (req, res) => {
   const { commentId } = req.params;
   const user_id = req.user.id;
+  const userRole = req.user.userType?.toUpperCase() || "";
 
   try {
-    // Note: If you want admins to delete any comment,
-    // check req.user.role here and adjust the WHERE clause
-    const query = `
-      DELETE FROM v4.shared_comments 
-      WHERE comment_id = $1 AND user_id = $2
-      RETURNING comment_id;
-    `;
+    let query;
+    let params;
 
-    const result = await getPool().query(query, [commentId, user_id]);
+    // Check if the user is an officer (or admin)
+    if (userRole === "OFFICER" || userRole === "ADMIN") {
+      // Officers can delete by ID only (ignoring ownership)
+      query = `
+        DELETE FROM v4.shared_comments 
+        WHERE comment_id = $1
+        RETURNING comment_id;
+      `;
+      params = [commentId];
+    } else {
+      // Regular users must own the comment
+      query = `
+        DELETE FROM v4.shared_comments 
+        WHERE comment_id = $1 AND user_id = $2
+        RETURNING comment_id;
+      `;
+      params = [commentId, user_id];
+    }
+
+    const result = await getPool().query(query, params);
 
     if (result.rowCount === 0) {
-      return res.status(403).json({ error: "Unauthorized or already deleted" });
+      // If it's 0, it either doesn't exist or they aren't authorized
+      return res
+        .status(403)
+        .json({ error: "Unauthorized or comment not found" });
     }
 
     res.json({ message: "Comment deleted successfully", commentId });
