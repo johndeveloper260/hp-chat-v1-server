@@ -141,8 +141,7 @@ export const createAnnouncement = async (req, res) => {
 
     if (company && Array.isArray(company) && company.length > 0) {
       queryValues.push(company);
-      // Ensure the ANY check uses uuid array cast
-      recipientQuery += ` AND (p.company = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
+      recipientQuery += ` AND (p.company::uuid = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
     }
 
     const recipientResult = await getPool().query(recipientQuery, queryValues);
@@ -248,7 +247,7 @@ export const updateAnnouncement = async (req, res) => {
 
       if (company && Array.isArray(company) && company.length > 0) {
         queryValues.push(company);
-        recipientQuery += ` AND (p.company = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
+        recipientQuery += ` AND (p.company::uuid = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
       }
 
       const recipientResult = await getPool().query(
