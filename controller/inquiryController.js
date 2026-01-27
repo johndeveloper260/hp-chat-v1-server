@@ -265,6 +265,18 @@ export const updateInquiry = async (req, res) => {
 
     const recipients = Array.from(recipientsSet);
 
+     if (recipients.length > 0) {
+      let notificationBody = `${updaterName} updated the inquiry`;
+      if (status && status !== oldInquiry.rows[0].status) {
+        notificationBody = `${updaterName} changed status to ${status}`;
+      } else if (
+        assigned_to &&
+        assigned_to !== oldInquiry.rows[0].assigned_to
+      ) {
+        notificationBody = `${updaterName} assigned this inquiry to you`;
+      }
+
+
     if (recipients.length > 0) {
       await Promise.all(
         recipients.map((recipientId) =>
