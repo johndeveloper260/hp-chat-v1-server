@@ -13,4 +13,8 @@ router.post("/send-test", auth, notificationController.sendTestNotification);
 
 // Delete push token (on logout)
 router.post("/remove-token", auth, notificationController.deletePushToken);
+
+router.get("/", auth, notificationController.getMyNotifications);
+router.patch("/:notificationId/read", auth, notificationController.markAsRead);
+
 export default router;
