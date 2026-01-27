@@ -276,7 +276,6 @@ export const updateInquiry = async (req, res) => {
         notificationBody = `${updaterName} assigned this inquiry to you`;
       }
 
-
     if (recipients.length > 0) {
       await Promise.all(
         recipients.map((recipientId) =>
