@@ -245,10 +245,11 @@ export const getMyNotifications = async (req, res) => {
   const userId = req.user.id;
   try {
     const query = `
-      SELECT * FROM v4.notification_history_tbl 
-      WHERE user_id = $1 
-      ORDER BY created_at DESC 
-      LIMIT 50
+    SELECT * FROM v4.notification_history_tbl 
+    WHERE user_id = $1 
+    AND is_read = false 
+    ORDER BY created_at DESC 
+    LIMIT 50
     `;
     const { rows } = await getPool().query(query, [userId]);
     res.json(rows);
