@@ -243,6 +243,14 @@ export const updateInquiry = async (req, res) => {
 
     const updatedInquiry = rows[0];
 
+    const updaterQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [userId],
+    );
+    const updaterName = updaterQuery.rows[0]
+      ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
+      : "Someone";
+
     // BUILD RECIPIENT LIST
     const recipientsSet = new Set();
 
