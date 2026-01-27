@@ -121,31 +121,33 @@ export const createInquiry = async (req, res) => {
   } = req.body;
 
   const query = `
-    INSERT INTO v4.inquiry_tbl (
-      business_unit, company, title, description, 
-      occur_date, type, high_pri, watcher,
-      opened_by, owner_id, status, open_dt,
-      last_updated_by, last_update_dttm
-    ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8::uuid[], 
-      $9::uuid, $10::uuid, 'New', CURRENT_DATE,
-      $9::uuid, NOW()
-    ) RETURNING *;
-  `;
+  INSERT INTO v4.inquiry_tbl (
+    business_unit, company, title, description, 
+    occur_date, type, high_pri, watcher,
+    opened_by, owner_id, assigned_to, 
+    status, open_dt, last_updated_by, last_update_dttm
+  ) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8::uuid[], 
+    $9::uuid, $10::uuid, $11::uuid, 
+    'New', CURRENT_DATE, $9::uuid, NOW()
+  ) RETURNING *;
+`;
 
   try {
     const values = [
       userBU,
-      company,
+      company && company !== "" ? company : null, // Fix for parameter $2
       title,
       description,
       occur_date,
       type,
       high_pri,
-      watcher || [],
+      Array.isArray(watcher) ? watcher.filter((id) => id !== "") : [],
       opened_by || userId,
       owner_id || userId,
+      req.body.assigned_to || null, // Add this as $11
     ];
+
     const { rows } = await getPool().query(query, values);
     const newInquiry = rows[0];
 
@@ -186,7 +188,7 @@ export const createInquiry = async (req, res) => {
             data: {
               type: "inquiries",
               rowId: newInquiry.ticket_id,
-              screen: "InquiryScreen",
+              screen: "Inquiry",
               params: { ticketId: newInquiry.ticket_id },
             },
           }),
