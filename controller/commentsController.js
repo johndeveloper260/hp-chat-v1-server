@@ -39,7 +39,7 @@ export const getComments = async (req, res) => {
 };
 
 /**
- * Add Comment with Notifications
+ * Add Comment with Push Notifications
  */
 export const addComment = async (req, res) => {
   const {
@@ -53,7 +53,7 @@ export const addComment = async (req, res) => {
   const user_id = req.user.id;
 
   try {
-    // 1. Insert the comment
+    // 1. Save the comment to the database
     const query = `
       INSERT INTO v4.shared_comments 
       (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata)
@@ -68,10 +68,9 @@ export const addComment = async (req, res) => {
       parent_comment_id || null,
       metadata || {},
     ]);
-
     const newComment = result.rows[0];
 
-    // 2. Fetch the commenter's name for the notification body
+    // 2. Fetch the commenter's name for the notification message
     const commenterQuery = await getPool().query(
       `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
       [user_id],
@@ -80,20 +79,19 @@ export const addComment = async (req, res) => {
       ? `${commenterQuery.rows[0].first_name} ${commenterQuery.rows[0].last_name}`
       : "Someone";
 
-    // 3. Identify recipients based on relation_type
+    // 3. Determine recipients based on your rules
     let recipients = [];
 
     if (relation_type === "announcements") {
-      // Notify the creator of the announcement
+      // Notify the author of the announcement
       const announcement = await getPool().query(
         `SELECT created_by FROM v4.announcement_tbl WHERE id = $1`,
         [relation_id],
       );
-      if (announcement.rows[0]) {
+      if (announcement.rows[0])
         recipients.push(announcement.rows[0].created_by);
-      }
     } else if (relation_type === "inquiries") {
-      // Notify owner, assignee, and watchers
+      // Notify owner, assigned officer, and all watchers
       const inquiry = await getPool().query(
         `SELECT owner_id, assigned_to, watcher FROM v4.inquiry_tbl WHERE ticket_id = $1`,
         [relation_id],
@@ -104,15 +102,17 @@ export const addComment = async (req, res) => {
       }
     }
 
-    // 4. Filter: Remove nulls, duplicates, and DO NOT notify self
+    // 4. Clean list: Remove duplicates, nulls, and DO NOT notify the commenter (self)
     const finalRecipients = [...new Set(recipients)].filter(
       (id) => id && id !== user_id,
     );
 
-    // 5. Send Notifications
+    // 5. Trigger Push Notifications
     if (finalRecipients.length > 0) {
-      const notifTitle = `New comment on ${relation_type === "inquiries" ? "Inquiry" : "Announcement"}`;
-      const notifBody = `${commenterName}: "${content_text.substring(0, 50)}${content_text.length > 50 ? "..." : ""}"`;
+      const typeLabel =
+        relation_type === "inquiries" ? "Inquiry" : "Announcement";
+      const notifTitle = `New comment on ${typeLabel}`;
+      const notifBody = `${commenterName}: ${content_text.substring(0, 50)}${content_text.length > 50 ? "..." : ""}`;
 
       await Promise.all(
         finalRecipients.map((recipientId) =>
@@ -123,7 +123,7 @@ export const addComment = async (req, res) => {
             data: {
               type: relation_type,
               rowId: relation_id,
-              // Map to the correct screen based on type
+              // These parameters help the frontend navigate to the right screen
               screen: relation_type === "inquiries" ? "Inquiry" : "Home",
               params:
                 relation_type === "inquiries"
@@ -137,10 +137,11 @@ export const addComment = async (req, res) => {
 
     res.status(201).json(newComment);
   } catch (error) {
-    console.error("Add Comment Error:", error.message);
+    console.error("Add Comment Notification Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
+
 /**
  * Edit Comment
  * Ensures only the owner can edit
