@@ -1,10 +1,5 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
-import {
-  sendNotificationToUser,
-  sendNotificationToMultipleUsers,
-} from "./notificationController.js";
-
 import { createNotification } from "./notificationController.js";
 
 dotenv.config();
@@ -110,7 +105,6 @@ export const searchInquiries = async (req, res) => {
   }
 };
 
-// 2. CREATE - WITH PUSH NOTIFICATIONS
 // 2. CREATE - WITH DB LOGGING & PUSH
 export const createInquiry = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
@@ -149,7 +143,7 @@ export const createInquiry = async (req, res) => {
       type,
       high_pri,
       watcher || [],
-      opened_by,
+      opened_by || userId,
       owner_id || userId,
     ];
     const { rows } = await getPool().query(query, values);
