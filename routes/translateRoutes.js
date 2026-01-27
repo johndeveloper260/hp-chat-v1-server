@@ -9,4 +9,4 @@ import auth from "../middleware/auth.js";
 router.post("/", auth, translateText);
 // router.post("/", protect, translateText); // Use this if it's a private route
 
-module.exports = router;
+export default router;
