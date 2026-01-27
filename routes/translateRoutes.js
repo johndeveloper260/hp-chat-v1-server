@@ -1,12 +1,12 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const { translateText } = require("../controllers/translateController");
 
-// If you have authentication middleware, you would add it here
+// 1. Use import instead of require
+import { translateText } from "../controller/translateController.js";
 import auth from "../middleware/auth.js";
 
-// POST /api/v1/translate
+// 2. Define the route
 router.post("/", auth, translateText);
-// router.post("/", protect, translateText); // Use this if it's a private route
 
+// 3. Keep the export default
 export default router;
