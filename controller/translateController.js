@@ -9,7 +9,6 @@ try {
   CREDENTIALS = JSON.parse(process.env.CREDENTIALS);
 } catch (e) {
   console.error("FATAL: CREDENTIALS is not valid JSON. Check your .env file.");
-  // Optional: if it's not JSON, you might need to wrap it or fix it manually
 }
 
 const translate = new Translate({
@@ -17,7 +16,6 @@ const translate = new Translate({
   projectId: CREDENTIALS?.project_id,
 });
 
-// 2. Keep this as 'export const'
 export const translateText = async (req, res) => {
   const { text, targetLang } = req.body;
 
@@ -29,12 +27,17 @@ export const translateText = async (req, res) => {
   }
 
   try {
-    // google-cloud/translate returns [translatedText, metadata]
-    // metadata.detections[0].language contains the auto-detected source
+    // google-cloud/translate returns [string, any] where second element is metadata
+    // By not passing a 'from' language, Google automatically triggers detection
     let [translatedText, metadata] = await translate.translate(
       text,
       targetLang,
     );
+
+    // Defensive check: extract the detected source language safely
+    // The structure is metadata.detections[inputIndex][detectionIndex].language
+    const detectedSource =
+      metadata?.detections?.[0]?.[0]?.language || "unknown";
 
     return res.status(200).json({
       success: true,
@@ -42,7 +45,7 @@ export const translateText = async (req, res) => {
         original: text,
         translated: translatedText,
         targetLanguage: targetLang,
-        detectedSource: metadata.detections[0][0].language, // This is the auto-detected code
+        detectedSource: detectedSource, // Now safely extracted
       },
     });
   } catch (err) {
