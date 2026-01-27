@@ -1,4 +1,5 @@
 import { getPool } from "../config/getPool.js";
+import { createNotification } from "./notificationController.js";
 
 /**
  * Get Comments
@@ -38,7 +39,7 @@ export const getComments = async (req, res) => {
 };
 
 /**
- * Add Comment
+ * Add Comment with Notifications
  */
 export const addComment = async (req, res) => {
   const {
@@ -49,10 +50,10 @@ export const addComment = async (req, res) => {
     metadata,
   } = req.body;
 
-  // Ensure we are getting the ID from the decoded token
   const user_id = req.user.id;
 
   try {
+    // 1. Insert the comment
     const query = `
       INSERT INTO v4.shared_comments 
       (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata)
@@ -67,13 +68,79 @@ export const addComment = async (req, res) => {
       parent_comment_id || null,
       metadata || {},
     ]);
-    res.status(201).json(result.rows[0]);
+
+    const newComment = result.rows[0];
+
+    // 2. Fetch the commenter's name for the notification body
+    const commenterQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [user_id],
+    );
+    const commenterName = commenterQuery.rows[0]
+      ? `${commenterQuery.rows[0].first_name} ${commenterQuery.rows[0].last_name}`
+      : "Someone";
+
+    // 3. Identify recipients based on relation_type
+    let recipients = [];
+
+    if (relation_type === "announcements") {
+      // Notify the creator of the announcement
+      const announcement = await getPool().query(
+        `SELECT created_by FROM v4.announcement_tbl WHERE id = $1`,
+        [relation_id],
+      );
+      if (announcement.rows[0]) {
+        recipients.push(announcement.rows[0].created_by);
+      }
+    } else if (relation_type === "inquiries") {
+      // Notify owner, assignee, and watchers
+      const inquiry = await getPool().query(
+        `SELECT owner_id, assigned_to, watcher FROM v4.inquiry_tbl WHERE ticket_id = $1`,
+        [relation_id],
+      );
+      if (inquiry.rows[0]) {
+        const { owner_id, assigned_to, watcher } = inquiry.rows[0];
+        recipients = [owner_id, assigned_to, ...(watcher || [])];
+      }
+    }
+
+    // 4. Filter: Remove nulls, duplicates, and DO NOT notify self
+    const finalRecipients = [...new Set(recipients)].filter(
+      (id) => id && id !== user_id,
+    );
+
+    // 5. Send Notifications
+    if (finalRecipients.length > 0) {
+      const notifTitle = `New comment on ${relation_type === "inquiries" ? "Inquiry" : "Announcement"}`;
+      const notifBody = `${commenterName}: "${content_text.substring(0, 50)}${content_text.length > 50 ? "..." : ""}"`;
+
+      await Promise.all(
+        finalRecipients.map((recipientId) =>
+          createNotification({
+            userId: recipientId,
+            title: notifTitle,
+            body: notifBody,
+            data: {
+              type: relation_type,
+              rowId: relation_id,
+              // Map to the correct screen based on type
+              screen: relation_type === "inquiries" ? "Inquiry" : "Home",
+              params:
+                relation_type === "inquiries"
+                  ? { ticketId: relation_id }
+                  : { rowId: relation_id },
+            },
+          }),
+        ),
+      );
+    }
+
+    res.status(201).json(newComment);
   } catch (error) {
     console.error("Add Comment Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
-
 /**
  * Edit Comment
  * Ensures only the owner can edit
