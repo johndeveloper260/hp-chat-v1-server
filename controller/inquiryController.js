@@ -5,6 +5,8 @@ import {
   sendNotificationToMultipleUsers,
 } from "./notificationController.js";
 
+import { createNotification } from "./notificationController.js";
+
 dotenv.config();
 
 // 1. SEARCH
@@ -109,6 +111,7 @@ export const searchInquiries = async (req, res) => {
 };
 
 // 2. CREATE - WITH PUSH NOTIFICATIONS
+// 2. CREATE - WITH DB LOGGING & PUSH
 export const createInquiry = async (req, res) => {
   const { id: userId, business_unit: userBU } = req.user;
   const {
@@ -161,38 +164,39 @@ export const createInquiry = async (req, res) => {
       ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
       : "Someone";
 
-    // SEND PUSH NOTIFICATIONS
-    // 1. Notify all officers in the same business unit
+    // NOTIFICATION LOGIC
     const officersQuery = await getPool().query(
-      `SELECT p.user_id 
-       FROM v4.user_profile_tbl p
+      `SELECT p.user_id FROM v4.user_profile_tbl p
        JOIN v4.user_account_tbl a ON p.user_id = a.id
-       WHERE a.business_unit = $1 
-         AND p.user_type = 'OFFICER'
-         AND a.is_active = true
-         AND p.user_id != $2`,
+       WHERE a.business_unit = $1 AND p.user_type = 'OFFICER'
+         AND a.is_active = true AND p.user_id != $2`,
       [userBU, userId],
     );
 
     const officerIds = officersQuery.rows.map((row) => row.user_id);
-
-    // 2. Add watchers to notification list
     const notificationRecipients = [
       ...new Set([...officerIds, ...(watcher || [])]),
     ];
 
-    // 3. Send notifications
     if (notificationRecipients.length > 0) {
-      await sendNotificationToMultipleUsers(
-        notificationRecipients,
-        `New Inquiry${high_pri ? " (High Priority)" : ""}: ${title}`,
-        `${creatorName} created a new inquiry`,
-        {
-          type: "inquiry",
-          inquiryId: newInquiry.ticket_id,
-          screen: "InquiryScreen",
-          params: { ticketId: newInquiry.ticket_id },
-        },
+      const notifTitle = `New Inquiry${high_pri ? " (High Priority)" : ""}: ${title}`;
+      const notifBody = `${creatorName} created a new inquiry`;
+
+      // Map through recipients to save to DB + send Push for each
+      await Promise.all(
+        notificationRecipients.map((recipientId) =>
+          createNotification({
+            userId: recipientId,
+            title: notifTitle,
+            body: notifBody,
+            data: {
+              type: "inquiries",
+              rowId: newInquiry.ticket_id,
+              screen: "InquiryScreen",
+              params: { ticketId: newInquiry.ticket_id },
+            },
+          }),
+        ),
       );
     }
 
@@ -204,10 +208,10 @@ export const createInquiry = async (req, res) => {
 };
 
 // 3. UPDATE - WITH PUSH NOTIFICATIONS
+// 3. UPDATE - WITH DB LOGGING & PUSH
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
   const userId = req.user.id;
-
   const {
     status,
     assigned_to,
@@ -223,25 +227,13 @@ export const updateInquiry = async (req, res) => {
 
   const query = `
     UPDATE v4.inquiry_tbl
-    SET 
-      status = $1,
-      assigned_to = $2::uuid,
-      resolution = $3,
-      description = $4,
-      high_pri = $5,
-      watcher = $6::uuid[],
-      closed_dt = $7,
-      last_updated_by = $8::uuid,
-      last_update_dttm = NOW(),
-      title=$10,
-      type=$11,
-      occur_date=$12
-    WHERE ticket_id = $9
-    RETURNING *;
+    SET status = $1, assigned_to = $2::uuid, resolution = $3, description = $4,
+        high_pri = $5, watcher = $6::uuid[], closed_dt = $7, last_updated_by = $8::uuid,
+        last_update_dttm = NOW(), title=$10, type=$11, occur_date=$12
+    WHERE ticket_id = $9 RETURNING *;
   `;
 
   try {
-    // Get old inquiry data before update
     const oldInquiry = await getPool().query(
       "SELECT * FROM v4.inquiry_tbl WHERE ticket_id = $1",
       [ticketId],
@@ -267,7 +259,6 @@ export const updateInquiry = async (req, res) => {
 
     const updatedInquiry = rows[0];
 
-    // Get updater's name
     const updaterQuery = await getPool().query(
       `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
       [userId],
@@ -276,15 +267,11 @@ export const updateInquiry = async (req, res) => {
       ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
       : "Someone";
 
-    // SEND NOTIFICATIONS
+    // BUILD RECIPIENT LIST
     const recipientsSet = new Set();
-
-    // 1. Notify owner if status changed
     if (oldInquiry.rows[0].owner_id && oldInquiry.rows[0].owner_id !== userId) {
       recipientsSet.add(oldInquiry.rows[0].owner_id);
     }
-
-    // 2. Notify assigned user if changed
     if (
       assigned_to &&
       assigned_to !== userId &&
@@ -292,8 +279,6 @@ export const updateInquiry = async (req, res) => {
     ) {
       recipientsSet.add(assigned_to);
     }
-
-    // 3. Notify watchers (excluding the updater)
     if (watcher && Array.isArray(watcher)) {
       watcher.forEach((w) => {
         if (w !== userId) recipientsSet.add(w);
@@ -304,8 +289,6 @@ export const updateInquiry = async (req, res) => {
 
     if (recipients.length > 0) {
       let notificationBody = `${updaterName} updated the inquiry`;
-
-      // Customize message based on what changed
       if (status && status !== oldInquiry.rows[0].status) {
         notificationBody = `${updaterName} changed status to ${status}`;
       } else if (
@@ -315,16 +298,20 @@ export const updateInquiry = async (req, res) => {
         notificationBody = `${updaterName} assigned this inquiry to you`;
       }
 
-      await sendNotificationToMultipleUsers(
-        recipients,
-        `Inquiry Updated: ${updatedInquiry.title}`,
-        notificationBody,
-        {
-          type: "inquiry",
-          inquiryId: ticketId,
-          screen: "InquiryScreen",
-          params: { ticketId: ticketId },
-        },
+      await Promise.all(
+        recipients.map((recipientId) =>
+          createNotification({
+            userId: recipientId,
+            title: `Inquiry Updated: ${updatedInquiry.title}`,
+            body: notificationBody,
+            data: {
+              type: "inquiries",
+              rowId: ticketId,
+              screen: "InquiryScreen",
+              params: { ticketId: ticketId },
+            },
+          }),
+        ),
       );
     }
 

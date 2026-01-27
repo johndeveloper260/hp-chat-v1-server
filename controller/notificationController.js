@@ -209,3 +209,66 @@ export const deletePushToken = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// Add these to your existing notificationController.js
+
+/**
+ * Helper: Save to DB AND Send Push Notification
+ */
+export const createNotification = async ({ userId, title, body, data }) => {
+  try {
+    // 1. Save to Database
+    const dbQuery = `
+      INSERT INTO v4.notification_history_tbl 
+      (user_id, title, body, relation_type, relation_id)
+      VALUES ($1, $2, $3, $4, $5)
+    `;
+    await getPool().query(dbQuery, [
+      userId,
+      title,
+      body,
+      data?.type, // e.g., 'inquiries'
+      data?.rowId, // e.g., ticket_id
+    ]);
+
+    // 2. Send Push Notification (using your existing logic)
+    return await sendNotificationToUser(userId, title, body, data);
+  } catch (err) {
+    console.error("Error creating notification record:", err);
+  }
+};
+
+/**
+ * GET: Fetch notifications for the logged-in user
+ */
+export const getMyNotifications = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const query = `
+      SELECT * FROM v4.notification_history_tbl 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC 
+      LIMIT 50
+    `;
+    const { rows } = await getPool().query(query, [userId]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * PATCH: Mark as read
+ */
+export const markAsRead = async (req, res) => {
+  const { notificationId } = req.params;
+  try {
+    await getPool().query(
+      "UPDATE v4.notification_history_tbl SET is_read = true WHERE notification_id = $1",
+      [notificationId],
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
