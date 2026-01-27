@@ -39,7 +39,7 @@ export const getComments = async (req, res) => {
 };
 
 /**
- * Add Comment with Push Notifications
+ * Add Comment with Extended Notifications
  */
 export const addComment = async (req, res) => {
   const {
@@ -53,14 +53,14 @@ export const addComment = async (req, res) => {
   const user_id = req.user.id;
 
   try {
-    // 1. Save the comment to the database
-    const query = `
+    // 1. Insert the new comment
+    const insertQuery = `
       INSERT INTO v4.shared_comments 
       (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *;
     `;
-    const result = await getPool().query(query, [
+    const result = await getPool().query(insertQuery, [
       relation_type,
       relation_id,
       user_id,
@@ -70,60 +70,69 @@ export const addComment = async (req, res) => {
     ]);
     const newComment = result.rows[0];
 
-    // 2. Fetch the commenter's name for the notification message
-    const commenterQuery = await getPool().query(
+    // 2. Fetch commenter's name
+    const commenterRes = await getPool().query(
       `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
       [user_id],
     );
-    const commenterName = commenterQuery.rows[0]
-      ? `${commenterQuery.rows[0].first_name} ${commenterQuery.rows[0].last_name}`
+    const commenterName = commenterRes.rows[0]
+      ? `${commenterRes.rows[0].first_name} ${commenterRes.rows[0].last_name}`
       : "Someone";
 
-    // 3. Determine recipients based on your rules
+    // 3. Identify Recipients
     let recipients = [];
 
-    if (relation_type === "announcements") {
-      // Notify the author of the announcement
-      const announcement = await getPool().query(
-        `SELECT created_by FROM v4.announcement_tbl WHERE id = $1`,
-        [relation_id],
-      );
-      if (announcement.rows[0])
-        recipients.push(announcement.rows[0].created_by);
-    } else if (relation_type === "inquiries") {
-      // Notify owner, assigned officer, and all watchers
-      const inquiry = await getPool().query(
+    if (relation_type === "inquiries") {
+      // A. Get the Inquiry core participants (Owner, Assignee, Watchers)
+      const inquiryRes = await getPool().query(
         `SELECT owner_id, assigned_to, watcher FROM v4.inquiry_tbl WHERE ticket_id = $1`,
         [relation_id],
       );
-      if (inquiry.rows[0]) {
-        const { owner_id, assigned_to, watcher } = inquiry.rows[0];
-        recipients = [owner_id, assigned_to, ...(watcher || [])];
+
+      if (inquiryRes.rows[0]) {
+        const { owner_id, assigned_to, watcher } = inquiryRes.rows[0];
+        recipients.push(owner_id, assigned_to, ...(watcher || []));
       }
+
+      // B. NEW: Get everyone who has commented on this inquiry before
+      const previousCommentersRes = await getPool().query(
+        `SELECT DISTINCT user_id FROM v4.shared_comments 
+         WHERE relation_type = 'inquiries' AND relation_id = $1`,
+        [relation_id],
+      );
+
+      const previousCommenters = previousCommentersRes.rows.map(
+        (r) => r.user_id,
+      );
+      recipients = [...recipients, ...previousCommenters];
+    } else if (relation_type === "announcements") {
+      const announcementRes = await getPool().query(
+        `SELECT created_by FROM v4.announcement_tbl WHERE id = $1`,
+        [relation_id],
+      );
+      if (announcementRes.rows[0])
+        recipients.push(announcementRes.rows[0].created_by);
     }
 
-    // 4. Clean list: Remove duplicates, nulls, and DO NOT notify the commenter (self)
+    // 4. Filter: Unique IDs, No Nulls, and DO NOT notify the person who just commented
     const finalRecipients = [...new Set(recipients)].filter(
       (id) => id && id !== user_id,
     );
 
-    // 5. Trigger Push Notifications
+    // 5. Trigger Push
     if (finalRecipients.length > 0) {
       const typeLabel =
         relation_type === "inquiries" ? "Inquiry" : "Announcement";
-      const notifTitle = `New comment on ${typeLabel}`;
-      const notifBody = `${commenterName}: ${content_text.substring(0, 50)}${content_text.length > 50 ? "..." : ""}`;
 
       await Promise.all(
         finalRecipients.map((recipientId) =>
           createNotification({
             userId: recipientId,
-            title: notifTitle,
-            body: notifBody,
+            title: `New comment on ${typeLabel}`,
+            body: `${commenterName}: ${content_text.substring(0, 50)}${content_text.length > 50 ? "..." : ""}`,
             data: {
               type: relation_type,
               rowId: relation_id,
-              // These parameters help the frontend navigate to the right screen
               screen: relation_type === "inquiries" ? "Inquiry" : "Home",
               params:
                 relation_type === "inquiries"
@@ -137,7 +146,7 @@ export const addComment = async (req, res) => {
 
     res.status(201).json(newComment);
   } catch (error) {
-    console.error("Add Comment Notification Error:", error.message);
+    console.error("Add Comment Error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
