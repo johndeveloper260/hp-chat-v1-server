@@ -151,34 +151,22 @@ export const createInquiry = async (req, res) => {
     const { rows } = await getPool().query(query, values);
     const newInquiry = rows[0];
 
-    // Get creator's name for notification
-    const creatorQuery = await getPool().query(
-      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
-      [userId],
-    );
-    const creatorName = creatorQuery.rows[0]
-      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
-      : "Someone";
-
-    // NOTIFICATION LOGIC
-    const officersQuery = await getPool().query(
-      `SELECT p.user_id FROM v4.user_profile_tbl p
-       JOIN v4.user_account_tbl a ON p.user_id = a.id
-       WHERE a.business_unit = $1 AND p.user_type = 'OFFICER'
-         AND a.is_active = true AND p.user_id != $2`,
-      [userBU, userId],
-    );
-
-    const officerIds = officersQuery.rows.map((row) => row.user_id);
-    const notificationRecipients = [
-      ...new Set([...officerIds, ...(watcher || [])]),
+    // 1. BUILD RECIPIENT LIST (Owner, Assignee, and Watchers)
+    const recipients = [
+      owner_id,
+      req.body.assigned_to,
+      ...(Array.isArray(watcher) ? watcher : []),
     ];
+
+    // 2. FILTER: Remove duplicates, nulls, and do not notify self (creator)
+    const notificationRecipients = [...new Set(recipients)].filter(
+      (id) => id && id !== userId,
+    );
 
     if (notificationRecipients.length > 0) {
       const notifTitle = `New Inquiry${high_pri ? " (High Priority)" : ""}: ${title}`;
       const notifBody = `${creatorName} created a new inquiry`;
 
-      // Map through recipients to save to DB + send Push for each
       await Promise.all(
         notificationRecipients.map((recipientId) =>
           createNotification({
@@ -188,7 +176,7 @@ export const createInquiry = async (req, res) => {
             data: {
               type: "inquiries",
               rowId: newInquiry.ticket_id,
-              screen: "Inquiry",
+              screen: "Inquiry", // Ensure this matches your frontend navigation name
               params: { ticketId: newInquiry.ticket_id },
             },
           }),
@@ -255,45 +243,29 @@ export const updateInquiry = async (req, res) => {
 
     const updatedInquiry = rows[0];
 
-    const updaterQuery = await getPool().query(
-      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
-      [userId],
-    );
-    const updaterName = updaterQuery.rows[0]
-      ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
-      : "Someone";
-
     // BUILD RECIPIENT LIST
     const recipientsSet = new Set();
-    if (oldInquiry.rows[0].owner_id && oldInquiry.rows[0].owner_id !== userId) {
-      recipientsSet.add(oldInquiry.rows[0].owner_id);
+
+    // 1. Notify the Owner (if it's not the person updating)
+    if (updatedInquiry.owner_id && updatedInquiry.owner_id !== userId) {
+      recipientsSet.add(updatedInquiry.owner_id);
     }
-    if (
-      assigned_to &&
-      assigned_to !== userId &&
-      assigned_to !== oldInquiry.rows[0].assigned_to
-    ) {
-      recipientsSet.add(assigned_to);
+
+    // 2. Notify the Assignee (if it's not the person updating)
+    if (updatedInquiry.assigned_to && updatedInquiry.assigned_to !== userId) {
+      recipientsSet.add(updatedInquiry.assigned_to);
     }
+
+    // 3. Notify Watchers (if they aren't the person updating)
     if (watcher && Array.isArray(watcher)) {
       watcher.forEach((w) => {
-        if (w !== userId) recipientsSet.add(w);
+        if (w && w !== userId) recipientsSet.add(w);
       });
     }
 
     const recipients = Array.from(recipientsSet);
 
     if (recipients.length > 0) {
-      let notificationBody = `${updaterName} updated the inquiry`;
-      if (status && status !== oldInquiry.rows[0].status) {
-        notificationBody = `${updaterName} changed status to ${status}`;
-      } else if (
-        assigned_to &&
-        assigned_to !== oldInquiry.rows[0].assigned_to
-      ) {
-        notificationBody = `${updaterName} assigned this inquiry to you`;
-      }
-
       await Promise.all(
         recipients.map((recipientId) =>
           createNotification({
@@ -303,7 +275,7 @@ export const updateInquiry = async (req, res) => {
             data: {
               type: "inquiries",
               rowId: ticketId,
-              screen: "InquiryScreen",
+              screen: "Inquiry", // Changed from InquiryScreen to match Create logic
               params: { ticketId: ticketId },
             },
           }),
