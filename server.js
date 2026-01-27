@@ -18,6 +18,7 @@ import stream from "./routes/streamRoutes.js";
 import attachmentRoutes from "./routes/attachmentRoutes.js";
 import commentsRoutes from "./routes/commentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import translateRoutes from "./routes/translateRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +61,7 @@ app.use("/stream", stream);
 app.use("/attachments", attachmentRoutes);
 app.use("/comments", commentsRoutes);
 app.use("/notifications", notificationRoutes);
+app.use("/translate", translateRoutes);
 
 const PORT = process.env.PORT || 8010;
 httpServer.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
