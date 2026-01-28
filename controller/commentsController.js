@@ -107,7 +107,7 @@ export const addComment = async (req, res) => {
       recipients = [...recipients, ...previousCommenters];
     } else if (relation_type === "announcements") {
       const announcementRes = await getPool().query(
-        `SELECT created_by FROM v4.announcement_tbl WHERE id = $1`,
+        `SELECT created_by FROM v4.announcement_tbl WHERE row_id = $1`,
         [relation_id],
       );
       if (announcementRes.rows[0])
