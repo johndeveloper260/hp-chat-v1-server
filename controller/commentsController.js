@@ -97,8 +97,8 @@ export const addComment = async (req, res) => {
       // B. NEW: Get everyone who has commented on this inquiry before
       const previousCommentersRes = await getPool().query(
         `SELECT DISTINCT user_id FROM v4.shared_comments 
-         WHERE relation_type = 'inquiries' AND relation_id = $1`,
-        [relation_id],
+         WHERE relation_type = 'inquiries' AND relation_id = $1 AND user_id != $2`,
+        [relation_id, user_id], // Pass the current user_id here
       );
 
       const previousCommenters = previousCommentersRes.rows.map(
@@ -120,8 +120,8 @@ export const addComment = async (req, res) => {
       // Changed relation_type from 'inquiries' to 'announcements'
       const previousCommentersRes = await getPool().query(
         `SELECT DISTINCT user_id FROM v4.shared_comments 
-     WHERE relation_type = 'announcements' AND relation_id = $1`,
-        [relation_id],
+         WHERE relation_type = 'announcements' AND relation_id = $1 AND user_id != $2`,
+        [relation_id, user_id], // Pass the current user_id here
       );
 
       const previousCommenters = previousCommentersRes.rows.map(
@@ -134,7 +134,7 @@ export const addComment = async (req, res) => {
 
     // 4. Filter: Unique IDs, No Nulls, and DO NOT notify the person who just commented
     const finalRecipients = [...new Set(recipients)].filter(
-      (id) => id && id !== user_id,
+      (id) => id && String(id) !== String(user_id),
     );
 
     // 5. Trigger Push
