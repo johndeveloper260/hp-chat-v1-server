@@ -29,18 +29,30 @@ router.post("/stream-webhook", async (req, res) => {
   // Stream uses a flat structure for webhooks
   if (event && event.type === "call.ring") {
     console.log("📞 Incoming Call Event Found!");
-    const callId = event.call_cid;
-    const callerName = event.user?.name || "Someone";
-    const members = event.call?.members || [];
 
-    const recipients = members.filter((m) => m.user_id !== event.user?.id);
+    // ✅ FIX: Extract just the ID portion from call_cid
+    const callCid = event.call_cid; // e.g., "default:abc123"
+    const callId = callCid.split(":")[1]; // Extract "abc123"
+
+    const callerId = event.user?.id; // ✅ FIX: Get caller's ID
+    const callerName = event.user?.name || "Someone";
+    const callerImage = event.user?.image;
+
+    const members = event.call?.members || [];
+    const recipients = members.filter((m) => m.user_id !== callerId);
+
+    console.log(`📤 Sending notifications to ${recipients.length} recipients`);
 
     for (const member of recipients) {
-      // This sends the push via Expo
+      console.log(`  → Notifying user ${member.user_id}`);
+
+      // ✅ FIX: Now passing all 4 required parameters
       await notificationController.sendCallNotification(
-        member.user_id,
-        callerName,
-        callId,
+        member.user_id, // recipientUserId
+        callerName, // callerName
+        callId, // callId (just the ID, not full CID)
+        callerId, // callerId ✅ ADDED!
+        callerImage, // Optional: for future use
       );
     }
   }

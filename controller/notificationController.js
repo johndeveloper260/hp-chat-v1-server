@@ -279,49 +279,70 @@ export const markAsRead = async (req, res) => {
 /**
  * Specialized function for Call Notifications
  */
-export const sendCallNotification = async (userId, callerName, callId) => {
+export const sendCallNotification = async (
+  recipientUserId,
+  callerName,
+  callId,
+  callerId,
+  callerImage = null,
+) => {
   try {
     // 1. Get recipient's push token
     const result = await getPool().query(
       "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1",
-      [userId],
+      [recipientUserId],
     );
 
-    if (result.rows.length === 0) return { success: false };
+    if (result.rows.length === 0) {
+      console.log(`❌ No push token found for user ${recipientUserId}`);
+      return { success: false, error: "No push token" };
+    }
 
     const pushToken = result.rows[0].expo_push_token;
+    console.log(`📱 Sending to token: ${pushToken.substring(0, 20)}...`);
 
-    // Inside your backend: sendCallNotification
+    if (!Expo.isExpoPushToken(pushToken)) {
+      console.error(`❌ Invalid push token for user ${recipientUserId}`);
+      return { success: false, error: "Invalid token" };
+    }
+
+    // ✅ FIXED: Complete notification payload
     const message = {
-      to: pushToken, // This MUST be the ExponentPushToken[...] from your logs
+      to: pushToken,
       sound: "default",
-      title: "Incoming Video Call",
+      title: "Incoming Video Call 📞",
       body: `${callerName} is calling you...`,
       data: {
         type: "stream_call",
-        callId: callId,
-        otherUserId: callerId,
+        callId: callId, // ✅ Just the ID
+        otherUserId: callerId, // ✅ Now properly set!
         otherUserName: callerName,
+        otherUserImage: callerImage,
         isIncoming: true,
-        callType: "video",
+        callType: "default", // ✅ Match your Stream call type
       },
-      // CRITICAL for "Killed" state:
       priority: "high",
-      expiration: 0, // Ensure it doesn't expire if delayed
+      channelId: "calls", // ✅ For Android
+      categoryId: "call", // ✅ For iOS
       android: {
-        channelId: "calls", // Must match the channel in your NotificationContext
-        importance: "max",
+        channelId: "calls",
+        priority: "max",
+        sound: "default",
         vibrationPattern: [0, 250, 250, 250],
       },
       ios: {
+        sound: "default",
         _displayInForeground: true,
       },
     };
 
     // 3. Send via Expo
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    return tickets;
+    console.log("✅ Notification sent:", tickets);
+
+    return { success: true, tickets };
   } catch (error) {
-    console.error("Call Notification Error:", error);
+    console.error("❌ Call Notification Error:", error);
+    return { success: false, error: error.message };
   }
 };
