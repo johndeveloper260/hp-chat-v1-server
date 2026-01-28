@@ -106,12 +106,30 @@ export const addComment = async (req, res) => {
       );
       recipients = [...recipients, ...previousCommenters];
     } else if (relation_type === "announcements") {
+      // A. Get the Announcement creator (created_by)
       const announcementRes = await getPool().query(
         `SELECT created_by FROM v4.announcement_tbl WHERE row_id = $1`,
         [relation_id],
       );
-      if (announcementRes.rows[0])
+
+      if (announcementRes.rows[0]) {
         recipients.push(announcementRes.rows[0].created_by);
+      }
+
+      // B. FIXED: Get everyone who has commented on this ANNOUNCEMENT before
+      // Changed relation_type from 'inquiries' to 'announcements'
+      const previousCommentersRes = await getPool().query(
+        `SELECT DISTINCT user_id FROM v4.shared_comments 
+     WHERE relation_type = 'announcements' AND relation_id = $1`,
+        [relation_id],
+      );
+
+      const previousCommenters = previousCommentersRes.rows.map(
+        (r) => r.user_id,
+      );
+
+      // Combine all recipients
+      recipients = [...recipients, ...previousCommenters];
     }
 
     // 4. Filter: Unique IDs, No Nulls, and DO NOT notify the person who just commented
