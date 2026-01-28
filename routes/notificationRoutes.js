@@ -21,22 +21,28 @@ router.patch("/:notificationId/read", auth, notificationController.markAsRead);
 router.post("/stream-webhook", async (req, res) => {
   const { event } = req.body;
 
-  // We only care when a call is created and users are being "rung"
-  if (event.type === "call.ring") {
-    const callId = event.call.id;
+  // Stream sends 'call.ring' when a user is invited to a call
+  if (event && event.type === "call.ring") {
+    const callId = event.call_cid; // e.g., "default:12345"
     const callerName = event.user.name || "Someone";
-    const members = event.call.members; // Array of members in the call
+    const members = event.call.members || [];
 
-    // Find the members who aren't the caller
+    // Filter out the caller so we only notify the recipients
     const recipients = members.filter((m) => m.user_id !== event.user.id);
 
+    console.log(`📞 Incoming call webhook for ${recipients.length} users`);
+
     for (const member of recipients) {
-      // Use your existing controller to send the push!
-      await sendCallNotification(member.user_id, callerName, callId);
+      // Use your existing controller!
+      await notificationController.sendCallNotification(
+        member.user_id,
+        callerName,
+        callId,
+      );
     }
   }
 
-  res.status(200).send("Webhook received");
+  res.status(200).send("OK");
 });
 
 export default router;
