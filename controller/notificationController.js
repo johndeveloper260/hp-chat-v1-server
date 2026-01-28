@@ -291,23 +291,30 @@ export const sendCallNotification = async (userId, callerName, callId) => {
 
     const pushToken = result.rows[0].expo_push_token;
 
-    // 2. Construct the message
+    // Inside your backend: sendCallNotification
     const message = {
-      to: pushToken,
+      to: pushToken, // This MUST be the ExponentPushToken[...] from your logs
       sound: "default",
       title: "Incoming Video Call",
       body: `${callerName} is calling you...`,
       data: {
         type: "stream_call",
         callId: callId,
-        otherUserId: callerId, // Must match what CallScreen.tsx expects
-        otherUserName: callerName, // Used for the "Incoming call from..." text
-        isIncoming: true, // Triggers the Accept/Decline buttons
+        otherUserId: callerId,
+        otherUserName: callerName,
+        isIncoming: true,
         callType: "video",
       },
+      // CRITICAL for "Killed" state:
       priority: "high",
+      expiration: 0, // Ensure it doesn't expire if delayed
       android: {
-        channelId: "calls",
+        channelId: "calls", // Must match the channel in your NotificationContext
+        importance: "max",
+        vibrationPattern: [0, 250, 250, 250],
+      },
+      ios: {
+        _displayInForeground: true,
       },
     };
 
