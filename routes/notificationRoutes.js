@@ -17,23 +17,26 @@ router.post("/remove-token", auth, notificationController.deletePushToken);
 router.get("/", auth, notificationController.getMyNotifications);
 router.patch("/:notificationId/read", auth, notificationController.markAsRead);
 
-// In your routes file (e.g., notificationRoutes.js)
+// ✅ CHANGE THIS:
+// router.post("/notifications/stream-webhook", ... )
+// TO THIS:
 router.post("/stream-webhook", async (req, res) => {
-  const { event } = req.body;
+  console.log("🚀 Webhook Received!");
+  console.log("Body:", JSON.stringify(req.body, null, 2));
 
-  // Stream sends 'call.ring' when a user is invited to a call
+  const event = req.body;
+
+  // Stream uses a flat structure for webhooks
   if (event && event.type === "call.ring") {
-    const callId = event.call_cid; // e.g., "default:12345"
-    const callerName = event.user.name || "Someone";
-    const members = event.call.members || [];
+    console.log("📞 Incoming Call Event Found!");
+    const callId = event.call_cid;
+    const callerName = event.user?.name || "Someone";
+    const members = event.call?.members || [];
 
-    // Filter out the caller so we only notify the recipients
-    const recipients = members.filter((m) => m.user_id !== event.user.id);
-
-    console.log(`📞 Incoming call webhook for ${recipients.length} users`);
+    const recipients = members.filter((m) => m.user_id !== event.user?.id);
 
     for (const member of recipients) {
-      // Use your existing controller!
+      // This sends the push via Expo
       await notificationController.sendCallNotification(
         member.user_id,
         callerName,
