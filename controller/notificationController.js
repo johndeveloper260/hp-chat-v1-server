@@ -295,18 +295,19 @@ export const sendCallNotification = async (userId, callerName, callId) => {
     const message = {
       to: pushToken,
       sound: "default",
-      title: "Incoming Call",
+      title: "Incoming Video Call",
       body: `${callerName} is calling you...`,
-      // IMPORTANT: Data payload for the app to process the call
       data: {
         type: "stream_call",
         callId: callId,
-        callerName: callerName,
-        callType: "video", // <--- ADDED: Required by RootNavigator
+        otherUserId: callerId, // Must match what CallScreen.tsx expects
+        otherUserName: callerName, // Used for the "Incoming call from..." text
+        isIncoming: true, // Triggers the Accept/Decline buttons
+        callType: "video",
       },
-      priority: "high", // Critical for waking up background apps
+      priority: "high",
       android: {
-        channelId: "calls", // Must match NotificationContext channel ID
+        channelId: "calls",
       },
     };
 
