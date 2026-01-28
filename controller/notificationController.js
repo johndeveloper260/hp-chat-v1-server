@@ -62,6 +62,7 @@ export const sendNotificationToUser = async (
 
     const pushToken = result.rows[0].expo_push_token;
 
+    console.log("Received token:", expoPushToken);
     if (!Expo.isExpoPushToken(pushToken)) {
       console.error(`Invalid push token for user ${userId}`);
       return { success: false, error: "Invalid token" };
