@@ -275,3 +275,45 @@ export const markAsRead = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+/**
+ * Specialized function for Call Notifications
+ */
+export const sendCallNotification = async (userId, callerName, callId) => {
+  try {
+    // 1. Get recipient's push token
+    const result = await getPool().query(
+      "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1",
+      [userId],
+    );
+
+    if (result.rows.length === 0) return { success: false };
+
+    const pushToken = result.rows[0].expo_push_token;
+
+    // 2. Construct the message
+    const message = {
+      to: pushToken,
+      sound: "default",
+      title: "Incoming Call",
+      body: `${callerName} is calling you...`,
+      // IMPORTANT: Data payload for the app to process the call
+      data: {
+        type: "stream_call",
+        callId: callId,
+        callerName: callerName,
+        callType: "video", // <--- ADDED: Required by RootNavigator
+      },
+      priority: "high", // Critical for waking up background apps
+      android: {
+        channelId: "calls", // Must match NotificationContext channel ID
+      },
+    };
+
+    // 3. Send via Expo
+    const tickets = await expo.sendPushNotificationsAsync([message]);
+    return tickets;
+  } catch (error) {
+    console.error("Call Notification Error:", error);
+  }
+};
