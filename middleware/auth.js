@@ -1,15 +1,21 @@
 import jwt from "jsonwebtoken";
 
 const auth = (req, res, next) => {
-  // 1. Get token from header
-  const token = req.header("x-app-identity");
+  // ✅ FIXED: Support both header formats
+  let token = req.header("x-app-identity");
 
-  // 2. Check if no token
+  // If not found, try Authorization header (for mobile apps)
+  if (!token) {
+    const authHeader = req.header("Authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+  }
+
   if (!token) {
     return res.status(401).json({ msg: "No token, authorization denied" });
   }
 
-  // 3. Verify token
   try {
     jwt.verify(token, process.env.SECRET_TOKEN, (error, decoded) => {
       if (error) {
@@ -17,7 +23,6 @@ const auth = (req, res, next) => {
         return res.status(401).json({ msg: "Token is not valid" });
       }
 
-      // 3. Attach the full data to req.user
       req.user = {
         id: decoded.id,
         business_unit: decoded.business_unit,
@@ -25,9 +30,7 @@ const auth = (req, res, next) => {
         company: decoded.company,
       };
 
-      console.log("User Authenticated:", req.user.id);
-
-      // 6. Move to the next middleware/controller
+      console.log("✅ User Authenticated:", req.user.id);
       next();
     });
   } catch (err) {
