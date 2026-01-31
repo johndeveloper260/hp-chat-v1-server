@@ -287,9 +287,22 @@ export const sendCallNotification = async (
   callerImage = null,
 ) => {
   try {
+    console.log("📞 sendCallNotification called with:", {
+      recipientUserId,
+      callerName,
+      callId,
+      callerId,
+    });
+
     const result = await getPool().query(
       "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1",
       [recipientUserId],
+    );
+
+    console.log(
+      `🔍 Query result for user ${recipientUserId}:`,
+      result.rows.length,
+      "rows",
     );
 
     if (result.rows.length === 0) {
@@ -298,14 +311,15 @@ export const sendCallNotification = async (
     }
 
     const pushToken = result.rows[0].expo_push_token;
-    console.log(`📱 Sending to token: ${pushToken.substring(0, 20)}...`);
+    console.log(`📱 Found push token: ${pushToken.substring(0, 30)}...`);
 
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`❌ Invalid push token for user ${recipientUserId}`);
+      console.error(
+        `❌ Invalid push token for user ${recipientUserId}: ${pushToken}`,
+      );
       return { success: false, error: "Invalid token" };
     }
 
-    // ✅ ENHANCED notification payload for waking the app
     const message = {
       to: pushToken,
       sound: "default",
@@ -320,32 +334,30 @@ export const sendCallNotification = async (
         isIncoming: true,
         callType: "default",
       },
-      priority: "high", // ✅ High priority
-      // ✅ Android-specific settings
+      priority: "high",
       android: {
         channelId: "calls",
         priority: "max",
         sound: "default",
         vibrate: [0, 250, 250, 250],
-        sticky: false,
-        // ✅ CRITICAL: Request full-screen intent to wake device
-        behavior: "default",
       },
-      // ✅ iOS-specific settings
       ios: {
         sound: "default",
         _displayInForeground: true,
-        // ✅ CRITICAL: interruption level for iOS 15+
-        interruptionLevel: "critical",
       },
     };
 
+    console.log("📤 Sending notification via Expo...");
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    console.log("✅ Notification sent:", tickets);
+    console.log(
+      "✅ Notification sent successfully:",
+      JSON.stringify(tickets, null, 2),
+    );
 
     return { success: true, tickets };
   } catch (error) {
     console.error("❌ Call Notification Error:", error);
+    console.error("Error stack:", error.stack);
     return { success: false, error: error.message };
   }
 };
