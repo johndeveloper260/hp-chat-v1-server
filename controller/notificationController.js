@@ -287,11 +287,10 @@ export const sendCallNotification = async (
   callerImage = null,
 ) => {
   try {
-    console.log("📞 sendCallNotification called with:", {
+    console.log("📞 sendCallNotification called:", {
       recipientUserId,
       callerName,
       callId,
-      callerId,
     });
 
     const result = await getPool().query(
@@ -299,24 +298,16 @@ export const sendCallNotification = async (
       [recipientUserId],
     );
 
-    console.log(
-      `🔍 Query result for user ${recipientUserId}:`,
-      result.rows.length,
-      "rows",
-    );
-
     if (result.rows.length === 0) {
-      console.log(`❌ No push token found for user ${recipientUserId}`);
+      console.log(`❌ No push token for user ${recipientUserId}`);
       return { success: false, error: "No push token" };
     }
 
     const pushToken = result.rows[0].expo_push_token;
-    console.log(`📱 Found push token: ${pushToken.substring(0, 30)}...`);
+    console.log(`📱 Sending to: ${pushToken.substring(0, 25)}...`);
 
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(
-        `❌ Invalid push token for user ${recipientUserId}: ${pushToken}`,
-      );
+      console.error(`❌ Invalid token format`);
       return { success: false, error: "Invalid token" };
     }
 
@@ -333,31 +324,44 @@ export const sendCallNotification = async (
         otherUserImage: callerImage,
         isIncoming: true,
         callType: "default",
+        // ✅ Add timestamp for deduplication
+        timestamp: Date.now(),
       },
       priority: "high",
+      // ✅ Android critical settings
       android: {
         channelId: "calls",
         priority: "max",
         sound: "default",
         vibrate: [0, 250, 250, 250],
+        // ✅ CRITICAL: Wake device
+        sticky: false,
+        autoDismiss: false,
       },
+      // ✅ iOS critical settings
       ios: {
         sound: "default",
         _displayInForeground: true,
+        // ✅ For iOS 15+ - highest priority
+        interruptionLevel: "timeSensitive", // Use "critical" if you have entitlement
+        _contentAvailable: 1,
       },
     };
 
-    console.log("📤 Sending notification via Expo...");
+    console.log("📤 Sending via Expo Push...");
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    console.log(
-      "✅ Notification sent successfully:",
-      JSON.stringify(tickets, null, 2),
-    );
+    console.log("✅ Notification sent:", JSON.stringify(tickets, null, 2));
+
+    // Check for errors
+    tickets.forEach((ticket, index) => {
+      if (ticket.status === "error") {
+        console.error(`❌ Ticket ${index} error:`, ticket.message);
+      }
+    });
 
     return { success: true, tickets };
   } catch (error) {
-    console.error("❌ Call Notification Error:", error);
-    console.error("Error stack:", error.stack);
+    console.error("❌ sendCallNotification error:", error);
     return { success: false, error: error.message };
   }
 };

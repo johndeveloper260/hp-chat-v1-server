@@ -20,18 +20,48 @@ router.patch("/:notificationId/read", auth, notificationController.markAsRead);
 // Stream webhook
 router.post("/stream-webhook", async (req, res) => {
   console.log("🚀 Webhook Received!");
+  console.log("Event Type:", req.body.type);
   console.log("Body:", JSON.stringify(req.body, null, 2));
 
   const event = req.body;
 
+  // Handle call.ring event (primary)
   if (event && event.type === "call.ring") {
-    console.log("📞 Incoming Call Event Found!");
+    console.log("📞 RING Event - Incoming Call!");
 
     const callCid = event.call_cid;
     const callId = callCid.split(":")[1];
     const callerId = event.user?.id;
     const callerName = event.user?.name || "Someone";
     const callerImage = event.user?.image;
+
+    const members = event.members || event.call?.members || [];
+    const recipients = members.filter((m) => m.user_id !== callerId);
+
+    console.log(`📤 Sending notifications to ${recipients.length} recipients`);
+
+    for (const member of recipients) {
+      console.log(`  → Notifying user ${member.user_id}`);
+      await notificationController.sendCallNotification(
+        member.user_id,
+        callerName,
+        callId,
+        callerId,
+        callerImage,
+      );
+    }
+  }
+
+  // Handle call.created as fallback (when ring: true is set)
+  if (event && event.type === "call.created" && event.call?.ring) {
+    console.log("📞 CREATED Event with ring=true - Sending notifications");
+
+    const callCid = event.call_cid;
+    const callId = callCid.split(":")[1];
+    const createdBy = event.call?.created_by;
+    const callerId = createdBy?.id;
+    const callerName = createdBy?.name || "Someone";
+    const callerImage = createdBy?.image;
 
     const members = event.call?.members || [];
     const recipients = members.filter((m) => m.user_id !== callerId);
