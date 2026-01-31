@@ -287,7 +287,6 @@ export const sendCallNotification = async (
   callerImage = null,
 ) => {
   try {
-    // 1. Get recipient's push token
     const result = await getPool().query(
       "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1",
       [recipientUserId],
@@ -306,7 +305,7 @@ export const sendCallNotification = async (
       return { success: false, error: "Invalid token" };
     }
 
-    // ✅ FIXED: Complete notification payload
+    // ✅ ENHANCED notification payload for waking the app
     const message = {
       to: pushToken,
       sound: "default",
@@ -314,29 +313,33 @@ export const sendCallNotification = async (
       body: `${callerName} is calling you...`,
       data: {
         type: "stream_call",
-        callId: callId, // ✅ Just the ID
-        otherUserId: callerId, // ✅ Now properly set!
+        callId: callId,
+        otherUserId: callerId,
         otherUserName: callerName,
         otherUserImage: callerImage,
         isIncoming: true,
-        callType: "default", // ✅ Match your Stream call type
+        callType: "default",
       },
-      priority: "high",
-      channelId: "calls", // ✅ For Android
-      categoryId: "call", // ✅ For iOS
+      priority: "high", // ✅ High priority
+      // ✅ Android-specific settings
       android: {
         channelId: "calls",
         priority: "max",
         sound: "default",
-        vibrationPattern: [0, 250, 250, 250],
+        vibrate: [0, 250, 250, 250],
+        sticky: false,
+        // ✅ CRITICAL: Request full-screen intent to wake device
+        behavior: "default",
       },
+      // ✅ iOS-specific settings
       ios: {
         sound: "default",
         _displayInForeground: true,
+        // ✅ CRITICAL: interruption level for iOS 15+
+        interruptionLevel: "critical",
       },
     };
 
-    // 3. Send via Expo
     const tickets = await expo.sendPushNotificationsAsync([message]);
     console.log("✅ Notification sent:", tickets);
 
