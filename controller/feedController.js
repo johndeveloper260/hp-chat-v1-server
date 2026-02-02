@@ -28,6 +28,7 @@ export const getAnnouncements = async (req, res) => {
         WHERE c.company_id = ANY(a.company::uuid[]) 
         ORDER BY c.sort_order ASC
       ) as target_companies,
+      a.batch_no,
       a.title,
       a.content_text,
       a.reactions,
