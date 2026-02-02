@@ -6,18 +6,12 @@ dotenv.config();
 
 // 1. SEARCH
 export const searchInquiries = async (req, res) => {
-  const {
-    status,
-    type,
-    lang = "en",
-    company_id,
-    assigned_to,
-    high_pri,
-  } = req.query;
+  const { status, type, company_id, assigned_to, high_pri } = req.query;
 
   const businessUnit = req.user.business_unit;
   const userId = req.user.id;
   const userRole = req.user.userType?.toUpperCase() || "";
+  const lang = req.user.preferred_language || "en";
 
   let query = `
   SELECT 
@@ -326,7 +320,7 @@ export const deleteInquiry = async (req, res) => {
 
 //5. GET ISSUE TYPE
 export const getIssues = async (req, res) => {
-  const { lang = "en" } = req.query;
+  const lang = req.user.preferred_language || "en";
   const bu = req.user.business_unit;
 
   try {

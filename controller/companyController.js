@@ -26,7 +26,7 @@ export const getCompanies = async (req, res) => {
 export const getCompanyDropdown = async (req, res) => {
   try {
     const { business_unit } = req.query;
-    const preferredLanguage = req.user.language || "en";
+    const preferredLanguage = req.user.preferred_language || "en";
 
     const query = `
       SELECT company_id AS value, company_name->>$2 AS label
