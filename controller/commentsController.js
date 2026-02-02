@@ -38,9 +38,6 @@ export const getComments = async (req, res) => {
   }
 };
 
-/**
- * Add Comment with Extended Notifications
- */
 export const addComment = async (req, res) => {
   const {
     relation_type,
@@ -53,7 +50,7 @@ export const addComment = async (req, res) => {
   const user_id = req.user.id;
 
   try {
-    // 1. Insert the new comment
+    // 1. Insert comment
     const insertQuery = `
       INSERT INTO v4.shared_comments 
       (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata)
@@ -79,11 +76,10 @@ export const addComment = async (req, res) => {
       ? `${commenterRes.rows[0].first_name} ${commenterRes.rows[0].last_name}`
       : "Someone";
 
-    // 3. Identify Recipients
+    // 3. Identify Recipients (same logic as before)
     let recipients = [];
 
     if (relation_type === "inquiries") {
-      // A. Get the Inquiry core participants (Owner, Assignee, Watchers)
       const inquiryRes = await getPool().query(
         `SELECT owner_id, assigned_to, watcher FROM v4.inquiry_tbl WHERE ticket_id = $1`,
         [relation_id],
@@ -94,11 +90,10 @@ export const addComment = async (req, res) => {
         recipients.push(owner_id, assigned_to, ...(watcher || []));
       }
 
-      // B. NEW: Get everyone who has commented on this inquiry before
       const previousCommentersRes = await getPool().query(
         `SELECT DISTINCT user_id FROM v4.shared_comments 
          WHERE relation_type = 'inquiries' AND relation_id = $1 AND user_id != $2`,
-        [relation_id, user_id], // Pass the current user_id here
+        [relation_id, user_id],
       );
 
       const previousCommenters = previousCommentersRes.rows.map(
@@ -106,7 +101,6 @@ export const addComment = async (req, res) => {
       );
       recipients = [...recipients, ...previousCommenters];
     } else if (relation_type === "announcements") {
-      // A. Get the Announcement creator (created_by)
       const announcementRes = await getPool().query(
         `SELECT created_by FROM v4.announcement_tbl WHERE row_id = $1`,
         [relation_id],
@@ -116,38 +110,45 @@ export const addComment = async (req, res) => {
         recipients.push(announcementRes.rows[0].created_by);
       }
 
-      // B. FIXED: Get everyone who has commented on this ANNOUNCEMENT before
-      // Changed relation_type from 'inquiries' to 'announcements'
       const previousCommentersRes = await getPool().query(
         `SELECT DISTINCT user_id FROM v4.shared_comments 
          WHERE relation_type = 'announcements' AND relation_id = $1 AND user_id != $2`,
-        [relation_id, user_id], // Pass the current user_id here
+        [relation_id, user_id],
       );
 
       const previousCommenters = previousCommentersRes.rows.map(
         (r) => r.user_id,
       );
-
-      // Combine all recipients
       recipients = [...recipients, ...previousCommenters];
     }
 
-    // 4. Filter: Unique IDs, No Nulls, and DO NOT notify the person who just commented
+    // 4. Filter recipients
     const finalRecipients = [...new Set(recipients)].filter(
       (id) => id && String(id) !== String(user_id),
     );
 
-    // 5. Trigger Push
+    // 5. ✅ Send notifications with translation keys
     if (finalRecipients.length > 0) {
-      const typeLabel =
-        relation_type === "inquiries" ? "Inquiry" : "Announcement";
+      const titleKey =
+        relation_type === "inquiries"
+          ? "comment_on_inquiry"
+          : "comment_on_announcement";
+
+      const commentPreview =
+        content_text.length > 50
+          ? `${content_text.substring(0, 50)}...`
+          : content_text;
 
       await Promise.all(
         finalRecipients.map((recipientId) =>
           createNotification({
             userId: recipientId,
-            title: `New comment on ${typeLabel}`,
-            body: `${commenterName}: ${content_text.substring(0, 50)}${content_text.length > 50 ? "..." : ""}`,
+            titleKey: titleKey,
+            bodyKey: "comment_body", // We'll add this
+            bodyParams: {
+              name: commenterName,
+              comment: commentPreview,
+            },
             data: {
               type: relation_type,
               rowId: relation_id,

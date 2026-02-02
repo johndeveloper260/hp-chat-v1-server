@@ -164,19 +164,19 @@ export const createInquiry = async (req, res) => {
     );
 
     if (notificationRecipients.length > 0) {
-      const notifTitle = `New Inquiry${high_pri ? " (High Priority)" : ""}: ${title}`;
-      const notifBody = `${creatorName} created a new inquiry`;
+      const titleKey = high_pri ? "new_inquiry_high_priority" : "new_inquiry";
 
       await Promise.all(
         notificationRecipients.map((recipientId) =>
           createNotification({
             userId: recipientId,
-            title: notifTitle,
-            body: notifBody,
+            titleKey: titleKey,
+            bodyKey: "created_inquiry",
+            bodyParams: { name: creatorName, title: title },
             data: {
               type: "inquiries",
               rowId: newInquiry.ticket_id,
-              screen: "Inquiry", // Ensure this matches your frontend navigation name
+              screen: "Inquiry",
               params: { ticketId: newInquiry.ticket_id },
             },
           }),

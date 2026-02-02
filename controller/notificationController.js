@@ -1,8 +1,25 @@
 import { getPool } from "../config/getPool.js";
 import { Expo } from "expo-server-sdk";
+import { getTranslation } from "../utils/notificationTranslations.js";
 
 // Create a new Expo SDK client
 const expo = new Expo();
+
+/**
+ * Helper: Get user's preferred language
+ */
+const getUserLanguage = async (userId) => {
+  try {
+    const result = await getPool().query(
+      "SELECT preferred_language FROM v4.user_account_tbl WHERE id = $1",
+      [userId],
+    );
+    return result.rows[0]?.preferred_language || "en";
+  } catch (error) {
+    console.error("Error getting user language:", error);
+    return "en"; // Default to English
+  }
+};
 
 /**
  * Save user's Expo Push Token
@@ -215,11 +232,31 @@ export const deletePushToken = async (req, res) => {
 // Add these to your existing notificationController.js
 
 /**
- * Helper: Save to DB AND Send Push Notification
+ * Updated: createNotification with language support
  */
-export const createNotification = async ({ userId, title, body, data }) => {
+export const createNotification = async ({
+  userId,
+  titleKey,
+  bodyKey,
+  bodyParams = {},
+  data,
+}) => {
   try {
-    // 1. Save to Database
+    // 1. Get user's language preference
+    const userLanguage = await getUserLanguage(userId);
+
+    // 2. Translate title and body
+    const title = getTranslation(titleKey, userLanguage);
+    let body = getTranslation(bodyKey, userLanguage);
+
+    // 3. Replace parameters in body (like {{name}})
+    Object.keys(bodyParams).forEach((key) => {
+      body = body.replace(`{{${key}}}`, bodyParams[key]);
+    });
+
+    console.log(`📤 Sending notification in ${userLanguage}:`, { title, body });
+
+    // 4. Save to Database
     const dbQuery = `
       INSERT INTO v4.notification_history_tbl 
       (user_id, title, body, relation_type, relation_id)
@@ -229,14 +266,14 @@ export const createNotification = async ({ userId, title, body, data }) => {
       userId,
       title,
       body,
-      data?.type, // e.g., 'inquiries'
-      data?.rowId, // e.g., ticket_id
+      data?.type,
+      data?.rowId,
     ]);
 
-    // 2. Send Push Notification (using your existing logic)
+    // 5. Send Push Notification
     return await sendNotificationToUser(userId, title, body, data);
   } catch (err) {
-    console.error("Error creating notification record:", err);
+    console.error("Error creating notification:", err);
   }
 };
 
@@ -277,7 +314,7 @@ export const markAsRead = async (req, res) => {
 };
 
 /**
- * Specialized function for Call Notifications
+ * Updated: sendCallNotification with language support
  */
 export const sendCallNotification = async (
   recipientUserId,
@@ -287,10 +324,17 @@ export const sendCallNotification = async (
   callerImage = null,
 ) => {
   try {
-    console.log("📞 sendCallNotification:", {
-      recipientUserId,
-      callerName,
-      callId,
+    // Get user's language
+    const userLanguage = await getUserLanguage(recipientUserId);
+
+    // Translate
+    const title = getTranslation("incoming_call", userLanguage);
+    const bodyTemplate = getTranslation("calling_you", userLanguage);
+    const body = `${callerName} ${bodyTemplate}`;
+
+    console.log(`📞 Sending call notification in ${userLanguage}:`, {
+      title,
+      body,
     });
 
     const result = await getPool().query(
@@ -304,19 +348,17 @@ export const sendCallNotification = async (
     }
 
     const pushToken = result.rows[0].expo_push_token;
-    console.log(`📱 Sending to: ${pushToken.substring(0, 25)}...`);
 
     if (!Expo.isExpoPushToken(pushToken)) {
       console.error(`❌ Invalid token`);
       return { success: false, error: "Invalid token" };
     }
 
-    // ✅ ENHANCED payload for lock screen visibility
     const message = {
       to: pushToken,
       sound: "default",
-      title: "Incoming Video Call 📞",
-      body: `${callerName} is calling you...`,
+      title: title,
+      body: body,
       data: {
         type: "stream_call",
         callId: callId,
@@ -328,44 +370,28 @@ export const sendCallNotification = async (
         timestamp: Date.now(),
       },
       priority: "high",
-      // ✅ Android - CRITICAL for lock screen
       android: {
         channelId: "calls",
         priority: "max",
         sound: "default",
         vibrate: [0, 250, 250, 250],
-        // ✅ LOCK SCREEN VISIBILITY
-        visibility: 1, // PUBLIC - shows on lock screen
-        importance: 5, // URGENT
-        // ✅ HEADS-UP notification
+        visibility: 1,
+        importance: 5,
         behavior: "default",
         showTimestamp: true,
       },
-      // ✅ iOS - CRITICAL for lock screen
       ios: {
         sound: "default",
         _displayInForeground: true,
-        // ✅ For iOS 15+ - CRITICAL interruption level (requires entitlement)
-        interruptionLevel: "timeSensitive", // Or "critical" if you have entitlement
-        // ✅ Wake screen
+        interruptionLevel: "timeSensitive",
         _contentAvailable: 1,
-        // ✅ Badge
         badge: 1,
       },
-      // ✅ Category for iOS (enables actions)
       categoryId: "incoming_call",
     };
 
-    console.log("📤 Sending via Expo...");
     const tickets = await expo.sendPushNotificationsAsync([message]);
     console.log("✅ Sent:", JSON.stringify(tickets, null, 2));
-
-    tickets.forEach((ticket, i) => {
-      if (ticket.status === "error") {
-        console.error(`❌ Ticket ${i} error:`, ticket.message);
-        console.error("Details:", ticket.details);
-      }
-    });
 
     return { success: true, tickets };
   } catch (error) {
