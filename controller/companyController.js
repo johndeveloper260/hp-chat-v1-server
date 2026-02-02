@@ -26,16 +26,19 @@ export const getCompanies = async (req, res) => {
 export const getCompanyDropdown = async (req, res) => {
   try {
     const { business_unit } = req.query;
+    const preferredLanguage = req.user.language || "en";
 
     const query = `
-      SELECT company_id AS value, company_name->>'en' AS label 
+      SELECT company_id AS value, company_name->>$2 AS label
       FROM v4.company_tbl 
       WHERE is_active = true 
       AND ($1::text IS NULL OR business_unit = $1)
       ORDER BY label ASC
     `;
 
-    const { rows } = await getPool().query(query, [business_unit]);
+    const values = [business_unit || null, preferredLanguage];
+
+    const { rows } = await getPool().query(query, values);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
