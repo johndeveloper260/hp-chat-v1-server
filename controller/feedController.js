@@ -91,6 +91,7 @@ export const createAnnouncement = async (req, res) => {
 
   const {
     company,
+    batch_no,
     title,
     content_text,
     date_from,
@@ -101,10 +102,10 @@ export const createAnnouncement = async (req, res) => {
 
   const query = `
     INSERT INTO v4.announcement_tbl (
-      business_unit, company, title, content_text, 
+      business_unit, company, batch_no, title, content_text, 
       date_from, date_to, active, comments_on, 
       created_by, created_at, last_updated_by, last_updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid, NOW(), $9::uuid, NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid, NOW(), $10::uuid, NOW())
     RETURNING *;
   `;
 
@@ -112,6 +113,7 @@ export const createAnnouncement = async (req, res) => {
     const values = [
       userBU,
       company,
+      batch_no || null,
       title,
       content_text,
       date_from,
@@ -120,6 +122,7 @@ export const createAnnouncement = async (req, res) => {
       comments_on,
       userId,
     ];
+
     const { rows } = await getPool().query(query, values);
     const newAnnouncement = rows[0];
 
@@ -182,6 +185,7 @@ export const updateAnnouncement = async (req, res) => {
   const userId = req.user.id;
   const {
     company,
+    batch_no,
     title,
     content_text,
     date_from,
@@ -194,12 +198,12 @@ export const updateAnnouncement = async (req, res) => {
   const query = `
     UPDATE v4.announcement_tbl 
     SET 
-      company = $1, title = $2, 
-      content_text = $3, date_from = $4, date_to = $5, 
-      active = $6, comments_on = $7, 
-      last_updated_by = $8::uuid,
+      company = $1, batch_no = $2, title = $3, 
+      content_text = $4, date_from = $5, date_to = $6, 
+      active = $7, comments_on = $8, 
+      last_updated_by = $9::uuid,
       last_updated_at = NOW()
-    WHERE row_id = $9::integer  
+    WHERE row_id = $10::integer  
     RETURNING *;
   `;
 
@@ -211,6 +215,7 @@ export const updateAnnouncement = async (req, res) => {
 
     const values = [
       company,
+      batch_no || null,
       title,
       content_text,
       date_from,
@@ -220,6 +225,7 @@ export const updateAnnouncement = async (req, res) => {
       userId,
       rowId,
     ];
+
     const { rows } = await getPool().query(query, values);
 
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
@@ -327,6 +333,159 @@ export const toggleReaction = async (req, res) => {
     res.json(finalUpdate.rows[0]);
   } catch (err) {
     console.error("Toggle Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /feed/companies-with-users
+ * Returns only companies that have active users
+ */
+export const getCompaniesWithUsers = async (req, res) => {
+  const { business_unit } = req.user;
+  const lang = await getUserLanguage(req.user.id);
+
+  try {
+    const query = `
+      SELECT DISTINCT 
+        c.company_id AS value,
+        COALESCE(c.company_name->>$1, c.company_name->>'en') AS label
+      FROM v4.company_tbl c
+      INNER JOIN v4.user_profile_tbl p ON p.company::uuid = c.company_id
+      INNER JOIN v4.user_account_tbl a ON a.id = p.user_id
+      WHERE c.business_unit = $2 
+        AND c.is_active = true
+        AND a.is_active = true
+      ORDER BY label ASC
+    `;
+    const { rows } = await getPool().query(query, [lang, business_unit]);
+    res.json(rows);
+  } catch (err) {
+    console.error("Get Companies Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /feed/batches/:companyId
+ * Returns only batches that have active users in the company
+ */
+export const getBatchesByCompany = async (req, res) => {
+  const { companyId } = req.params;
+
+  try {
+    const query = `
+      SELECT DISTINCT 
+        p.batch_no AS value,
+        p.batch_no AS label
+      FROM v4.user_profile_tbl p
+      INNER JOIN v4.user_account_tbl a ON a.id = p.user_id
+      WHERE p.company::uuid = $1::uuid
+        AND p.batch_no IS NOT NULL
+        AND a.is_active = true
+      ORDER BY p.batch_no ASC
+    `;
+    const { rows } = await getPool().query(query, [companyId]);
+    res.json(rows);
+  } catch (err) {
+    console.error("Get Batches Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * POST /feed/preview-audience
+ * Count users who will receive the announcement
+ */
+export const previewAudience = async (req, res) => {
+  const { company, batch_no } = req.body;
+  const { business_unit } = req.user;
+
+  try {
+    let query = `
+      SELECT COUNT(DISTINCT a.id) as count
+      FROM v4.user_account_tbl a
+      INNER JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      WHERE a.business_unit = $1
+        AND a.is_active = true
+    `;
+
+    const values = [business_unit];
+
+    // Filter by company
+    if (company && Array.isArray(company) && company.length > 0) {
+      values.push(company);
+      query += ` AND p.company::uuid = ANY($${values.length}::uuid[])`;
+    }
+
+    // Filter by batch_no (only if single company)
+    if (batch_no && company && company.length === 1) {
+      values.push(batch_no);
+      query += ` AND p.batch_no = $${values.length}`;
+    }
+
+    const { rows } = await getPool().query(query, values);
+    res.json({ count: parseInt(rows[0].count) || 0 });
+  } catch (err) {
+    console.error("Preview Audience Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET /feed/reactions/:rowId
+ * Get users who reacted to an announcement
+ */
+export const getReactions = async (req, res) => {
+  const { rowId } = req.params;
+
+  try {
+    const result = await getPool().query(
+      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1",
+      [rowId],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Announcement not found" });
+    }
+
+    const reactions = result.rows[0].reactions || {};
+
+    // Flatten reactions and get user details
+    const userIds = Object.values(reactions).flat();
+
+    if (userIds.length === 0) {
+      return res.json([]);
+    }
+
+    const userQuery = `
+      SELECT 
+        a.id,
+        p.first_name || ' ' || p.last_name AS name,
+        p.company
+      FROM v4.user_account_tbl a
+      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      WHERE a.id = ANY($1::uuid[])
+    `;
+
+    const userResult = await getPool().query(userQuery, [userIds]);
+    const userMap = {};
+    userResult.rows.forEach((u) => {
+      userMap[u.id] = { name: u.name, company: u.company };
+    });
+
+    // Build response with emoji groups
+    const reactionList = Object.entries(reactions).map(([emoji, ids]) => ({
+      emoji,
+      users: ids.map((id) => ({
+        id,
+        ...userMap[id],
+      })),
+    }));
+
+    res.json(reactionList);
+  } catch (err) {
+    console.error("Get Reactions Error:", err);
     res.status(500).json({ error: err.message });
   }
 };

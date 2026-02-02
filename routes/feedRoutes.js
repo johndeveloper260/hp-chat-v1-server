@@ -1,20 +1,27 @@
 import express from "express";
 import auth from "../middleware/auth.js";
-const router = express.Router();
-
-// 1. Convert require to a named import and add the .js extension
 import {
-  createAnnouncement,
   getAnnouncements,
+  createAnnouncement,
   updateAnnouncement,
   toggleReaction,
+  getCompaniesWithUsers,
+  getBatchesByCompany,
+  previewAudience,
+  getReactions,
 } from "../controller/feedController.js";
 
-// Private
-router.post(`/createAnnouncement`, auth, createAnnouncement);
-router.get(`/getAnnouncements`, auth, getAnnouncements);
-router.put(`/updateAnnouncement/:rowId`, auth, updateAnnouncement);
+const router = express.Router();
+
+router.get("/getAnnouncements", auth, getAnnouncements);
+router.post("/createAnnouncement", auth, createAnnouncement);
+router.put("/updateAnnouncement/:rowId", auth, updateAnnouncement);
 router.post("/:rowId/react", auth, toggleReaction);
 
-// 2. Change module.exports to export default
+// New routes
+router.get("/companies-with-users", auth, getCompaniesWithUsers);
+router.get("/batches/:companyId", auth, getBatchesByCompany);
+router.post("/preview-audience", auth, previewAudience);
+router.get("/reactions/:rowId", auth, getReactions);
+
 export default router;
