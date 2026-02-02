@@ -162,7 +162,7 @@ export const updateUserProfile = async (req, res) => {
     const result = await getPool().query(
       `UPDATE v4.user_profile_tbl SET 
         first_name = $1, middle_name = $2, last_name = $3, 
-        user_type = $4, position = $5, company = $6, company = $14, 
+        user_type = $4, position = $5, company = $6, batch_no = $14, 
         company_branch = $7, phone_number = $8, postal_code = $9, 
         street_address = $10, city = $11, state_province = $12, 
         updated_at = CURRENT_TIMESTAMP
