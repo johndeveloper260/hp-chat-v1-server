@@ -194,6 +194,7 @@ export const updateUserProfile = async (req, res) => {
         p.middle_name,
         p.last_name, 
         p.company,
+        p.batch_no,
         p.user_type,
         sa.s3_key as profile_pic_s3_key,
         sa.s3_bucket as profile_pic_s3_bucket
