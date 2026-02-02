@@ -136,6 +136,7 @@ export const loginUser = async (req, res) => {
       user_type: user.user_type,
       business_unit: user.business_unit,
       company: user.company,
+      preferred_language: user.preferred_language || "en",
     };
 
     const token = jwt.sign(payload, process.env.SECRET_TOKEN.trim(), {

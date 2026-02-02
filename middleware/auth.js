@@ -28,6 +28,7 @@ const auth = (req, res, next) => {
         business_unit: decoded.business_unit,
         userType: decoded.user_type,
         company: decoded.company,
+        preferred_language: decoded.preferred_language || "en",
       };
 
       console.log("✅ User Authenticated:", req.user.id);
