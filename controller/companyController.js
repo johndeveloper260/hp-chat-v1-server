@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
 
+import { getUserLanguage } from "../utils/getUserLanguage.js";
+
 dotenv.config();
 
 // 1. GET ALL COMPANIES (Filtered by Business Unit)
@@ -26,7 +28,7 @@ export const getCompanies = async (req, res) => {
 export const getCompanyDropdown = async (req, res) => {
   try {
     const { business_unit } = req.query;
-    const preferredLanguage = req.user.preferred_language || "en";
+    const preferredLanguage = await getUserLanguage(req.user.id);
 
     const query = `
       SELECT company_id AS value, company_name->>$2 AS label

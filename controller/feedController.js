@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
 import { sendNotificationToMultipleUsers } from "./notificationController.js";
+import { getUserLanguage } from "../utils/getUserLanguage.js";
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ export const getAnnouncements = async (req, res) => {
   const userRole = (userType || "").toUpperCase();
 
   // Ensure preferredLanguage is passed in your values array (e.g., 'en', 'es')
-  const preferredLanguage = req.user.preferred_language || "en";
+  const lang = await getUserLanguage(req.user.id);
 
   let query = `
     SELECT 
