@@ -13,15 +13,19 @@ export const getAnnouncements = async (req, res) => {
   const { id: userId, business_unit: userBU, userType: userType } = req.user;
   const userRole = (userType || "").toUpperCase();
 
+  // Ensure preferredLanguage is passed in your values array (e.g., 'en', 'es')
+  const preferredLanguage = req.user.preferred_language || "en";
+
   let query = `
     SELECT 
       a.row_id,
       a.business_unit,
       a.company as company_ids,
       ARRAY(
-        SELECT c.company_name 
+        SELECT COALESCE(c.company_name->>$1, c.company_name->>'en')
         FROM v4.company_tbl c 
         WHERE c.company_id = ANY(a.company::uuid[]) 
+        ORDER BY c.sort_order ASC
       ) as target_companies,
       a.title,
       a.content_text,
@@ -50,7 +54,7 @@ export const getAnnouncements = async (req, res) => {
       AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
   `;
 
-  const values = [];
+  const values = [preferredLanguage || "en"];
 
   if (userRole === "ADMIN" || userRole === "OFFICER") {
     // ADMIN/OFFICER sees everything in the BU

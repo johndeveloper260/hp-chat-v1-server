@@ -12,7 +12,7 @@ export const getCompanies = async (req, res) => {
     const query = `
       SELECT * FROM v4.company_tbl 
       WHERE ($1::text IS NULL OR business_unit = $1)
-      ORDER BY created_at DESC
+      ORDER BY sort_order ASC, label ASC
     `;
 
     const { rows } = await getPool().query(query, [business_unit]);
@@ -33,7 +33,7 @@ export const getCompanyDropdown = async (req, res) => {
       FROM v4.company_tbl 
       WHERE is_active = true 
       AND ($1::text IS NULL OR business_unit = $1)
-      ORDER BY label ASC
+      ORDER BY sort_order ASC, label ASC
     `;
 
     const values = [business_unit || null, preferredLanguage];
