@@ -20,7 +20,7 @@ export const validateCode = async (req, res) => {
   try {
     // Check against your specific table structure
     const query = `
-      SELECT business_unit, role_name, company 
+      SELECT business_unit, role_name, company, batch_no 
       FROM v4.customer_xref_tbl 
       WHERE registration_code = $1
     `;
@@ -37,6 +37,7 @@ export const validateCode = async (req, res) => {
       business_unit: rows[0].business_unit,
       role: rows[0].role_name,
       company_id: rows[0].company,
+      batch_no: rows[0].batch_no,
     });
   } catch (err) {
     console.error("Validation Error:", err);
@@ -76,7 +77,7 @@ export const registerUser = async (req, res) => {
 
     // 1. Validate Registration Code
     const xrefQuery = `
-      SELECT business_unit, role_name, company 
+      SELECT business_unit, role_name, company, batch_no 
       FROM v4.customer_xref_tbl 
       WHERE registration_code = $1
     `;
@@ -87,7 +88,7 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ error: "Invalid Registration Code" });
     }
 
-    const { business_unit, role_name, company } = xrefRes.rows[0];
+    const { business_unit, role_name, company, batch_no } = xrefRes.rows[0];
     const userRole = (role_name || "USER").toUpperCase();
 
     // 2. Insert into user_account_tbl
@@ -114,9 +115,9 @@ export const registerUser = async (req, res) => {
         user_id, first_name, middle_name, last_name, 
         user_type, position, company, company_branch, 
         phone_number, postal_code, street_address, city, state_province,
-        created_at, updated_at
+        created_at, updated_at, batch_no, 
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW(), $14)
     `;
     const profileValues = [
       userId,
@@ -126,6 +127,7 @@ export const registerUser = async (req, res) => {
       userRole,
       position,
       company, // UUID from XREF
+      batch_no,
       companyBranch,
       phoneNumber,
       postalCode,
