@@ -54,11 +54,11 @@ const translations = {
     id: "{{name}} membuat pertanyaan baru: {{title}}",
     vi: "{{name}} đã tạo yêu cầu mới: {{title}}",
   },
-  inquiry_updated: {
-    en: "Inquiry Updated: {{title}}",
-    ja: "問い合わせが更新されました：{{title}}",
-    id: "Pertanyaan Diperbarui: {{title}}",
-    vi: "Yêu cầu đã cập nhật: {{title}}",
+  updated_inquiry: {
+    en: "{{name}} updated the inquiry",
+    ja: "{{name}}が問い合わせを更新しました",
+    id: "{{name}} memperbarui pertanyaan",
+    vi: "{{name}} đã cập nhật yêu cầu",
   },
   changed_status_to: {
     en: "changed status to",
