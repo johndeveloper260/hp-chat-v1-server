@@ -247,6 +247,12 @@ export const createNotification = async ({
 
     // 2. Translate title and body
     const title = getTranslation(titleKey, userLanguage);
+
+    // Concat the ID to the title
+    const finalTitle = data?.rowId
+      ? `#${data.rowId} ${translatedTitle}`
+      : translatedTitle;
+
     let body = getTranslation(bodyKey, userLanguage);
 
     // 3. Replace parameters in body (like {{name}})
@@ -264,7 +270,7 @@ export const createNotification = async ({
     `;
     await getPool().query(dbQuery, [
       userId,
-      title,
+      finalTitle,
       body,
       data?.type,
       data?.rowId,
