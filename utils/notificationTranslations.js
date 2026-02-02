@@ -42,11 +42,23 @@ const translations = {
     id: "Pertanyaan Diperbarui",
     vi: "Yêu cầu đã cập nhật",
   },
-  updated_inquiry: {
-    en: "updated the inquiry",
-    ja: "が問い合わせを更新しました",
-    id: "memperbarui pertanyaan",
-    vi: "đã cập nhật yêu cầu",
+  new_inquiry_high_priority: {
+    en: "New Inquiry (High Priority)",
+    ja: "新しい問い合わせ（高優先度）",
+    id: "Pertanyaan Baru (Prioritas Tinggi)",
+    vi: "Yêu cầu mới (Ưu tiên cao)",
+  },
+  created_inquiry: {
+    en: "{{name}} created a new inquiry: {{title}}",
+    ja: "{{name}}が新しい問い合わせを作成しました：{{title}}",
+    id: "{{name}} membuat pertanyaan baru: {{title}}",
+    vi: "{{name}} đã tạo yêu cầu mới: {{title}}",
+  },
+  inquiry_updated: {
+    en: "Inquiry Updated: {{title}}",
+    ja: "問い合わせが更新されました：{{title}}",
+    id: "Pertanyaan Diperbarui: {{title}}",
+    vi: "Yêu cầu đã cập nhật: {{title}}",
   },
   changed_status_to: {
     en: "changed status to",

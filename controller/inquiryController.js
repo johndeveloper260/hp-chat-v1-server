@@ -158,6 +158,15 @@ export const createInquiry = async (req, res) => {
       (id) => id && id !== userId,
     );
 
+    // ✅ Fetch creator's name
+    const creatorQuery = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [userId],
+    );
+    const creatorName = creatorQuery.rows[0]
+      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
+      : "Someone";
+
     if (notificationRecipients.length > 0) {
       const titleKey = high_pri ? "new_inquiry_high_priority" : "new_inquiry";
 
@@ -187,7 +196,6 @@ export const createInquiry = async (req, res) => {
 };
 
 // 3. UPDATE - WITH PUSH NOTIFICATIONS
-// 3. UPDATE - WITH DB LOGGING & PUSH
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
   const userId = req.user.id;
@@ -269,26 +277,32 @@ export const updateInquiry = async (req, res) => {
     const recipients = Array.from(recipientsSet);
 
     if (recipients.length > 0) {
-      let notificationBody = `${updaterName} updated the inquiry`;
+      let bodyKey;
+      let bodyParams = { name: updaterName };
+
       if (status && status !== oldInquiry.rows[0].status) {
-        notificationBody = `${updaterName} changed status to ${status}`;
+        bodyKey = "changed_status_to";
+        bodyParams.status = status;
       } else if (
         assigned_to &&
         assigned_to !== oldInquiry.rows[0].assigned_to
       ) {
-        notificationBody = `${updaterName} assigned this inquiry to you`;
+        bodyKey = "assigned_to_you";
+      } else {
+        bodyKey = "updated_inquiry";
       }
 
       await Promise.all(
         recipients.map((recipientId) =>
           createNotification({
             userId: recipientId,
-            title: `Inquiry Updated: ${updatedInquiry.title}`,
-            body: notificationBody,
+            titleKey: "inquiry_updated",
+            bodyKey: bodyKey,
+            bodyParams: { ...bodyParams, title: updatedInquiry.title },
             data: {
               type: "inquiries",
               rowId: ticketId,
-              screen: "Inquiry", // Changed from InquiryScreen to match Create logic
+              screen: "Inquiry",
               params: { ticketId: ticketId },
             },
           }),
