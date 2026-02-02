@@ -249,9 +249,7 @@ export const createNotification = async ({
     const title = getTranslation(titleKey, userLanguage);
 
     // Concat the ID to the title
-    const finalTitle = data?.rowId
-      ? `#${data.rowId} ${translatedTitle}`
-      : translatedTitle;
+    const finalTitle = data?.rowId ? `#${data.rowId} ${title}` : title;
 
     let body = getTranslation(bodyKey, userLanguage);
 
