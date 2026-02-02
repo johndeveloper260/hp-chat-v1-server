@@ -15,7 +15,7 @@ export const getAnnouncements = async (req, res) => {
   const userRole = (userType || "").toUpperCase();
 
   // Ensure preferredLanguage is passed in your values array (e.g., 'en', 'es')
-  const lang = await getUserLanguage(req.user.id);
+  const preferredLanguage = await getUserLanguage(req.user.id);
 
   let query = `
     SELECT 
