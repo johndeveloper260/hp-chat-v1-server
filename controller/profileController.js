@@ -262,3 +262,25 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).send("Database Error");
   }
 };
+
+export const updateUserLanguage = async (req, res) => {
+  const { language } = req.body;
+  const userId = req.user.id;
+
+  const validLanguages = ["en", "ja", "id", "vi"];
+  if (!validLanguages.includes(language)) {
+    return res.status(400).json({ error: "Invalid language code" });
+  }
+
+  try {
+    await getPool().query(
+      "UPDATE v4.user_account_tbl SET preferred_language = $1 WHERE id = $2",
+      [language, userId],
+    );
+
+    res.json({ success: true, message: "Language preference updated" });
+  } catch (error) {
+    console.error("Update Language Error:", error);
+    res.status(500).json({ error: "Failed to update language" });
+  }
+};

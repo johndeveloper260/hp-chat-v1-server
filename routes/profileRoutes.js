@@ -8,6 +8,7 @@ import {
   getUserLegalProfile,
   getUserProfile,
   updateUserProfile,
+  updateUserLanguage,
 } from "../controller/profileController.js";
 
 // Private //
@@ -19,6 +20,9 @@ router.put(`/visa-info/:userId`, auth, updateWorkVisa);
 // Profile
 router.get("/personal-info/:userId", auth, getUserProfile);
 router.put("/personal-info/:userId", auth, updateUserProfile);
+
+// Account
+router.patch("/update-language", auth, updateUserLanguage);
 
 // 2. Change module.exports to export default
 export default router;

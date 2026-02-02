@@ -287,7 +287,7 @@ export const sendCallNotification = async (
   callerImage = null,
 ) => {
   try {
-    console.log("📞 sendCallNotification called:", {
+    console.log("📞 sendCallNotification:", {
       recipientUserId,
       callerName,
       callId,
@@ -307,10 +307,11 @@ export const sendCallNotification = async (
     console.log(`📱 Sending to: ${pushToken.substring(0, 25)}...`);
 
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`❌ Invalid token format`);
+      console.error(`❌ Invalid token`);
       return { success: false, error: "Invalid token" };
     }
 
+    // ✅ ENHANCED payload for lock screen visibility
     const message = {
       to: pushToken,
       sound: "default",
@@ -324,44 +325,51 @@ export const sendCallNotification = async (
         otherUserImage: callerImage,
         isIncoming: true,
         callType: "default",
-        // ✅ Add timestamp for deduplication
         timestamp: Date.now(),
       },
       priority: "high",
-      // ✅ Android critical settings
+      // ✅ Android - CRITICAL for lock screen
       android: {
         channelId: "calls",
         priority: "max",
         sound: "default",
         vibrate: [0, 250, 250, 250],
-        // ✅ CRITICAL: Wake device
-        sticky: false,
-        autoDismiss: false,
+        // ✅ LOCK SCREEN VISIBILITY
+        visibility: 1, // PUBLIC - shows on lock screen
+        importance: 5, // URGENT
+        // ✅ HEADS-UP notification
+        behavior: "default",
+        showTimestamp: true,
       },
-      // ✅ iOS critical settings
+      // ✅ iOS - CRITICAL for lock screen
       ios: {
         sound: "default",
         _displayInForeground: true,
-        // ✅ For iOS 15+ - highest priority
-        interruptionLevel: "timeSensitive", // Use "critical" if you have entitlement
+        // ✅ For iOS 15+ - CRITICAL interruption level (requires entitlement)
+        interruptionLevel: "timeSensitive", // Or "critical" if you have entitlement
+        // ✅ Wake screen
         _contentAvailable: 1,
+        // ✅ Badge
+        badge: 1,
       },
+      // ✅ Category for iOS (enables actions)
+      categoryId: "incoming_call",
     };
 
-    console.log("📤 Sending via Expo Push...");
+    console.log("📤 Sending via Expo...");
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    console.log("✅ Notification sent:", JSON.stringify(tickets, null, 2));
+    console.log("✅ Sent:", JSON.stringify(tickets, null, 2));
 
-    // Check for errors
-    tickets.forEach((ticket, index) => {
+    tickets.forEach((ticket, i) => {
       if (ticket.status === "error") {
-        console.error(`❌ Ticket ${index} error:`, ticket.message);
+        console.error(`❌ Ticket ${i} error:`, ticket.message);
+        console.error("Details:", ticket.details);
       }
     });
 
     return { success: true, tickets };
   } catch (error) {
-    console.error("❌ sendCallNotification error:", error);
+    console.error("❌ Error:", error);
     return { success: false, error: error.message };
   }
 };
