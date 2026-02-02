@@ -63,6 +63,7 @@ export const loginUser = async (req, res) => {
         p.user_type, 
         p.position,
         p.company, 
+        p.batch_no, 
         p.company_branch,
         p.phone_number,
         p.postal_code,
@@ -136,6 +137,7 @@ export const loginUser = async (req, res) => {
       user_type: user.user_type,
       business_unit: user.business_unit,
       company: user.company,
+      batch_no: user.batch_no,
       preferred_language: user.preferred_language || "en",
     };
 
@@ -162,6 +164,7 @@ export const loginUser = async (req, res) => {
         userType: user.user_type,
         position: user.position,
         company: user.company,
+        batch_no: user.batch_no,
         companyBranch: user.company_branch,
         phoneNumber: user.phone_number,
         postalCode: user.postal_code,

@@ -164,6 +164,7 @@ export const registerUser = async (req, res) => {
       role: "user",
       user_type: userRole,
       company: company,
+      batch_no: batch_no,
       business_unit: business_unit,
     });
 

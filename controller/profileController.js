@@ -247,6 +247,7 @@ export const updateUserProfile = async (req, res) => {
       name: fullName,
       email: normalizedEmail,
       company: user.company,
+      batch_no: user.batch_no,
       business_unit: user.business_unit,
       user_type: user.user_type,
     };
