@@ -55,6 +55,7 @@ export const loginUser = async (req, res) => {
         a.password_hash, 
         a.business_unit, 
         a.is_active,
+        a.preferred_language, 
         p.user_id, 
         p.first_name, 
         p.middle_name,
@@ -138,7 +139,7 @@ export const loginUser = async (req, res) => {
     };
 
     const token = jwt.sign(payload, process.env.SECRET_TOKEN.trim(), {
-      expiresIn: "24h",
+      expiresIn: "30d",
     });
 
     const streamToken = streamClient.createToken(String(user.id));
@@ -152,6 +153,7 @@ export const loginUser = async (req, res) => {
         email: user.email,
         businessUnit: user.business_unit,
         isActive: user.is_active,
+        preferredLanguage: user.preferred_language || "en",
         userId: user.user_id,
         firstName: user.first_name,
         middleName: user.middle_name,

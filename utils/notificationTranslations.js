@@ -12,7 +12,7 @@ const translations = {
   },
   comment_on_announcement: {
     en: "New comment on Announcement",
-    ja: "お知らせに新しいコメント",
+    ja: "掲示板に新しいコメント",
     id: "Komentar baru pada Pengumuman",
     vi: "Bình luận mới về Thông báo",
   },
