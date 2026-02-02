@@ -111,14 +111,15 @@ export const registerUser = async (req, res) => {
 
     // 3. Insert into user_profile_tbl
     const profileQuery = `
-      INSERT INTO v4.user_profile_tbl (
-        user_id, first_name, middle_name, last_name, 
-        user_type, position, company, company_branch, 
-        phone_number, postal_code, street_address, city, state_province,
-        created_at, updated_at, batch_no, 
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW(), $14)
-    `;
+  INSERT INTO v4.user_profile_tbl (
+    user_id, first_name, middle_name, last_name, 
+    user_type, position, company, company_branch, 
+    phone_number, postal_code, street_address, city, state_province,
+    batch_no, created_at, updated_at
+  )
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+`;
+
     const profileValues = [
       userId,
       firstName,
@@ -126,15 +127,16 @@ export const registerUser = async (req, res) => {
       lastName,
       userRole,
       position,
-      company, // UUID from XREF
-      batch_no,
+      company,
       companyBranch,
       phoneNumber,
       postalCode,
       streetAddress,
       city,
-      state, // UI "state" maps to DB "state_province"
+      state,
+      batch_no, // ✅ Moved to end
     ];
+
     await client.query(profileQuery, profileValues);
 
     // 4. Insert into user_visa_info_tbl
