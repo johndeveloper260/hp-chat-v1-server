@@ -5,6 +5,88 @@ import { getUserLanguage } from "../utils/getUserLanguage.js";
 
 dotenv.config();
 
+export const searchAnnouncements = async (req, res) => {
+  const { company, batch_no, posted_by } = req.query;
+  const { business_unit, userType } = req.user;
+  const userRole = (userType || "").toUpperCase();
+  const lang = await getUserLanguage(req.user.id);
+
+  let query = `
+    SELECT 
+      a.row_id,
+      a.business_unit,
+      a.company as company_ids,
+      a.batch_no,
+      ARRAY(
+        SELECT COALESCE(c.company_name->>$1, c.company_name->>'en')
+        FROM v4.company_tbl c 
+        WHERE c.company_id = ANY(a.company::uuid[])
+      ) as target_companies,
+      a.title,
+      a.content_text,
+      a.reactions,
+      a.date_from,
+      a.date_to,
+      a.active,
+      (SELECT COUNT(*) FROM v4.shared_comments WHERE relation_id = a.row_id AND relation_type = 'announcements') as comment_count,
+      a.comments_on,
+      a.created_by,
+      to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
+      u.first_name || ' ' || u.last_name as created_by_name
+    FROM v4.announcement_tbl a
+    LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
+    WHERE a.business_unit = $2
+  `;
+
+  const values = [lang, business_unit];
+
+  if (company && company !== "null") {
+    values.push(company);
+    query += ` AND $${values.length} = ANY(a.company::uuid[])`;
+  }
+
+  if (batch_no && batch_no !== "null") {
+    values.push(batch_no);
+    query += ` AND a.batch_no = $${values.length}`;
+  }
+
+  if (posted_by && posted_by !== "null") {
+    values.push(posted_by);
+    query += ` AND a.created_by = $${values.length}::uuid`;
+  }
+
+  query += ` ORDER BY a.created_at DESC`;
+
+  try {
+    const { rows } = await getPool().query(query, values);
+    res.json(rows);
+  } catch (err) {
+    console.error("Search Announcements Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getPosters = async (req, res) => {
+  const { business_unit } = req.user;
+
+  try {
+    const query = `
+      SELECT DISTINCT 
+        a.created_by AS value,
+        p.first_name || ' ' || p.last_name AS label
+      FROM v4.announcement_tbl a
+      JOIN v4.user_profile_tbl p ON a.created_by = p.user_id
+      WHERE a.business_unit = $1
+      ORDER BY label ASC
+    `;
+    const { rows } = await getPool().query(query, [business_unit]);
+    res.json(rows);
+  } catch (err) {
+    console.error("Get Posters Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /**
  * GET /announcements
  * Fetch all active announcements with attachments
@@ -22,13 +104,13 @@ export const getAnnouncements = async (req, res) => {
       a.row_id,
       a.business_unit,
       a.company as company_ids,
+      a.batch_no,
       ARRAY(
         SELECT COALESCE(c.company_name->>$1, c.company_name->>'en')
         FROM v4.company_tbl c 
         WHERE c.company_id = ANY(a.company::uuid[]) 
         ORDER BY c.sort_order ASC
       ) as target_companies,
-      a.batch_no,
       a.title,
       a.content_text,
       a.reactions,
