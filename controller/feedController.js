@@ -79,7 +79,7 @@ export const getAnnouncements = async (req, res) => {
       AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
   `;
 
-  const values = [preferredLanguage || "en"];
+  const values = [preferredLanguage || "en", userId];
 
   if (userRole === "ADMIN" || userRole === "OFFICER") {
     // ADMIN/OFFICER sees everything in the BU
