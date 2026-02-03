@@ -10,7 +10,8 @@ import {
   previewAudience,
   getReactions,
   getPosters,
-  searchAnnouncements,
+  markAsSeen,
+  getViewers,
 } from "../controller/feedController.js";
 
 const router = express.Router();
@@ -25,7 +26,8 @@ router.get("/companies-with-users", auth, getCompaniesWithUsers);
 router.get("/batches/:companyId", auth, getBatchesByCompany);
 router.post("/preview-audience", auth, previewAudience);
 router.get("/reactions/:rowId", auth, getReactions);
-router.get("/search", auth, searchAnnouncements);
 router.get("/posters", auth, getPosters);
+router.post("/:rowId/mark-seen", auth, markAsSeen);
+router.get("/:rowId/viewers", auth, getViewers);
 
 export default router;
