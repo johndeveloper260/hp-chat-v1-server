@@ -325,11 +325,6 @@ export const updateUserLanguage = async (req, res) => {
       company_name: company_name,
     };
 
-    // Only add image if URL was generated successfully
-    if (profileImageUrl) {
-      streamUserData.image = profileImageUrl;
-    }
-
     await serverClient.upsertUser(streamUserData);
 
     res.json({ success: true, message: "Language preference updated" });
