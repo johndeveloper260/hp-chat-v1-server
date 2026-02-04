@@ -162,7 +162,7 @@ export const registerUser = async (req, res) => {
     a.preferred_language,
     -- Extract language-specific name from JSONB with an English fallback
     COALESCE(
-        c.company_name ->> a.preferred_language, 
+        c.company_name ->> 'ja', 
         c.company_name ->> 'en'
     ) AS company_name,
     c.website_url,

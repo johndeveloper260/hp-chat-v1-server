@@ -196,7 +196,7 @@ export const updateUserProfile = async (req, res) => {
         p.company,
           -- Get translated company name with fallbacks
         COALESCE(
-          c.company_name ->> a.preferred_language, 
+          c.company_name ->> 'ja', 
           c.company_name ->> 'en', 
           (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
         ) AS company_name,
@@ -276,8 +276,6 @@ export const updateUserProfile = async (req, res) => {
 };
 
 export const updateUserLanguage = async (req, res) => {
-  const client = await getPool().connect();
-
   const { language } = req.body;
   const userId = req.user.id;
 
@@ -291,89 +289,6 @@ export const updateUserLanguage = async (req, res) => {
       "UPDATE v4.user_account_tbl SET preferred_language = $1 WHERE id = $2",
       [language, userId],
     );
-
-    const loginQuery = `
-      SELECT 
-        a.id, 
-        a.email, 
-        a.business_unit, 
-        p.first_name, 
-        p.middle_name,
-        p.last_name, 
-        p.company,
-          -- Get translated company name with fallbacks
-        COALESCE(
-          c.company_name ->> a.preferred_language, 
-          c.company_name ->> 'en', 
-          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
-        ) AS company_name,
-        p.batch_no,
-        p.user_type,
-        sa.s3_key as profile_pic_s3_key,
-        sa.s3_bucket as profile_pic_s3_bucket
-      FROM v4.user_account_tbl a
-      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-      LEFT JOIN LATERAL (
-        SELECT s3_key, s3_bucket
-        FROM v4.shared_attachments
-        WHERE relation_type = 'profile'
-          AND relation_id = a.id::text
-        ORDER BY created_at DESC
-        LIMIT 1
-      ) sa ON true
-      WHERE a.id = $1;
-    `;
-
-    const resultForUpdate = await getPool().query(loginQuery, [userId]);
-
-    if (resultForUpdate.rows.length === 0) {
-      return res.status(404).send("User not found");
-    }
-
-    const user = resultForUpdate.rows[0];
-    const fullName = `${user.first_name} ${user.last_name}`.trim();
-    const normalizedEmail = user.email.toLowerCase().trim();
-
-    // Generate profile picture URL for Stream if exists
-    let profileImageUrl = null;
-    if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
-      try {
-        const command = new GetObjectCommand({
-          Bucket: user.profile_pic_s3_bucket,
-          Key: user.profile_pic_s3_key,
-        });
-
-        profileImageUrl = await getSignedUrl(s3Client, command, {
-          expiresIn: 86400, // 24 hours for Stream
-          signableHeaders: new Set(["host"]),
-        });
-      } catch (error) {
-        console.error(
-          "Error generating profile picture URL for Stream:",
-          error,
-        );
-      }
-    }
-
-    // Sync with GetStream including profile picture
-    const streamUserData = {
-      id: user.id,
-      name: fullName,
-      email: normalizedEmail,
-      company: user.company,
-      company_name: user.company_name,
-      batch_no: user.batch_no,
-      business_unit: user.business_unit,
-      user_type: user.user_type,
-    };
-
-    // Only add image if URL was generated successfully
-    if (profileImageUrl) {
-      streamUserData.image = profileImageUrl;
-    }
-
-    await serverClient.upsertUser(streamUserData);
 
     res.json({ success: true, message: "Language preference updated" });
   } catch (error) {
