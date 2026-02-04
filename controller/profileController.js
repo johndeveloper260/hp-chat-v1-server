@@ -290,6 +290,47 @@ export const updateUserLanguage = async (req, res) => {
       [language, userId],
     );
 
+    const getUserCompany = `
+      SELECT 
+    a.id AS user_id,
+    a.email,
+    p.first_name,
+    p.last_name,
+    a.preferred_language,
+    -- Extract language-specific name from JSONB with an English fallback
+    COALESCE(
+        c.company_name ->> a.preferred_language, 
+        c.company_name ->> 'en'
+    ) AS company_name,
+    c.website_url,
+    p.user_type,
+    p.position
+    FROM v4.user_account_tbl a
+    JOIN v4.user_profile_tbl p ON a.id = p.user_id
+    LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
+    WHERE a.id = $1
+    `;
+    const getUserCompanyRes = await client.query(getUserCompany, [userId]);
+
+    const { company_name, first_name, last_name, userId } =
+      getUserCompanyRes.rows[0];
+
+    const fullName = `${first_name} ${last_name}`.trim();
+
+    // Sync with GetStream including profile picture
+    const streamUserData = {
+      id: userId,
+      name: fullName,
+      company_name: company_name,
+    };
+
+    // Only add image if URL was generated successfully
+    if (profileImageUrl) {
+      streamUserData.image = profileImageUrl;
+    }
+
+    await serverClient.upsertUser(streamUserData);
+
     res.json({ success: true, message: "Language preference updated" });
   } catch (error) {
     console.error("Update Language Error:", error);
