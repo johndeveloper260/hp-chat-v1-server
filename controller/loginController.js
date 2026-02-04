@@ -70,6 +70,12 @@ export const loginUser = async (req, res) => {
         p.street_address,
         p.city,
         p.state_province,
+        -- Get translated company name with fallbacks
+        COALESCE(
+          c.company_name ->> a.preferred_language, 
+          c.company_name ->> 'en', 
+          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
+        ) AS company_name,
         v.visa_type,
         v.visa_expiry_date,
         sa.attachment_id as profile_pic_id,
@@ -79,6 +85,7 @@ export const loginUser = async (req, res) => {
         sa.file_type as profile_pic_type
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      LEFT JOIN v4.company_tbl c ON p.company = c.company_id
       LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
       LEFT JOIN LATERAL (
         SELECT 
@@ -137,6 +144,7 @@ export const loginUser = async (req, res) => {
       user_type: user.user_type,
       business_unit: user.business_unit,
       company: user.company,
+      company_name: user.company_name,
       batch_no: user.batch_no,
       preferred_language: user.preferred_language || "en",
     };
@@ -164,6 +172,7 @@ export const loginUser = async (req, res) => {
         userType: user.user_type,
         position: user.position,
         company: user.company,
+        company_name: user.company_name,
         batch_no: user.batch_no,
         companyBranch: user.company_branch,
         phoneNumber: user.phone_number,
