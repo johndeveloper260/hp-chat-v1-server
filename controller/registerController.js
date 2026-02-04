@@ -168,9 +168,9 @@ export const registerUser = async (req, res) => {
     c.website_url,
     p.user_type,
     p.position
-    FROM user_account_tbl a
-    JOIN user_profile_tbl p ON a.id = p.user_id
-    LEFT JOIN company_tbl c ON p.company::uuid = c.company_id
+    FROM v4.user_account_tbl a
+    JOIN v4.user_profile_tbl p ON a.id = p.user_id
+    LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
     WHERE a.id = $1
     `;
     const getUserCompanyRes = await client.query(getUserCompany, [userId]);
