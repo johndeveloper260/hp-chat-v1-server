@@ -312,8 +312,7 @@ export const updateUserLanguage = async (req, res) => {
     `;
     const getUserCompanyRes = await client.query(getUserCompany, [userId]);
 
-    const { company_name, first_name, last_name, userId } =
-      getUserCompanyRes.rows[0];
+    const { company_name, first_name, last_name } = getUserCompanyRes.rows[0];
 
     const fullName = `${first_name} ${last_name}`.trim();
 
