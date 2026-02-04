@@ -205,7 +205,7 @@ export const updateUserProfile = async (req, res) => {
         sa.s3_key as profile_pic_s3_key,
         sa.s3_bucket as profile_pic_s3_bucket
       FROM v4.user_account_tbl a
-      LEFT JOIN v4.company_tbl c ON p.company = c.company_id
+      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
       LEFT JOIN LATERAL (
         SELECT s3_key, s3_bucket

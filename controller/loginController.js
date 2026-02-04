@@ -85,7 +85,7 @@ export const loginUser = async (req, res) => {
         sa.file_type as profile_pic_type
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      LEFT JOIN v4.company_tbl c ON p.company = c.company_id
+      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
       LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
       LEFT JOIN LATERAL (
         SELECT 
