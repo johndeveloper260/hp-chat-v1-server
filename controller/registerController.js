@@ -153,6 +153,30 @@ export const registerUser = async (req, res) => {
 
     await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry]);
 
+    const getUserCompany = `
+      SELECT 
+    a.id AS user_id,
+    a.email,
+    p.first_name,
+    p.last_name,
+    a.preferred_language,
+    -- Extract language-specific name from JSONB with an English fallback
+    COALESCE(
+        c.company_name ->> a.preferred_language, 
+        c.company_name ->> 'en'
+    ) AS company_name,
+    c.website_url,
+    p.user_type,
+    p.position
+    FROM user_account_tbl a
+    JOIN user_profile_tbl p ON a.id = p.user_id
+    LEFT JOIN company_tbl c ON p.company::uuid = c.company_id
+    WHERE a.id = $1
+    `;
+    const getUserCompanyRes = await client.query(getUserCompany, [userId]);
+
+    const { company_name } = getUserCompanyRes.rows[0];
+
     // 5. Stream Chat Integration
     const fullName = `${firstName} ${lastName}`.trim();
 
@@ -164,6 +188,7 @@ export const registerUser = async (req, res) => {
       role: "user",
       user_type: userRole,
       company: company,
+      company_name: company_name,
       batch_no: batch_no,
       business_unit: business_unit,
     });

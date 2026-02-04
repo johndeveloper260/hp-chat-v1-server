@@ -194,11 +194,18 @@ export const updateUserProfile = async (req, res) => {
         p.middle_name,
         p.last_name, 
         p.company,
+          -- Get translated company name with fallbacks
+        COALESCE(
+          c.company_name ->> a.preferred_language, 
+          c.company_name ->> 'en', 
+          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
+        ) AS company_name,
         p.batch_no,
         p.user_type,
         sa.s3_key as profile_pic_s3_key,
         sa.s3_bucket as profile_pic_s3_bucket
       FROM v4.user_account_tbl a
+      LEFT JOIN v4.company_tbl c ON p.company = c.company_id
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
       LEFT JOIN LATERAL (
         SELECT s3_key, s3_bucket
@@ -248,6 +255,7 @@ export const updateUserProfile = async (req, res) => {
       name: fullName,
       email: normalizedEmail,
       company: user.company,
+      company_name: user.company_name,
       batch_no: user.batch_no,
       business_unit: user.business_unit,
       user_type: user.user_type,
