@@ -276,6 +276,8 @@ export const updateUserProfile = async (req, res) => {
 };
 
 export const updateUserLanguage = async (req, res) => {
+  const client = await getPool().connect();
+
   const { language } = req.body;
   const userId = req.user.id;
 
