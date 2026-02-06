@@ -11,6 +11,7 @@
             max-width: 600px;
             margin: 0 auto;
             background-color: #ffffff;
+            text-align: left;
         }
         h3 {
             color: #0275d8;
@@ -21,22 +22,21 @@
             border-top: 1px solid #eeeeee;
             margin: 20px 0;
         }
-        .translation-section {
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px dashed #cccccc;
+        .lang-section {
+            padding: 15px 0;
+            border-bottom: 1px dashed #eeeeee;
         }
-        .lang-btn {
-            background-color: #f8f9fa;
-            border: 1px solid #0275d8;
+        .lang-label {
+            font-size: 11px;
             color: #0275d8;
-            padding: 5px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-right: 5px;
-            text-decoration: none;
-            display: inline-block;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .success-msg {
+            font-size: 1rem;
+            margin: 0;
         }
     </style>
 </head>
@@ -49,36 +49,33 @@
                     <hr>
                     
                     <p>Hi {{name}},</p>
-                    
-                    <div id="main-content">
-                        <p>You have successfully reset your password on HoRenSo+.</p>
+
+                    <div class="lang-section">
+                        <span class="lang-label">English</span>
+                        <p class="success-msg">You have successfully reset your password on HoRenSo+.</p>
                     </div>
 
-                    <p style="margin-top: 25px;">HoRenSo+ Team</p>
-
-                    <div class="translation-section">
-                        <p style="font-size: 12px; color: #888;">Translate / 翻訳 / Terjemahkan:</p>
-                        <button class="lang-btn" onclick="translate('en')">English</button>
-                        <button class="lang-btn" onclick="translate('ja')">日本語</button>
-                        <button class="lang-btn" onclick="translate('id')">Indonesian</button>
-                        <button class="lang-btn" onclick="translate('vi')">Tiếng Việt</button>
+                    <div class="lang-section">
+                        <span class="lang-label">日本語</span>
+                        <p class="success-msg">HoRenSo+ のパスワードリセットが完了しました。</p>
                     </div>
+
+                    <div class="lang-section">
+                        <span class="lang-label">Bahasa Indonesia</span>
+                        <p class="success-msg">Anda telah berhasil mengatur ulang kata sandi Anda di HoRenSo+.</p>
+                    </div>
+
+                    <div class="lang-section" style="border-bottom: none;">
+                        <span class="lang-label">Tiếng Việt</span>
+                        <p class="success-msg">Bạn đã đặt lại mật khẩu thành công trên HoRenSo+.</p>
+                    </div>
+
+                    <p style="margin-top: 25px; border-top: 1px solid #eeeeee; padding-top: 10px;">
+                        HoRenSo+ Team
+                    </p>
                 </div>
             </td>
         </tr>
     </table>
-
-    <script>
-        const translations = {
-            'en': '<p>You have successfully reset your password on HoRenSo+.</p>',
-            'ja': '<p>HoRenSo+ のパスワードリセットが完了しました。</p>',
-            'id': '<p>Anda telah berhasil mengatur ulang kata sandi Anda di HoRenSo+.</p>',
-            'vi': '<p>Bạn đã đặt lại mật khẩu thành công trên HoRenSo+.</p>'
-        };
-
-        function translate(lang) {
-            document.getElementById('main-content').innerHTML = translations[lang];
-        }
-    </script>
 </body>
 </html>
