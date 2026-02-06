@@ -1,9 +1,93 @@
-<script>
-    const t = {
-        en: `<p>Your reset password code is: <strong>{{resetCode}}</strong></p><p>If you did not initiate this, please ignore this email.</p>`,
-        ja: `<p>パスワードリセットコードは: <strong>{{resetCode}}</strong> です。</p><p>心当たりがない場合は、このメールを無視してください。</p>`,
-        id: `<p>Kode atur ulang kata sandi Anda adalah: <strong>{{resetCode}}</strong></p><p>Jika Anda không thực hiện việc này, vui lòng abaikan email ini.</p>`,
-        vi: `<p>Mã đặt lại mật khẩu của bạn là: <strong>{{resetCode}}</strong></p><p>Nếu bạn không yêu cầu việc này, vui lòng bỏ qua email này.</p>`
-    };
-    function tr(l){ document.getElementById('msg').innerHTML = t[l]; }
-</script>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            text-align: left;
+        }
+        h3 {
+            color: #0275d8;
+            margin-top: 0;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #eeeeee;
+            margin: 20px 0;
+        }
+        .code-display {
+            font-size: 1.2rem;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #ddd;
+            margin: 15px 0;
+        }
+        .translation-section {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px dashed #cccccc;
+        }
+        .lang-btn {
+            background-color: #f8f9fa;
+            border: 1px solid #0275d8;
+            color: #0275d8;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f4f4; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <div class="email-body">
+                    <h3>[HoRenSo Plus] Reset Password Code</h3>
+                    <hr>
+                    
+                    <div id="msg">
+                        <p>Your reset password code is:</p>
+                        <div class="code-display"><strong>{{resetCode}}</strong></div>
+                        <p>If you did not initiate this password reset, please ignore this email.</p>
+                    </div>
+
+                    <p style="margin-top: 25px;">HoRenSo+ Team</p>
+
+                    <div class="translation-section">
+                        <p style="font-size: 12px; color: #888;">Translate / 翻訳 / Terjemahkan:</p>
+                        <button class="lang-btn" onclick="tr('en')">English</button>
+                        <button class="lang-btn" onclick="tr('ja')">日本語</button>
+                        <button class="lang-btn" onclick="tr('id')">Indonesian</button>
+                        <button class="lang-btn" onclick="tr('vi')">Tiếng Việt</button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <script>
+        const t = {
+            en: `<p>Your reset password code is:</p><div class="code-display"><strong>{{resetCode}}</strong></div><p>If you did not initiate this, please ignore this email.</p>`,
+            ja: `<p>パスワードリセットコードは:</p><div class="code-display"><strong>{{resetCode}}</strong></div><p>心当たりがない場合は、このメールを無視してください。</p>`,
+            id: `<p>Kode atur ulang kata sandi Anda adalah:</p><div class="code-display"><strong>{{resetCode}}</strong></div><p>Jika Anda tidak melakukan permintaan ini, silakan abaikan email ini.</p>`,
+            vi: `<p>Mã đặt lại mật khẩu của bạn là:</p><div class="code-display"><strong>{{resetCode}}</strong></div><p>Nếu bạn không yêu cầu việc này, vui lòng bỏ qua email này.</p>`
+        };
+
+        function tr(l) {
+            document.getElementById('msg').innerHTML = t[l];
+        }
+    </script>
+</body>
+</html>

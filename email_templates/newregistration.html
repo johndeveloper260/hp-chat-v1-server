@@ -1,42 +1,106 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <style>
-        body { padding: 20px; background-color: #f8f9fa; font-family: 'Raleway', sans-serif; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; border: 1px solid #eee; }
-        h3 { color: #0275d8; margin-top: 0; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
-        .lang-btn { background: #fff; border: 1px solid #0275d8; color: #0275d8; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 0.8rem; }
-        .translation-box { margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc; }
+        .email-body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            text-align: left;
+        }
+        h3 {
+            color: #0275d8;
+            margin-top: 0;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #eeeeee;
+            margin: 20px 0;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #ddd;
+            margin: 15px 0;
+        }
+        .btn-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0275d8;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        .translation-section {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px dashed #cccccc;
+        }
+        .lang-btn {
+            background-color: #f8f9fa;
+            border: 1px solid #0275d8;
+            color: #0275d8;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+            display: inline-block;
+        }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h3>Welcome to HoRenSo+</h3>
-        <hr>
-        <p>Hi {{name}},</p>
-        <div id="msg">
-            <p>Your password is: <strong>{{password}}</strong></p>
-            <p>Please reset your password immediately on Manage Profile page.</p>
-            <h3><a href="{{homeurl}}">Sign In Now</a></h3>
-        </div>
-        <p>HoRenSo+ Team</p>
+<body style="background-color: #f4f4f4; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <div class="email-body">
+                    <h3>Welcome to HoRenSo+</h3>
+                    <hr>
+                    
+                    <p>Hi {{name}},</p>
+                    
+                    <div id="msg">
+                        <div class="info-box">Your temporary password is: <strong>{{password}}</strong></div>
+                        <p>Please reset your password immediately on the Manage Profile page.</p>
+                        <div style="text-align: center;">
+                            <a href="{{homeurl}}" class="btn-link">Sign In Now</a>
+                        </div>
+                    </div>
 
-        <div class="translation-box">
-            <button class="lang-btn" onclick="tr('en')">EN</button>
-            <button class="lang-btn" onclick="tr('ja')">JA</button>
-            <button class="lang-btn" onclick="tr('id')">ID</button>
-            <button class="lang-btn" onclick="tr('vi')">VI</button>
-        </div>
-    </div>
+                    <p style="margin-top: 25px;">HoRenSo+ Team</p>
+
+                    <div class="translation-section">
+                        <p style="font-size: 12px; color: #888;">Translate / 翻訳 / Terjemahkan:</p>
+                        <button class="lang-btn" onclick="tr('en')">English</button>
+                        <button class="lang-btn" onclick="tr('ja')">日本語</button>
+                        <button class="lang-btn" onclick="tr('id')">Indonesian</button>
+                        <button class="lang-btn" onclick="tr('vi')">Tiếng Việt</button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
     <script>
         const t = {
-            en: `<p>Your password is: <strong>{{password}}</strong></p><p>Please reset your password immediately on Manage Profile page.</p><h3><a href="{{homeurl}}">Sign In Now</a></h3>`,
-            ja: `<p>あなたのパスワードは: <strong>{{password}}</strong> です。</p><p>プロフィール管理ページですぐにパスワードをリセットしてください。</p><h3><a href="{{homeurl}}">今すぐサインイン</a></h3>`,
-            id: `<p>Kata sandi Anda adalah: <strong>{{password}}</strong></p><p>Harap segera setel ulang kata sandi Anda di halaman Kelola Profil.</p><h3><a href="{{homeurl}}">Masuk Sekarang</a></h3>`,
-            vi: `<p>Mật khẩu của bạn là: <strong>{{password}}</strong></p><p>Vui lòng đặt lại mật khẩu của bạn ngay lập tức trên trang Quản lý hồ sơ.</p><h3><a href="{{homeurl}}">Đăng nhập ngay</a></h3>`
+            en: `<div class="info-box">Your temporary password is: <strong>{{password}}</strong></div><p>Please reset your password immediately on the Manage Profile page.</p><div style="text-align: center;"><a href="{{homeurl}}" class="btn-link">Sign In Now</a></div>`,
+            ja: `<div class="info-box">仮パスワードは: <strong>{{password}}</strong> です。</div><p>プロフィール管理ページですぐにパスワードをリセットしてください。</p><div style="text-align: center;"><a href="{{homeurl}}" class="btn-link">今すぐサインイン</a></div>`,
+            id: `<div class="info-box">Kata sandi sementara Anda adalah: <strong>{{password}}</strong></div><p>Harap segera setel ulang kata sandi Anda di halaman Kelola Profil.</p><div style="text-align: center;"><a href="{{homeurl}}" class="btn-link">Masuk Sekarang</a></div>`,
+            vi: `<div class="info-box">Mật khẩu tạm thời của bạn là: <strong>{{password}}</strong></div><p>Vui lòng đặt lại mật khẩu ngay lập tức trên trang Quản lý hồ sơ.</p><div style="text-align: center;"><a href="{{homeurl}}" class="btn-link">Đăng nhập ngay</a></div>`
         };
-        function tr(l){ document.getElementById('msg').innerHTML = t[l]; }
+
+        function tr(l) {
+            document.getElementById('msg').innerHTML = t[l];
+        }
     </script>
 </body>
 </html>

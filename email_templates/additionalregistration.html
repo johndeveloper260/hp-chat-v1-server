@@ -1,9 +1,48 @@
-<script>
-    const t = {
-        en: `<p>You are now registered for <strong>{{business_unit}}</strong> organization.</p>`,
-        ja: `<p>あなたは <strong>{{business_unit}}</strong> 組織に登録されました。</p>`,
-        id: `<p>Anda sekarang terdaftar untuk organisasi <strong>{{business_unit}}</strong>.</p>`,
-        vi: `<p>Bạn hiện đã được đăng ký cho tổ chức <strong>{{business_unit}}</strong>.</p>`
-    };
-    function tr(l){ document.getElementById('msg').innerHTML = t[l]; }
-</script>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333333; line-height: 1.6; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #ffffff; text-align: left; }
+        h3 { color: #0275d8; margin-top: 0; }
+        hr { border: 0; border-top: 1px solid #eeeeee; margin: 20px 0; }
+        .org-box { background-color: #f8f9fa; padding: 15px; border-radius: 4px; text-align: center; border: 1px solid #0275d8; margin: 15px 0; color: #0275d8; font-weight: bold; }
+        .translation-section { margin-top: 30px; padding-top: 15px; border-top: 1px dashed #cccccc; }
+        .lang-btn { background-color: #f8f9fa; border: 1px solid #0275d8; color: #0275d8; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px; display: inline-block; }
+    </style>
+</head>
+<body style="background-color: #f4f4f4; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <div class="email-body">
+                    <h3>HoRenSo Plus</h3>
+                    <hr>
+                    <p>Hi {{name}},</p>
+                    <div id="msg">
+                        <p>You are now registered for the following organization:</p>
+                        <div class="org-box">{{business_unit}}</div>
+                    </div>
+                    <p style="margin-top: 25px;">HoRenSo+ Team</p>
+                    <div class="translation-section">
+                        <p style="font-size: 12px; color: #888;">Translate / 翻訳 / Terjemahkan:</p>
+                        <button class="lang-btn" onclick="tr('en')">English</button>
+                        <button class="lang-btn" onclick="tr('ja')">日本語</button>
+                        <button class="lang-btn" onclick="tr('id')">Indonesian</button>
+                        <button class="lang-btn" onclick="tr('vi')">Tiếng Việt</button>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <script>
+        const t = {
+            en: `<p>You are now registered for the following organization:</p><div class="org-box">{{business_unit}}</div>`,
+            ja: `<p>あなたは以下の組織に登録されました:</p><div class="org-box">{{business_unit}}</div>`,
+            id: `<p>Anda sekarang terdaftar untuk organisasi berikut:</p><div class="org-box">{{business_unit}}</div>`,
+            vi: `<p>Bạn hiện đã được đăng ký cho tổ chức sau:</p><div class="org-box">{{business_unit}}</div>`
+        };
+        function tr(l) { document.getElementById('msg').innerHTML = t[l]; }
+    </script>
+</body>
+</html>
