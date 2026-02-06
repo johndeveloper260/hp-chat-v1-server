@@ -25,7 +25,11 @@ const app = express();
 const httpServer = createServer(app);
 
 // --- 1. CORS Configuration ---
-const whitelist = ["https://hp-ultra-chatv1-f47662ed467d.herokuapp.com"];
+const whitelist = [
+  "https://hp-ultra-chatv1-f47662ed467d.herokuapp.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin || whitelist.includes(origin) || origin === "null") {
