@@ -142,6 +142,7 @@ export const getUserProfile = async (req, res) => {
  */
 export const updateUserProfile = async (req, res) => {
   const { userId } = req.params;
+
   const {
     first_name,
     middle_name,
@@ -165,6 +166,7 @@ export const updateUserProfile = async (req, res) => {
     emergency_email,
     birthdate,
     gender,
+    company_joining_date, // Added new field
   } = req.body;
 
   try {
@@ -191,8 +193,9 @@ export const updateUserProfile = async (req, res) => {
       emergency_email = $19,
       birthdate = $20,
       gender = $21,
+      company_joining_date = $22, -- Added new field
       updated_at = CURRENT_TIMESTAMP
-    WHERE user_id = $22 RETURNING *`,
+    WHERE user_id = $23 RETURNING *`,
       [
         first_name, // $1
         middle_name, // $2
@@ -215,7 +218,8 @@ export const updateUserProfile = async (req, res) => {
         emergency_email, // $19
         birthdate, // $20
         gender, // $21
-        userId, // $22
+        company_joining_date, // $22
+        userId, // $23
       ],
     );
 
@@ -244,6 +248,7 @@ export const updateUserProfile = async (req, res) => {
         p.emergency_email,
         p.birthdate,
         p.gender,
+        p.company_joining_date, -- Added here
         sa.s3_key as profile_pic_s3_key,
         sa.s3_bucket as profile_pic_s3_bucket
       FROM v4.user_account_tbl a
