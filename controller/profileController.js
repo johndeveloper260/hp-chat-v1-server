@@ -156,32 +156,66 @@ export const updateUserProfile = async (req, res) => {
     street_address,
     city,
     state_province,
+    // New Fields
+    country,
+    sending_org,
+    emergency_contact_name,
+    emergency_contact_number,
+    emergency_contact_address,
+    emergency_email,
+    birthdate,
+    gender,
   } = req.body;
 
   try {
     const result = await getPool().query(
       `UPDATE v4.user_profile_tbl SET 
-        first_name = $1, middle_name = $2, last_name = $3, 
-        user_type = $4, position = $5, company = $6, batch_no = $14, 
-        company_branch = $7, phone_number = $8, postal_code = $9, 
-        street_address = $10, city = $11, state_province = $12, 
-        updated_at = CURRENT_TIMESTAMP
-      WHERE user_id = $13 RETURNING *`,
+      first_name = $1, 
+      middle_name = $2, 
+      last_name = $3, 
+      user_type = $4, 
+      position = $5, 
+      company = $6, 
+      batch_no = $7, 
+      company_branch = $8, 
+      phone_number = $9, 
+      postal_code = $10, 
+      street_address = $11, 
+      city = $12, 
+      state_province = $13,
+      country = $14,
+      sending_org = $15,
+      emergency_contact_name = $16,
+      emergency_contact_number = $17,
+      emergency_contact_address = $18,
+      emergency_email = $19,
+      birthdate = $20,
+      gender = $21,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = $22 RETURNING *`,
       [
-        first_name,
-        middle_name,
-        last_name,
-        user_type,
-        position,
-        company,
-        company_branch,
-        phone_number,
-        postal_code,
-        street_address,
-        city,
-        state_province,
-        userId,
-        batch_no,
+        first_name, // $1
+        middle_name, // $2
+        last_name, // $3
+        user_type, // $4
+        position, // $5
+        company, // $6
+        batch_no, // $7
+        company_branch, // $8
+        phone_number, // $9
+        postal_code, // $10
+        street_address, // $11
+        city, // $12
+        state_province, // $13
+        country, // $14
+        sending_org, // $15
+        emergency_contact_name, // $16
+        emergency_contact_number, // $17
+        emergency_contact_address, // $18
+        emergency_email, // $19
+        birthdate, // $20
+        gender, // $21
+        userId, // $22
       ],
     );
 
@@ -194,7 +228,6 @@ export const updateUserProfile = async (req, res) => {
         p.middle_name,
         p.last_name, 
         p.company,
-          -- Get translated company name with fallbacks
         COALESCE(
           c.company_name ->> 'ja', 
           c.company_name ->> 'en', 
@@ -202,6 +235,15 @@ export const updateUserProfile = async (req, res) => {
         ) AS company_name,
         p.batch_no,
         p.user_type,
+        -- New fields selected directly from profile table
+        p.country,
+        p.sending_org,
+        p.emergency_contact_name,
+        p.emergency_contact_number,
+        p.emergency_contact_address,
+        p.emergency_email,
+        p.birthdate,
+        p.gender,
         sa.s3_key as profile_pic_s3_key,
         sa.s3_bucket as profile_pic_s3_bucket
       FROM v4.user_account_tbl a

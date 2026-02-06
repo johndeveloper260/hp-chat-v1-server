@@ -19,6 +19,7 @@ import attachmentRoutes from "./routes/attachmentRoutes.js";
 import commentsRoutes from "./routes/commentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import translateRoutes from "./routes/translateRoutes.js";
+import sendingOrgRoutes from "./routes/sendingOrgRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -62,6 +63,7 @@ app.use("/attachments", attachmentRoutes);
 app.use("/comments", commentsRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/translate", translateRoutes);
+app.use("/sending-org", sendingOrgRoutes);
 
 const PORT = process.env.PORT || 8010;
 httpServer.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
