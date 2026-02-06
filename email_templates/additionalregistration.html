@@ -1,23 +1,9 @@
-<style>
-    h3 {
-      color: #0275d8;
-    }
-    
-    p {
-      font-family: 'Raleway', sans-serif;
-      font-size: 1rem;
-    }
-    
-    </style>
-    
-    <html>
-    <h3>HoRenSo Plus</h3>
-    <hr></hr>
-    <p>Hi {{name}}, </p>
-    <p>You are now registered for {{business_unit}} organization.</p>
-    <br>
-    <p>HoRenSo+ Team</p>
-    </body>
-    
-    </html>
-    
+<script>
+    const t = {
+        en: `<p>You are now registered for <strong>{{business_unit}}</strong> organization.</p>`,
+        ja: `<p>あなたは <strong>{{business_unit}}</strong> 組織に登録されました。</p>`,
+        id: `<p>Anda sekarang terdaftar untuk organisasi <strong>{{business_unit}}</strong>.</p>`,
+        vi: `<p>Bạn hiện đã được đăng ký cho tổ chức <strong>{{business_unit}}</strong>.</p>`
+    };
+    function tr(l){ document.getElementById('msg').innerHTML = t[l]; }
+</script>

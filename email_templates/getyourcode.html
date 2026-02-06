@@ -1,23 +1,9 @@
-<style>
-    h3 {
-      color: #0275d8;
-    }
-    
-    p {
-      font-family: 'Raleway', sans-serif;
-      font-size: 1rem;
-    }
-    
-    </style>
-    
-    <html>
-    <h3>[HoRenSo Plus] Reset Password Code</h3>
-    <hr></hr>
-    <p>You reset password code is: {{resetCode}}</p>
-    <p>If you did not initiate this password reset, please ignore this email.</p>
-    <br>
-    <p>HoRenSo+ Team</p>
-    </body>
-    
-    </html>
-    
+<script>
+    const t = {
+        en: `<p>Your reset password code is: <strong>{{resetCode}}</strong></p><p>If you did not initiate this, please ignore this email.</p>`,
+        ja: `<p>パスワードリセットコードは: <strong>{{resetCode}}</strong> です。</p><p>心当たりがない場合は、このメールを無視してください。</p>`,
+        id: `<p>Kode atur ulang kata sandi Anda adalah: <strong>{{resetCode}}</strong></p><p>Jika Anda không thực hiện việc này, vui lòng abaikan email ini.</p>`,
+        vi: `<p>Mã đặt lại mật khẩu của bạn là: <strong>{{resetCode}}</strong></p><p>Nếu bạn không yêu cầu việc này, vui lòng bỏ qua email này.</p>`
+    };
+    function tr(l){ document.getElementById('msg').innerHTML = t[l]; }
+</script>

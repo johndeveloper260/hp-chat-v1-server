@@ -1,26 +1,42 @@
-<style>
-    h3 {
-      color: #0275d8;
-    }
-    
-    p {
-      font-family: 'Raleway', sans-serif;
-      font-size: 1rem;
-    }
-    
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { padding: 20px; background-color: #f8f9fa; font-family: 'Raleway', sans-serif; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; border: 1px solid #eee; }
+        h3 { color: #0275d8; margin-top: 0; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+        .lang-btn { background: #fff; border: 1px solid #0275d8; color: #0275d8; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; font-size: 0.8rem; }
+        .translation-box { margin-top: 25px; padding-top: 15px; border-top: 1px dashed #ccc; }
     </style>
-    
-    <html>
-    <h3>Welcome to HoRenSo+</h3>
-    <hr></hr>
-    <p>Hi {{name}}, </p>
-    <p>Your password is: {{password}}</p>
-    <br>
-    <p>Please reset your password immediately on Manage Profile page.</p>
-    <h3><a href={{homeurl}}>Sign In Now</a></h3>
-    <br>
-    <p>HoRenSo+ Team</p>
-    </body>
-    
-    </html>
-    
+</head>
+<body>
+    <div class="container">
+        <h3>Welcome to HoRenSo+</h3>
+        <hr>
+        <p>Hi {{name}},</p>
+        <div id="msg">
+            <p>Your password is: <strong>{{password}}</strong></p>
+            <p>Please reset your password immediately on Manage Profile page.</p>
+            <h3><a href="{{homeurl}}">Sign In Now</a></h3>
+        </div>
+        <p>HoRenSo+ Team</p>
+
+        <div class="translation-box">
+            <button class="lang-btn" onclick="tr('en')">EN</button>
+            <button class="lang-btn" onclick="tr('ja')">JA</button>
+            <button class="lang-btn" onclick="tr('id')">ID</button>
+            <button class="lang-btn" onclick="tr('vi')">VI</button>
+        </div>
+    </div>
+    <script>
+        const t = {
+            en: `<p>Your password is: <strong>{{password}}</strong></p><p>Please reset your password immediately on Manage Profile page.</p><h3><a href="{{homeurl}}">Sign In Now</a></h3>`,
+            ja: `<p>あなたのパスワードは: <strong>{{password}}</strong> です。</p><p>プロフィール管理ページですぐにパスワードをリセットしてください。</p><h3><a href="{{homeurl}}">今すぐサインイン</a></h3>`,
+            id: `<p>Kata sandi Anda adalah: <strong>{{password}}</strong></p><p>Harap segera setel ulang kata sandi Anda di halaman Kelola Profil.</p><h3><a href="{{homeurl}}">Masuk Sekarang</a></h3>`,
+            vi: `<p>Mật khẩu của bạn là: <strong>{{password}}</strong></p><p>Vui lòng đặt lại mật khẩu của bạn ngay lập tức trên trang Quản lý hồ sơ.</p><h3><a href="{{homeurl}}">Đăng nhập ngay</a></h3>`
+        };
+        function tr(l){ document.getElementById('msg').innerHTML = t[l]; }
+    </script>
+</body>
+</html>
