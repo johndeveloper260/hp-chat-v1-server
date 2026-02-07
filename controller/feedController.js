@@ -538,15 +538,20 @@ export const markAsSeen = async (req, res) => {
 // ✅ New endpoint: Get viewers list
 export const getViewers = async (req, res) => {
   const { rowId } = req.params;
+  const lang = await getUserLanguage(req.user.id);
 
   try {
-    const query = `
+    const query = `     
       SELECT 
-        v.user_id as id,
-        p.first_name || ' ' || p.last_name as name,
-        v.viewed_at
+      v.user_id as id,
+      p.first_name || ' ' || p.last_name as name,
+      -- Extracts the value for the specific language key from the JSONB column
+      COALESCE(c.company_name->>'${lang}', c.company_name->>'en') as company,
+      v.viewed_at
       FROM v4.announcement_views v
       JOIN v4.user_profile_tbl p ON v.user_id = p.user_id
+      -- Join the company table using the company ID stored in the user profile
+      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
       WHERE v.announcement_id = $1::integer
       ORDER BY v.viewed_at DESC
     `;
