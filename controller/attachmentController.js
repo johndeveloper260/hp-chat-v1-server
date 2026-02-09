@@ -416,14 +416,14 @@ export const deleteAttachmentsByRelation = async (req, res) => {
   }
 };
 
-export const renameAttachment = async (req: Request, res: Response) => {
+export const renameAttachment = async (req, res) => {
   const { id } = req.params;
   const { display_name } = req.body;
 
   // Basic validation
   if (!display_name || display_name.trim() === "") {
-    return res.status(400).json({ 
-      error: "Display name is required." 
+    return res.status(400).json({
+      error: "Display name is required.",
     });
   }
 
@@ -437,24 +437,23 @@ export const renameAttachment = async (req: Request, res: Response) => {
       RETURNING *;
     `;
 
-    const result = await db.query(query, [display_name.trim(), id]);
+    const result = await getPool().query(query, [display_name.trim(), id]);
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ 
-        error: "Attachment not found." 
+      return res.status(404).json({
+        error: "Attachment not found.",
       });
     }
 
     // Return the updated record
     return res.status(200).json({
       message: "Attachment renamed successfully",
-      data: result.rows[0]
+      data: result.rows[0],
     });
-
   } catch (error) {
     console.error("Error renaming attachment:", error);
-    return res.status(500).json({ 
-      error: "Internal server error" 
+    return res.status(500).json({
+      error: "Internal server error",
     });
   }
 };
