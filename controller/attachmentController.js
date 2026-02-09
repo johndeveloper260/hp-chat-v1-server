@@ -415,3 +415,46 @@ export const deleteAttachmentsByRelation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const renameAttachment = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { display_name } = req.body;
+
+  // Basic validation
+  if (!display_name || display_name.trim() === "") {
+    return res.status(400).json({ 
+      error: "Display name is required." 
+    });
+  }
+
+  try {
+    const query = `
+      UPDATE v4.shared_attachments
+      SET 
+        display_name = $1,
+        updated_at = NOW()
+      WHERE attachment_id = $2
+      RETURNING *;
+    `;
+
+    const result = await db.query(query, [display_name.trim(), id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ 
+        error: "Attachment not found." 
+      });
+    }
+
+    // Return the updated record
+    return res.status(200).json({
+      message: "Attachment renamed successfully",
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("Error renaming attachment:", error);
+    return res.status(500).json({ 
+      error: "Internal server error" 
+    });
+  }
+};

@@ -49,4 +49,7 @@ router.delete(
   attachmentController.deleteAttachmentsByRelation,
 );
 
+// PUT /attachments/{id}/rename
+router.put("/:id/rename", attachmentController.renameAttachment);
+
 export default router;
