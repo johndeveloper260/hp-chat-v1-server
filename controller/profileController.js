@@ -31,6 +31,68 @@ const s3Client = new S3Client({
 });
 
 /**
+ * Search Users by Company, Batch Number, and Name
+ */
+export const searchUsers = async (req, res) => {
+  const { company, batch_no, name } = req.query;
+
+  try {
+    let queryValues = [];
+    let queryParts = [];
+
+    // Base Query with join to get company_name
+    let sql = `
+      SELECT 
+        p.user_id, 
+        p.first_name, 
+        p.last_name, 
+        p.company, 
+        COALESCE(
+          c.company_name ->> 'ja', 
+          c.company_name ->> 'en', 
+          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
+        ) AS company_name,
+        p.batch_no, 
+        p.position, 
+        p.user_type
+      FROM v4.user_profile_tbl p
+      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
+      WHERE 1=1
+    `;
+
+    // 1. Filter by Company (UUID)
+    if (company) {
+      queryValues.push(company);
+      queryParts.push(`AND p.company = $${queryValues.length}`);
+    }
+
+    // 2. Filter by Batch Number
+    if (batch_no) {
+      queryValues.push(batch_no);
+      queryParts.push(`AND p.batch_no = $${queryValues.length}`);
+    }
+
+    // 3. Filter by Name (Case-insensitive partial match on First OR Last name)
+    if (name) {
+      queryValues.push(`%${name}%`);
+      queryParts.push(
+        `AND (p.first_name ILIKE $${queryValues.length} OR p.last_name ILIKE $${queryValues.length})`,
+      );
+    }
+
+    // Combine SQL
+    sql += ` ${queryParts.join(" ")} ORDER BY p.first_name ASC LIMIT 50`;
+
+    const result = await getPool().query(sql, queryValues);
+
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Search Users Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
  * Update Work Visa
  */
 export const updateWorkVisa = async (req, res) => {

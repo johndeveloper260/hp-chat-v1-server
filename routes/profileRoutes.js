@@ -4,6 +4,7 @@ const router = express.Router();
 
 // 1. Convert require to a named import and add the .js extension
 import {
+  searchUsers,
   updateWorkVisa,
   getUserLegalProfile,
   getUserProfile,
@@ -18,6 +19,8 @@ router.get(`/user-legal-info/:userId`, auth, getUserLegalProfile);
 router.put(`/visa-info/:userId`, auth, updateWorkVisa);
 
 // Profile
+router.get("/search-users", auth, searchUsers);
+
 router.get("/personal-info/:userId", auth, getUserProfile);
 router.put("/personal-info/:userId", auth, updateUserProfile);
 
