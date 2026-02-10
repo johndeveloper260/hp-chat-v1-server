@@ -33,14 +33,27 @@ const s3Client = new S3Client({
 /**
  * Search Users by Company, Batch Number, and Name
  */
+/**
+ * Search Users with Language Preference
+ */
 export const searchUsers = async (req, res) => {
   const { company, batch_no, name } = req.query;
+  const userId = req.user.id;
 
   try {
+    // 1. Fetch user's preferred language from account table
+    const langResult = await getPool().query(
+      "SELECT preferred_language FROM v4.user_account_tbl WHERE id = $1",
+      [userId],
+    );
+
+    // Fallback to 'en' if not set
+    const preferredLanguage = langResult.rows[0]?.preferred_language || "en";
+
     let queryValues = [];
     let queryParts = [];
 
-    // Base Query with join to get company_name
+    // 2. Base Query - Prioritize preferredLanguage in the COALESCE
     let sql = `
       SELECT 
         p.user_id, 
@@ -48,9 +61,10 @@ export const searchUsers = async (req, res) => {
         p.last_name, 
         p.company, 
         COALESCE(
-          c.company_name ->> 'ja', 
-          c.company_name ->> 'en', 
-          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
+          c.company_name ->> $1,                -- Priority 1: User's preferred language
+          c.company_name ->> 'ja',              -- Priority 2: Japanese
+          c.company_name ->> 'en',              -- Priority 3: English
+          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1) -- Fallback
         ) AS company_name,
         p.batch_no, 
         p.position, 
@@ -60,19 +74,22 @@ export const searchUsers = async (req, res) => {
       WHERE 1=1
     `;
 
-    // 1. Filter by Company (UUID)
+    // The preferredLanguage is the first parameter ($1)
+    queryValues.push(preferredLanguage);
+
+    // 3. Filter by Company (UUID)
     if (company) {
       queryValues.push(company);
       queryParts.push(`AND p.company = $${queryValues.length}`);
     }
 
-    // 2. Filter by Batch Number
+    // 4. Filter by Batch Number
     if (batch_no) {
       queryValues.push(batch_no);
       queryParts.push(`AND p.batch_no = $${queryValues.length}`);
     }
 
-    // 3. Filter by Name (Case-insensitive partial match on First OR Last name)
+    // 5. Filter by Name (Partial match)
     if (name) {
       queryValues.push(`%${name}%`);
       queryParts.push(
@@ -80,7 +97,6 @@ export const searchUsers = async (req, res) => {
       );
     }
 
-    // Combine SQL
     sql += ` ${queryParts.join(" ")} ORDER BY p.first_name ASC LIMIT 50`;
 
     const result = await getPool().query(sql, queryValues);
