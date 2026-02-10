@@ -199,6 +199,7 @@ export const createInquiry = async (req, res) => {
 export const updateInquiry = async (req, res) => {
   const { ticketId } = req.params;
   const userId = req.user.id;
+  const userBU = req.user.business_unit;
   const {
     status,
     assigned_to,
@@ -217,13 +218,13 @@ export const updateInquiry = async (req, res) => {
     SET status = $1, assigned_to = $2::uuid, resolution = $3, description = $4,
         high_pri = $5, watcher = $6::uuid[], closed_dt = $7, last_updated_by = $8::uuid,
         last_update_dttm = NOW(), title=$10, type=$11, occur_date=$12
-    WHERE ticket_id = $9 RETURNING *;
+    WHERE ticket_id = $9 AND business_unit = $13 RETURNING *;
   `;
 
   try {
     const oldInquiry = await getPool().query(
-      "SELECT * FROM v4.inquiry_tbl WHERE ticket_id = $1",
-      [ticketId],
+      "SELECT * FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+      [ticketId, userBU],
     );
 
     const values = [
@@ -239,6 +240,7 @@ export const updateInquiry = async (req, res) => {
       title,
       type,
       occur_date,
+      userBU,
     ];
     const { rows } = await getPool().query(query, values);
     if (rows.length === 0)
@@ -320,10 +322,11 @@ export const updateInquiry = async (req, res) => {
 // 4. DELETE
 export const deleteInquiry = async (req, res) => {
   const { ticketId } = req.params;
+  const userBU = req.user.business_unit;
   try {
     const { rowCount } = await getPool().query(
-      "DELETE FROM v4.inquiry_tbl WHERE ticket_id = $1",
-      [ticketId],
+      "DELETE FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+      [ticketId, userBU],
     );
     if (rowCount === 0)
       return res.status(404).json({ error: "Ticket not found" });

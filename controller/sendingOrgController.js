@@ -10,16 +10,18 @@ dotenv.config();
 export const getSendingOrgDropdown = async (req, res) => {
   try {
     const { country_origin } = req.query;
+    const userBU = req.user.business_unit;
 
     const query = `
       SELECT code AS value, descr AS label
       FROM v4.sending_org_tbl
       WHERE active = true
         AND ($1::text IS NULL OR country_origin = $1)
+        AND business_unit = $2
       ORDER BY sort_order ASC, descr ASC
     `;
 
-    const { rows } = await getPool().query(query, [country_origin || null]);
+    const { rows } = await getPool().query(query, [country_origin || null, userBU]);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

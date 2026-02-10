@@ -8,12 +8,11 @@ dotenv.config();
 // 1. GET ALL COMPANIES (Filtered by Business Unit)
 export const getCompanies = async (req, res) => {
   try {
-    // GET requests usually use req.query (e.g., /companies?business_unit=finance)
-    const { business_unit } = req.query;
+    const business_unit = req.user.business_unit;
 
     const query = `
-      SELECT * FROM v4.company_tbl 
-      WHERE ($1::text IS NULL OR business_unit = $1)
+      SELECT * FROM v4.company_tbl
+      WHERE business_unit = $1
       ORDER BY sort_order ASC, label ASC
     `;
 
@@ -27,18 +26,18 @@ export const getCompanies = async (req, res) => {
 // 2. GET DROPDOWN (Filtered by Business Unit)
 export const getCompanyDropdown = async (req, res) => {
   try {
-    const { business_unit } = req.query;
+    const business_unit = req.user.business_unit;
     const preferredLanguage = await getUserLanguage(req.user.id);
 
     const query = `
       SELECT company_id AS value, company_name->>$2 AS label
-      FROM v4.company_tbl 
-      WHERE is_active = true 
-      AND ($1::text IS NULL OR business_unit = $1)
+      FROM v4.company_tbl
+      WHERE is_active = true
+      AND business_unit = $1
       ORDER BY sort_order ASC, label ASC
     `;
 
-    const values = [business_unit || null, preferredLanguage];
+    const values = [business_unit, preferredLanguage];
 
     const { rows } = await getPool().query(query, values);
     res.json(rows);
@@ -49,7 +48,8 @@ export const getCompanyDropdown = async (req, res) => {
 
 // 3. CREATE
 export const createCompany = async (req, res) => {
-  const { company_name, business_unit, website_url } = req.body;
+  const { company_name, website_url } = req.body;
+  const business_unit = req.user.business_unit;
   const userId = req.user.id;
 
   const client = await getPool().connect();
@@ -106,23 +106,24 @@ export const createCompany = async (req, res) => {
 // 4. UPDATE
 export const updateCompany = async (req, res) => {
   const { id } = req.params;
-  const { company_name, business_unit, website_url, is_active } = req.body;
+  const { company_name, website_url, is_active } = req.body;
+  const business_unit = req.user.business_unit;
   const userId = req.user.id;
 
   try {
     const query = `
-      UPDATE v4.company_tbl 
-      SET company_name = $1, business_unit = $2, website_url = $3, is_active = $4, 
-          last_updated_by = $5, updated_at = NOW()
-      WHERE company_id = $6 RETURNING *;
+      UPDATE v4.company_tbl
+      SET company_name = $1, website_url = $2, is_active = $3,
+          last_updated_by = $4, updated_at = NOW()
+      WHERE company_id = $5 AND business_unit = $6 RETURNING *;
     `;
     const { rows } = await getPool().query(query, [
       company_name,
-      business_unit,
       website_url,
       is_active,
       userId,
       id,
+      business_unit,
     ]);
     res.json(rows[0]);
   } catch (err) {
@@ -133,10 +134,13 @@ export const updateCompany = async (req, res) => {
 // 5. DELETE
 export const deleteCompany = async (req, res) => {
   const { id } = req.params;
+  const business_unit = req.user.business_unit;
   try {
-    await getPool().query("DELETE FROM v4.company_tbl WHERE company_id = $1", [
-      id,
-    ]);
+    const { rowCount } = await getPool().query(
+      "DELETE FROM v4.company_tbl WHERE company_id = $1 AND business_unit = $2",
+      [id, business_unit],
+    );
+    if (rowCount === 0) return res.status(404).json({ error: "Company not found" });
     res.json({ message: "Company deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

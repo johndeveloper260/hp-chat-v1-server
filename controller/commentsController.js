@@ -6,10 +6,26 @@ import { createNotification } from "./notificationController.js";
  */
 export const getComments = async (req, res) => {
   const { type, id } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
+    // Pre-query: verify the parent record belongs to the requestor's business_unit
+    if (type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    } else if (type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    }
+
     const query = `
-      SELECT 
+      SELECT
         c.comment_id,
         c.user_id,
         c.content_text,
@@ -48,8 +64,24 @@ export const addComment = async (req, res) => {
   } = req.body;
 
   const user_id = req.user.id;
+  const userBU = req.user.business_unit;
 
   try {
+    // Pre-query: verify the parent record belongs to the requestor's business_unit
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    }
+
     // 1. Insert comment
     const insertQuery = `
       INSERT INTO v4.shared_comments 
@@ -178,10 +210,33 @@ export const editComment = async (req, res) => {
   const { commentId } = req.params;
   const { content_text } = req.body;
   const user_id = req.user.id;
+  const userBU = req.user.business_unit;
 
   try {
+    // Verify the comment's parent record belongs to requestor's business_unit
+    const commentCheck = await getPool().query(
+      "SELECT relation_type, relation_id FROM v4.shared_comments WHERE comment_id = $1",
+      [commentId],
+    );
+    if (commentCheck.rowCount === 0) return res.status(404).json({ error: "Comment not found" });
+
+    const { relation_type, relation_id } = commentCheck.rows[0];
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    }
+
     const query = `
-      UPDATE v4.shared_comments 
+      UPDATE v4.shared_comments
       SET content_text = $1, is_edited = TRUE, updated_at = NOW()
       WHERE comment_id = $2 AND user_id = $3
       RETURNING *;
@@ -213,8 +268,31 @@ export const deleteComment = async (req, res) => {
   const { commentId } = req.params;
   const user_id = req.user.id;
   const userRole = req.user.userType?.toUpperCase() || "";
+  const userBU = req.user.business_unit;
 
   try {
+    // Verify the comment's parent record belongs to requestor's business_unit
+    const commentCheck = await getPool().query(
+      "SELECT relation_type, relation_id FROM v4.shared_comments WHERE comment_id = $1",
+      [commentId],
+    );
+    if (commentCheck.rowCount === 0) return res.status(404).json({ error: "Comment not found" });
+
+    const { relation_type, relation_id } = commentCheck.rows[0];
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    }
+
     let query;
     let params;
 

@@ -128,14 +128,37 @@ export const createAttachment = async (req, res) => {
       display_name,
       file_type,
     } = req.body;
+    const userBU = req.user.business_unit;
 
     // Safety Check
     if (!relation_id) {
       return res.status(400).json({ error: "Missing relation_id" });
     }
 
+    // Pre-query: verify the parent record belongs to the requestor's business_unit
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    } else if (relation_type === "profile") {
+      // For profile attachments, verify the target user belongs to same BU
+      const check = await getPool().query(
+        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "User not found" });
+    }
+
     const query = `
-      INSERT INTO v4.shared_attachments 
+      INSERT INTO v4.shared_attachments
       (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *;
@@ -177,14 +200,37 @@ export const createAttachment = async (req, res) => {
  */
 export const getViewingUrl = async (req, res) => {
   const { id } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
+    // Fetch attachment and verify parent record's BU
     const { rows } = await getPool().query(
-      "SELECT s3_key, s3_bucket FROM v4.shared_attachments WHERE attachment_id = $1",
+      "SELECT s3_key, s3_bucket, relation_type, relation_id FROM v4.shared_attachments WHERE attachment_id = $1",
       [id],
     );
 
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
+
+    const { relation_type, relation_id } = rows[0];
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "profile") {
+      const check = await getPool().query(
+        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    }
 
     // Create Command
     const command = new GetObjectCommand({
@@ -213,10 +259,32 @@ export const getViewingUrl = async (req, res) => {
  */
 export const getAttachmentsByRelation = async (req, res) => {
   const { relationType, relationId } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
+    // Pre-query: verify the parent record belongs to the requestor's business_unit
+    if (relationType === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relationId, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    } else if (relationType === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relationId, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+    } else if (relationType === "profile") {
+      const check = await getPool().query(
+        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+        [relationId, userBU],
+      );
+      if (check.rowCount === 0) return res.status(404).json({ error: "User not found" });
+    }
+
     const query = `
-      SELECT 
+      SELECT
         attachment_id,
         relation_type,
         relation_id,
@@ -250,14 +318,15 @@ export const getAttachmentsByRelation = async (req, res) => {
  */
 export const deleteAttachment = async (req, res) => {
   const { id } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
     // Get the attachment details from DB first
     console.log("Deleting attachment with ID:", id);
 
     const findQuery = `
-      SELECT s3_key, relation_type, relation_id 
-      FROM v4.shared_attachments 
+      SELECT s3_key, relation_type, relation_id
+      FROM v4.shared_attachments
       WHERE attachment_id = $1
     `;
     const { rows } = await getPool().query(findQuery, [id]);
@@ -267,6 +336,27 @@ export const deleteAttachment = async (req, res) => {
     }
 
     const { s3_key, relation_type, relation_id } = rows[0];
+
+    // Verify parent record belongs to requestor's business_unit
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "profile") {
+      const check = await getPool().query(
+        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    }
     console.log("Deleting from S3:", s3_key);
 
     // Delete from S3
@@ -307,8 +397,15 @@ export const deleteAttachment = async (req, res) => {
  */
 export const deleteProfilePicture = async (req, res) => {
   const { userId } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
+    // Verify the target user belongs to the requestor's business_unit
+    const buCheck = await getPool().query(
+      "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+      [userId, userBU],
+    );
+    if (buCheck.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
     // Find the existing profile picture for this user
     const findQuery = `
       SELECT attachment_id, s3_key 
@@ -364,8 +461,29 @@ export const deleteProfilePicture = async (req, res) => {
  */
 export const deleteAttachmentsByRelation = async (req, res) => {
   const { relationType, relationId } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
+    // Pre-query: verify the parent record belongs to the requestor's business_unit
+    if (relationType === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relationId, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relationType === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relationId, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relationType === "profile") {
+      const check = await getPool().query(
+        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+        [relationId, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    }
     // Get all attachments for this relation
     const findQuery = `
       SELECT attachment_id, s3_key 
@@ -419,6 +537,7 @@ export const deleteAttachmentsByRelation = async (req, res) => {
 export const renameAttachment = async (req, res) => {
   const { id } = req.params;
   const { display_name } = req.body;
+  const userBU = req.user.business_unit;
 
   // Basic validation
   if (!display_name || display_name.trim() === "") {
@@ -428,9 +547,37 @@ export const renameAttachment = async (req, res) => {
   }
 
   try {
+    // Verify parent record belongs to requestor's business_unit
+    const attachCheck = await getPool().query(
+      "SELECT relation_type, relation_id FROM v4.shared_attachments WHERE attachment_id = $1",
+      [id],
+    );
+    if (attachCheck.rowCount === 0) return res.status(404).json({ error: "Attachment not found." });
+
+    const { relation_type, relation_id } = attachCheck.rows[0];
+    if (relation_type === "inquiries") {
+      const check = await getPool().query(
+        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "announcements") {
+      const check = await getPool().query(
+        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    } else if (relation_type === "profile") {
+      const check = await getPool().query(
+        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+        [relation_id, userBU],
+      );
+      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    }
+
     const query = `
       UPDATE v4.shared_attachments
-      SET 
+      SET
         display_name = $1,
         updated_at = NOW()
       WHERE attachment_id = $2

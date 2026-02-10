@@ -207,6 +207,7 @@ export const createAnnouncement = async (req, res) => {
 export const updateAnnouncement = async (req, res) => {
   const { rowId } = req.params;
   const userId = req.user.id;
+  const userBU = req.user.business_unit;
   const {
     company,
     batch_no,
@@ -220,21 +221,21 @@ export const updateAnnouncement = async (req, res) => {
 
   // Ensure row_id cast matches your schema (integer vs uuid)
   const query = `
-    UPDATE v4.announcement_tbl 
-    SET 
-      company = $1, batch_no = $2, title = $3, 
-      content_text = $4, date_from = $5, date_to = $6, 
-      active = $7, comments_on = $8, 
+    UPDATE v4.announcement_tbl
+    SET
+      company = $1, batch_no = $2, title = $3,
+      content_text = $4, date_from = $5, date_to = $6,
+      active = $7, comments_on = $8,
       last_updated_by = $9::uuid,
       last_updated_at = NOW()
-    WHERE row_id = $10::integer  
+    WHERE row_id = $10::integer AND business_unit = $11
     RETURNING *;
   `;
 
   try {
     const oldData = await getPool().query(
-      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::integer",
-      [rowId],
+      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::integer AND business_unit = $2",
+      [rowId, userBU],
     );
 
     const values = [
@@ -248,6 +249,7 @@ export const updateAnnouncement = async (req, res) => {
       comments_on,
       userId,
       rowId,
+      userBU,
     ];
 
     const { rows } = await getPool().query(query, values);
@@ -324,11 +326,12 @@ export const toggleReaction = async (req, res) => {
   const { rowId } = req.params;
   const { emoji } = req.body;
   const userId = String(req.user.id);
+  const userBU = req.user.business_unit;
 
   try {
     const result = await getPool().query(
-      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1",
-      [rowId],
+      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+      [rowId, userBU],
     );
 
     if (result.rowCount === 0)
@@ -350,8 +353,8 @@ export const toggleReaction = async (req, res) => {
     }
 
     const finalUpdate = await getPool().query(
-      "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2 RETURNING reactions",
-      [JSON.stringify(reactions), rowId],
+      "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2 AND business_unit = $3 RETURNING reactions",
+      [JSON.stringify(reactions), rowId, userBU],
     );
 
     res.json(finalUpdate.rows[0]);
@@ -396,10 +399,11 @@ export const getCompaniesWithUsers = async (req, res) => {
  */
 export const getBatchesByCompany = async (req, res) => {
   const { companyId } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
     const query = `
-      SELECT DISTINCT 
+      SELECT DISTINCT
         p.batch_no AS value,
         p.batch_no AS label
       FROM v4.user_profile_tbl p
@@ -407,9 +411,10 @@ export const getBatchesByCompany = async (req, res) => {
       WHERE p.company::uuid = $1::uuid
         AND p.batch_no IS NOT NULL
         AND a.is_active = true
+        AND a.business_unit = $2
       ORDER BY p.batch_no ASC
     `;
-    const { rows } = await getPool().query(query, [companyId]);
+    const { rows } = await getPool().query(query, [companyId, userBU]);
     res.json(rows);
   } catch (err) {
     console.error("Get Batches Error:", err);
@@ -462,11 +467,12 @@ export const previewAudience = async (req, res) => {
  */
 export const getReactions = async (req, res) => {
   const { rowId } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
     const result = await getPool().query(
-      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1",
-      [rowId],
+      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
+      [rowId, userBU],
     );
 
     if (result.rowCount === 0) {
@@ -518,8 +524,16 @@ export const getReactions = async (req, res) => {
 export const markAsSeen = async (req, res) => {
   const { rowId } = req.params;
   const userId = req.user.id;
+  const userBU = req.user.business_unit;
 
   try {
+    // Verify announcement belongs to requestor's business_unit
+    const check = await getPool().query(
+      "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1::integer AND business_unit = $2",
+      [rowId, userBU],
+    );
+    if (check.rowCount === 0) return res.status(404).json({ error: "Announcement not found" });
+
     const query = `
       INSERT INTO v4.announcement_views (announcement_id, user_id)
       VALUES ($1::integer, $2::uuid)
@@ -539,24 +553,25 @@ export const markAsSeen = async (req, res) => {
 export const getViewers = async (req, res) => {
   const { rowId } = req.params;
   const lang = await getUserLanguage(req.user.id);
+  const userBU = req.user.business_unit;
 
   try {
-    const query = `     
-      SELECT 
+    const query = `
+      SELECT
       v.user_id as id,
       p.first_name || ' ' || p.last_name as name,
-      -- Extracts the value for the specific language key from the JSONB column
-      COALESCE(c.company_name->>'${lang}', c.company_name->>'en') as company,
+      COALESCE(c.company_name->>$2, c.company_name->>'en') as company,
       v.viewed_at
       FROM v4.announcement_views v
       JOIN v4.user_profile_tbl p ON v.user_id = p.user_id
-      -- Join the company table using the company ID stored in the user profile
       LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
+      JOIN v4.announcement_tbl a ON v.announcement_id = a.row_id
       WHERE v.announcement_id = $1::integer
+        AND a.business_unit = $3
       ORDER BY v.viewed_at DESC
     `;
 
-    const { rows } = await getPool().query(query, [rowId]);
+    const { rows } = await getPool().query(query, [rowId, lang, userBU]);
     res.json(rows);
   } catch (err) {
     console.error("Get viewers error:", err);

@@ -306,10 +306,11 @@ export const getMyNotifications = async (req, res) => {
  */
 export const markAsRead = async (req, res) => {
   const { notificationId } = req.params;
+  const userId = req.user.id;
   try {
     await getPool().query(
-      "UPDATE v4.notification_history_tbl SET is_read = true WHERE notification_id = $1",
-      [notificationId],
+      "UPDATE v4.notification_history_tbl SET is_read = true WHERE notification_id = $1 AND user_id = $2",
+      [notificationId, userId],
     );
     res.json({ success: true });
   } catch (err) {

@@ -39,6 +39,7 @@ const s3Client = new S3Client({
 export const searchUsers = async (req, res) => {
   const { company, batch_no, name } = req.query;
   const userId = req.user.id;
+  const userBU = req.user.business_unit;
 
   try {
     // 1. Fetch user's preferred language from account table
@@ -53,29 +54,31 @@ export const searchUsers = async (req, res) => {
     let queryValues = [];
     let queryParts = [];
 
-    // 2. Base Query - Prioritize preferredLanguage in the COALESCE
+    // 2. Base Query - JOIN account table to enforce same business_unit
     let sql = `
-      SELECT 
-        p.user_id, 
-        p.first_name, 
-        p.last_name, 
-        p.company, 
+      SELECT
+        p.user_id,
+        p.first_name,
+        p.last_name,
+        p.company,
         COALESCE(
-          c.company_name ->> $1,                -- Priority 1: User's preferred language
-          c.company_name ->> 'ja',              -- Priority 2: Japanese
-          c.company_name ->> 'en',              -- Priority 3: English
-          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1) -- Fallback
+          c.company_name ->> $1,
+          c.company_name ->> 'ja',
+          c.company_name ->> 'en',
+          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
         ) AS company_name,
-        p.batch_no, 
-        p.position, 
+        p.batch_no,
+        p.position,
         p.user_type
       FROM v4.user_profile_tbl p
+      JOIN v4.user_account_tbl a ON p.user_id = a.id
       LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-      WHERE 1=1
+      WHERE a.business_unit = $2
     `;
 
-    // The preferredLanguage is the first parameter ($1)
+    // The preferredLanguage is the first parameter ($1), business_unit is $2
     queryValues.push(preferredLanguage);
+    queryValues.push(userBU);
 
     // 3. Filter by Company (UUID)
     if (company) {
@@ -114,17 +117,28 @@ export const searchUsers = async (req, res) => {
 export const updateWorkVisa = async (req, res) => {
   const { userId } = req.params;
   const data = req.body;
+  const userBU = req.user.business_unit;
 
   const client = await getPool().connect();
 
   try {
     await client.query("BEGIN");
 
+    // Verify the target user belongs to the requestor's business_unit
+    const buCheck = await client.query(
+      "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+      [userId, userBU],
+    );
+    if (buCheck.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
     // 1. Update the Visa Info Table
     const visaQuery = `
-      UPDATE v4.user_visa_info_tbl 
-      SET 
-        visa_type = $1, visa_number = $2, visa_issue_date = $3, 
+      UPDATE v4.user_visa_info_tbl
+      SET
+        visa_type = $1, visa_number = $2, visa_issue_date = $3,
         visa_expiry_date = $4, issuing_authority = $5,
         passport_no = $6, passport_name = $7, passport_expiry = $8,
         passport_issuing_country = $9, updated_at = NOW()
@@ -160,10 +174,11 @@ export const updateWorkVisa = async (req, res) => {
  */
 export const getUserLegalProfile = async (req, res) => {
   const { userId } = req.params;
+  const userBU = req.user.business_unit;
 
   try {
     const query = `
-      SELECT 
+      SELECT
         p.id as profile_id,
         p.first_name, p.middle_name, p.last_name, p.user_type,
         p.position, p.company, p.company_branch,
@@ -173,11 +188,12 @@ export const getUserLegalProfile = async (req, res) => {
         v.passport_no,v.passport_name,
         v.joining_date, v.assignment_start_date
       FROM v4.user_profile_tbl p
+      JOIN v4.user_account_tbl a ON p.user_id = a.id
       LEFT JOIN v4.user_visa_info_tbl v ON p.user_id = v.user_id
-      WHERE p.user_id = $1;
+      WHERE p.user_id = $1 AND a.business_unit = $2;
     `;
 
-    const result = await getPool().query(query, [userId]);
+    const result = await getPool().query(query, [userId, userBU]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
@@ -195,10 +211,13 @@ export const getUserLegalProfile = async (req, res) => {
  */
 export const getUserProfile = async (req, res) => {
   const { userId } = req.params;
+  const userBU = req.user.business_unit;
   try {
     const result = await getPool().query(
-      "SELECT * FROM v4.user_profile_tbl WHERE user_id = $1",
-      [userId],
+      `SELECT p.* FROM v4.user_profile_tbl p
+       JOIN v4.user_account_tbl a ON p.user_id = a.id
+       WHERE p.user_id = $1 AND a.business_unit = $2`,
+      [userId, userBU],
     );
 
     if (result.rows.length === 0) {
@@ -220,6 +239,7 @@ export const getUserProfile = async (req, res) => {
  */
 export const updateUserProfile = async (req, res) => {
   const { userId } = req.params;
+  const userBU = req.user.business_unit;
 
   const {
     first_name,
@@ -248,20 +268,27 @@ export const updateUserProfile = async (req, res) => {
   } = req.body;
 
   try {
+    // Verify the target user belongs to the requestor's business_unit
+    const buCheck = await getPool().query(
+      "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+      [userId, userBU],
+    );
+    if (buCheck.rowCount === 0) return res.status(403).send("Unauthorized");
+
     const result = await getPool().query(
-      `UPDATE v4.user_profile_tbl SET 
-      first_name = $1, 
-      middle_name = $2, 
-      last_name = $3, 
-      user_type = $4, 
-      position = $5, 
-      company = $6, 
-      batch_no = $7, 
-      company_branch = $8, 
-      phone_number = $9, 
-      postal_code = $10, 
-      street_address = $11, 
-      city = $12, 
+      `UPDATE v4.user_profile_tbl SET
+      first_name = $1,
+      middle_name = $2,
+      last_name = $3,
+      user_type = $4,
+      position = $5,
+      company = $6,
+      batch_no = $7,
+      company_branch = $8,
+      phone_number = $9,
+      postal_code = $10,
+      street_address = $11,
+      city = $12,
       state_province = $13,
       country = $14,
       sending_org = $15,
@@ -271,7 +298,7 @@ export const updateUserProfile = async (req, res) => {
       emergency_email = $19,
       birthdate = $20,
       gender = $21,
-      company_joining_date = $22, -- Added new field
+      company_joining_date = $22,
       updated_at = CURRENT_TIMESTAMP
     WHERE user_id = $23 RETURNING *`,
       [
