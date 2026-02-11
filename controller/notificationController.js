@@ -27,6 +27,7 @@ const getUserLanguage = async (userId) => {
 export const savePushToken = async (req, res) => {
   const { expoPushToken } = req.body;
   const userId = req.user.id; // From auth middleware
+  const businessUnit = req.user.business_unit;
 
   if (!expoPushToken || !Expo.isExpoPushToken(expoPushToken)) {
     return res.status(400).json({ error: "Invalid Expo Push Token" });
@@ -35,16 +36,17 @@ export const savePushToken = async (req, res) => {
   try {
     // Update or insert push token for user
     const query = `
-      INSERT INTO v4.user_push_tokens (user_id, expo_push_token, updated_at)
-      VALUES ($1, $2, NOW())
-      ON CONFLICT (user_id) 
-      DO UPDATE SET 
+      INSERT INTO v4.user_push_tokens (user_id, expo_push_token, business_unit, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (user_id)
+      DO UPDATE SET
         expo_push_token = $2,
+        business_unit = $3,
         updated_at = NOW()
       RETURNING *;
     `;
 
-    const result = await getPool().query(query, [userId, expoPushToken]);
+    const result = await getPool().query(query, [userId, expoPushToken, businessUnit]);
 
     res.json({
       message: "Push token saved successfully",
@@ -64,13 +66,15 @@ export const sendNotificationToUser = async (
   title,
   body,
   data = {},
+  businessUnit = null,
 ) => {
   try {
-    // Get user's push token from database
-    const result = await getPool().query(
-      "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1",
-      [userId],
-    );
+    // Get user's push token from database, scoped by business_unit if provided
+    const tokenQuery = businessUnit
+      ? "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1 AND business_unit = $2"
+      : "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1";
+    const tokenParams = businessUnit ? [userId, businessUnit] : [userId];
+    const result = await getPool().query(tokenQuery, tokenParams);
 
     if (result.rows.length === 0) {
       console.log(`No push token found for user ${userId}`);
@@ -125,13 +129,15 @@ export const sendNotificationToMultipleUsers = async (
   title,
   body,
   data = {},
+  businessUnit = null,
 ) => {
   try {
-    // Get all push tokens for the users
-    const result = await getPool().query(
-      "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = ANY($1)",
-      [userIds],
-    );
+    // Get all push tokens for the users, scoped by business_unit if provided
+    const tokenQuery = businessUnit
+      ? "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = ANY($1) AND business_unit = $2"
+      : "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = ANY($1)";
+    const tokenParams = businessUnit ? [userIds, businessUnit] : [userIds];
+    const result = await getPool().query(tokenQuery, tokenParams);
 
     const pushTokens = [
       ...new Set(result.rows.map((row) => row.expo_push_token)),
@@ -203,6 +209,7 @@ export const sendTestNotification = async (req, res) => {
  */
 export const deletePushToken = async (req, res) => {
   const userId = req.user.id;
+  const businessUnit = req.user.business_unit;
   const { expoPushToken } = req.body;
 
   if (!expoPushToken) {
@@ -210,10 +217,10 @@ export const deletePushToken = async (req, res) => {
   }
 
   try {
-    // We filter by both token and userId for security
+    // We filter by token, userId, and business_unit for security
     const result = await getPool().query(
-      "DELETE FROM v4.user_push_tokens WHERE user_id = $1 AND expo_push_token = $2",
-      [userId, expoPushToken],
+      "DELETE FROM v4.user_push_tokens WHERE user_id = $1 AND expo_push_token = $2 AND business_unit = $3",
+      [userId, expoPushToken, businessUnit],
     );
 
     if (result.rowCount === 0) {
@@ -278,8 +285,8 @@ export const createNotification = async ({
       businessUnit,
     ]);
 
-    // 5. Send Push Notification
-    return await sendNotificationToUser(userId, title, body, data);
+    // 5. Send Push Notification (scoped to business_unit)
+    return await sendNotificationToUser(userId, title, body, data, businessUnit);
   } catch (err) {
     console.error("Error creating notification:", err);
   }
@@ -351,9 +358,16 @@ export const sendCallNotification = async (
       body,
     });
 
-    const result = await getPool().query(
-      "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1",
+    // Get recipient's business_unit to scope token lookup
+    const buResult = await getPool().query(
+      "SELECT business_unit FROM v4.user_account_tbl WHERE id = $1",
       [recipientUserId],
+    );
+    const recipientBU = buResult.rows[0]?.business_unit;
+
+    const result = await getPool().query(
+      "SELECT expo_push_token FROM v4.user_push_tokens WHERE user_id = $1 AND business_unit = $2",
+      [recipientUserId, recipientBU],
     );
 
     if (result.rows.length === 0) {
