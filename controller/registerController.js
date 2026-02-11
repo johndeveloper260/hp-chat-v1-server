@@ -80,6 +80,7 @@ export const registerUser = async (req, res) => {
     streetAddress,
     city,
     state,
+    registrationCode,
   );
 
   if (!email || !password || !firstName || !lastName || !registrationCode) {
