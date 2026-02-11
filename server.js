@@ -27,7 +27,9 @@ const httpServer = createServer(app);
 
 // --- 1. CORS Configuration ---
 const whitelist = [
-  process.env.NODE_ENV === 'production' ? "https://hp-chat-v1-prod-fe23bd464547.herokuapp.com/" : "https://hp-chat-v1-dev-0d0d5d3944dd.herokuapp.com/",
+  process.env.NODE_ENV === "production"
+    ? "https://hp-chat-v1-prod-fe23bd464547.herokuapp.com"
+    : "https://hp-chat-v1-dev-0d0d5d3944dd.herokuapp.com",
   "http://localhost:5173",
   "http://localhost:3000",
 ];
