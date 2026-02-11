@@ -159,8 +159,8 @@ export const createAttachment = async (req, res) => {
 
     const query = `
       INSERT INTO v4.shared_attachments
-      (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type, business_unit)
+      VALUES ($1, $2::text, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
 
@@ -171,6 +171,7 @@ export const createAttachment = async (req, res) => {
       s3_bucket,
       display_name,
       file_type,
+      userBU,
     ];
 
     const result = await getPool().query(query, values);
@@ -547,49 +548,27 @@ export const renameAttachment = async (req, res) => {
   }
 
   try {
-    // Verify parent record belongs to requestor's business_unit
+    // 1. Verify the attachment exists at all
     const attachCheck = await getPool().query(
-      "SELECT relation_type, relation_id FROM v4.shared_attachments WHERE attachment_id = $1",
+      "SELECT attachment_id FROM v4.shared_attachments WHERE attachment_id = $1",
       [id],
     );
     if (attachCheck.rowCount === 0) return res.status(404).json({ error: "Attachment not found." });
 
-    const { relation_type, relation_id } = attachCheck.rows[0];
-    if (relation_type === "inquiries") {
-      const check = await getPool().query(
-        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
-        [relation_id, userBU],
-      );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
-    } else if (relation_type === "announcements") {
-      const check = await getPool().query(
-        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
-        [relation_id, userBU],
-      );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
-    } else if (relation_type === "profile") {
-      const check = await getPool().query(
-        "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
-        [relation_id, userBU],
-      );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
-    }
-
+    // 2. Attempt update scoped to business_unit
     const query = `
       UPDATE v4.shared_attachments
       SET
         display_name = $1,
         updated_at = NOW()
-      WHERE attachment_id = $2
+      WHERE attachment_id = $2 AND business_unit = $3
       RETURNING *;
     `;
 
-    const result = await getPool().query(query, [display_name.trim(), id]);
+    const result = await getPool().query(query, [display_name.trim(), id, userBU]);
 
     if (result.rowCount === 0) {
-      return res.status(404).json({
-        error: "Attachment not found.",
-      });
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     // Return the updated record

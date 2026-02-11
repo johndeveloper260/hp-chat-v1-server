@@ -263,11 +263,11 @@ export const createNotification = async ({
 
     console.log(`📤 Sending notification in ${userLanguage}:`, { title, body });
 
-    // 4. Save to Database including business_unit
+    // 4. Save to Database including business_unit (relation_id cast to text)
     const dbQuery = `
-      INSERT INTO v4.notification_history_tbl 
+      INSERT INTO v4.notification_history_tbl
       (user_id, title, body, relation_type, relation_id, business_unit)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5::text, $6)
     `;
     await getPool().query(dbQuery, [
       userId,

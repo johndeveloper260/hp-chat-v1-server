@@ -82,11 +82,11 @@ export const addComment = async (req, res) => {
       if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
     }
 
-    // 1. Insert comment
+    // 1. Insert comment (with business_unit for multi-tenant isolation)
     const insertQuery = `
-      INSERT INTO v4.shared_comments 
-      (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO v4.shared_comments
+      (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata, business_unit)
+      VALUES ($1, $2::text, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
     const result = await getPool().query(insertQuery, [
@@ -96,6 +96,7 @@ export const addComment = async (req, res) => {
       content_text,
       parent_comment_id || null,
       metadata || {},
+      userBU,
     ]);
     const newComment = result.rows[0];
 
@@ -204,7 +205,7 @@ export const addComment = async (req, res) => {
 
 /**
  * Edit Comment
- * Ensures only the owner can edit
+ * Ensures only the owner can edit, scoped to business_unit
  */
 export const editComment = async (req, res) => {
   const { commentId } = req.params;
@@ -213,44 +214,29 @@ export const editComment = async (req, res) => {
   const userBU = req.user.business_unit;
 
   try {
-    // Verify the comment's parent record belongs to requestor's business_unit
+    // 1. Verify the comment exists at all
     const commentCheck = await getPool().query(
-      "SELECT relation_type, relation_id FROM v4.shared_comments WHERE comment_id = $1",
+      "SELECT comment_id FROM v4.shared_comments WHERE comment_id = $1",
       [commentId],
     );
     if (commentCheck.rowCount === 0) return res.status(404).json({ error: "Comment not found" });
 
-    const { relation_type, relation_id } = commentCheck.rows[0];
-    if (relation_type === "inquiries") {
-      const check = await getPool().query(
-        "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
-        [relation_id, userBU],
-      );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
-    } else if (relation_type === "announcements") {
-      const check = await getPool().query(
-        "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
-        [relation_id, userBU],
-      );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
-    }
-
+    // 2. Attempt update scoped to business_unit + owner
     const query = `
       UPDATE v4.shared_comments
       SET content_text = $1, is_edited = TRUE, updated_at = NOW()
-      WHERE comment_id = $2 AND user_id = $3
+      WHERE comment_id = $2 AND user_id = $3 AND business_unit = $4
       RETURNING *;
     `;
     const result = await getPool().query(query, [
       content_text,
       commentId,
       user_id,
+      userBU,
     ]);
 
     if (result.rowCount === 0) {
-      return res
-        .status(403)
-        .json({ error: "Unauthorized or comment not found" });
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     res.json(result.rows[0]);
