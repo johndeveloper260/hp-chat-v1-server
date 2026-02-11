@@ -525,7 +525,7 @@ export const getReactions = async (req, res) => {
 export const markAsSeen = async (req, res) => {
   const { rowId } = req.params;
   const userId = req.user.id;
-  const userBU = req.user.business_unit;
+  const userBU = req.user.business_unit; // Extract from JWT
 
   try {
     // Verify announcement belongs to requestor's business_unit
@@ -533,17 +533,20 @@ export const markAsSeen = async (req, res) => {
       "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1::integer AND business_unit = $2",
       [rowId, userBU],
     );
-    if (check.rowCount === 0)
+
+    if (check.rowCount === 0) {
       return res.status(404).json({ error: "Announcement not found" });
+    }
 
     const query = `
-      INSERT INTO v4.announcement_views (announcement_id, user_id)
-      VALUES ($1::integer, $2::uuid)
-      ON CONFLICT (announcement_id, user_id) DO NOTHING
-      RETURNING *
+      INSERT INTO v4.announcement_views (announcement_id, user_id, business_unit)
+      VALUES ($1::integer, $2::uuid, $3)
+      ON CONFLICT (announcement_id, user_id) 
+      DO UPDATE SET viewed_at = NOW() -- Optional: Update timestamp if they view again
+      RETURNING *;
     `;
 
-    await getPool().query(query, [rowId, userId]);
+    await getPool().query(query, [rowId, userId, userBU]);
     res.json({ success: true });
   } catch (err) {
     console.error("Mark as seen error:", err);
