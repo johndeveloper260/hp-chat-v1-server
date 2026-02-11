@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
 import { sendNotificationToMultipleUsers } from "./notificationController.js";
 import { getUserLanguage } from "../utils/getUserLanguage.js";
+import { deleteFromS3 } from "./attachmentController.js";
 
 dotenv.config();
 
@@ -532,7 +533,8 @@ export const markAsSeen = async (req, res) => {
       "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1::integer AND business_unit = $2",
       [rowId, userBU],
     );
-    if (check.rowCount === 0) return res.status(404).json({ error: "Announcement not found" });
+    if (check.rowCount === 0)
+      return res.status(404).json({ error: "Announcement not found" });
 
     const query = `
       INSERT INTO v4.announcement_views (announcement_id, user_id)
@@ -576,5 +578,102 @@ export const getViewers = async (req, res) => {
   } catch (err) {
     console.error("Get viewers error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * DELETE /announcements/:rowId
+ * Atomic cascading deletion with S3 cleanup and multi-tenant isolation
+ */
+export const deleteAnnouncement = async (req, res) => {
+  const { rowId } = req.params;
+  const { business_unit: userBU } = req.user;
+
+  const client = await getPool().connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. Verify the announcement exists within the caller's business_unit
+    const checkRes = await client.query(
+      `SELECT row_id FROM v4.announcement_tbl
+       WHERE row_id = $1::integer AND business_unit = $2`,
+      [rowId, userBU],
+    );
+
+    if (checkRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        error:
+          "Announcement not found or you do not have permission to delete it.",
+      });
+    }
+
+    // 2. Fetch S3 keys from shared_attachments BEFORE deleting rows
+    const attachRows = await client.query(
+      `SELECT s3_key FROM v4.shared_attachments
+       WHERE relation_id = $1::text
+         AND relation_type = 'announcements'
+         AND business_unit = $2`,
+      [rowId, userBU],
+    );
+
+    // 3. Delete physical files from S3
+    for (const row of attachRows.rows) {
+      await deleteFromS3(row.s3_key);
+    }
+
+    // 4. Cascading purge — all child tables scoped to business_unit
+    await client.query(
+      `DELETE FROM v4.announcement_views
+       WHERE announcement_id = $1::integer
+         AND business_unit = $2`,
+      [rowId, userBU],
+    );
+
+    await client.query(
+      `DELETE FROM v4.shared_attachments
+       WHERE relation_id = $1::text
+         AND relation_type = 'announcements'
+         AND business_unit = $2`,
+      [rowId, userBU],
+    );
+
+    await client.query(
+      `DELETE FROM v4.shared_comments
+       WHERE relation_id = $1::text
+         AND relation_type = 'announcements'
+         AND business_unit = $2`,
+      [rowId, userBU],
+    );
+
+    await client.query(
+      `DELETE FROM v4.notification_history_tbl
+       WHERE relation_id = $1::text
+         AND relation_type = 'announcements'
+         AND business_unit = $2`,
+      [rowId, userBU],
+    );
+
+    // 5. Delete the parent announcement
+    await client.query(
+      `DELETE FROM v4.announcement_tbl
+       WHERE row_id = $1::integer AND business_unit = $2
+       RETURNING row_id`,
+      [rowId, userBU],
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      message: "Announcement and all related data deleted successfully",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Delete Announcement Error:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };

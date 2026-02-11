@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
 import { createNotification } from "./notificationController.js";
 import { getUserLanguage } from "../utils/getUserLanguage.js";
+import { deleteFromS3 } from "./attachmentController.js";
 
 dotenv.config();
 
@@ -319,20 +320,87 @@ export const updateInquiry = async (req, res) => {
   }
 };
 
-// 4. DELETE
+// 4. DELETE — Atomic cascading deletion with S3 cleanup and multi-tenant isolation
 export const deleteInquiry = async (req, res) => {
   const { ticketId } = req.params;
   const userBU = req.user.business_unit;
+
+  const client = await getPool().connect();
+
   try {
-    const { rowCount } = await getPool().query(
-      "DELETE FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
+    await client.query("BEGIN");
+
+    // 1. Verify the inquiry exists within the caller's business_unit
+    const checkRes = await client.query(
+      `SELECT ticket_id FROM v4.inquiry_tbl
+       WHERE ticket_id = $1 AND business_unit = $2`,
       [ticketId, userBU],
     );
-    if (rowCount === 0)
+
+    if (checkRes.rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Ticket not found" });
-    res.json({ message: "Inquiry deleted successfully" });
+    }
+
+    // 2. Fetch S3 keys from shared_attachments BEFORE deleting rows
+    const attachRows = await client.query(
+      `SELECT s3_key FROM v4.shared_attachments
+       WHERE relation_id = $1::text
+         AND relation_type = 'inquiries'
+         AND business_unit = $2`,
+      [ticketId, userBU],
+    );
+
+    // 3. Delete physical files from S3
+    for (const row of attachRows.rows) {
+      await deleteFromS3(row.s3_key);
+    }
+
+    // 4. Cascading purge — all child tables scoped to business_unit
+    await client.query(
+      `DELETE FROM v4.shared_attachments
+       WHERE relation_id = $1::text
+         AND relation_type = 'inquiries'
+         AND business_unit = $2`,
+      [ticketId, userBU],
+    );
+
+    await client.query(
+      `DELETE FROM v4.shared_comments
+       WHERE relation_id = $1::text
+         AND relation_type = 'inquiries'
+         AND business_unit = $2`,
+      [ticketId, userBU],
+    );
+
+    await client.query(
+      `DELETE FROM v4.notification_history_tbl
+       WHERE relation_id = $1::text
+         AND relation_type = 'inquiries'
+         AND business_unit = $2`,
+      [ticketId, userBU],
+    );
+
+    // 5. Delete the parent inquiry
+    await client.query(
+      `DELETE FROM v4.inquiry_tbl
+       WHERE ticket_id = $1 AND business_unit = $2
+       RETURNING ticket_id`,
+      [ticketId, userBU],
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      message: "Inquiry and all related data deleted successfully",
+    });
   } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Delete Inquiry Error:", err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 };
 

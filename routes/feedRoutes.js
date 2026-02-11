@@ -30,4 +30,7 @@ router.get("/posters", auth, getPosters);
 router.post("/:rowId/mark-seen", auth, markAsSeen);
 router.get("/:rowId/viewers", auth, getViewers);
 
+//Delete
+router.delete("/deleteAnnouncement/:rowId", auth, deleteAnnouncement);
+
 export default router;
