@@ -644,7 +644,7 @@ export const deleteAnnouncement = async (req, res) => {
 
     await client.query(
       `DELETE FROM v4.shared_comments
-       WHERE relation_id = $1::text
+       WHERE relation_id = $1::integer
          AND relation_type = 'announcements'
          AND business_unit = $2`,
       [rowId, userBU],
