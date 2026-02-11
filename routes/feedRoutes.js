@@ -12,6 +12,7 @@ import {
   getPosters,
   markAsSeen,
   getViewers,
+  deleteAnnouncement,
 } from "../controller/feedController.js";
 
 const router = express.Router();
