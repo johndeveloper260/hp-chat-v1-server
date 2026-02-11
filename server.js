@@ -6,6 +6,7 @@ import { createServer } from "http";
 
 // --- Import Logic ---
 import connectDB from "./config/db.js";
+import slidingExpiration from "./middleware/slidingExpiration.js";
 
 import register from "./routes/registerRoute.js";
 import login from "./routes/loginRoute.js";
@@ -46,6 +47,7 @@ const corsOptions = {
     "Accept",
     "x-app-identity",
   ],
+  exposedHeaders: ["X-Refresh-Token"], // Allow frontend to read this header
   credentials: true,
 };
 
@@ -54,6 +56,9 @@ app.use(cors(corsOptions));
 // --- 2. Middleware ---
 app.use(express.json({ limit: "10mb" })); // Built-in body parser
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// --- Sliding Expiration Middleware (Before Routes) ---
+app.use(slidingExpiration);
 
 // --- 3. Database ---
 connectDB();
