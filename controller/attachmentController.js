@@ -141,26 +141,29 @@ export const createAttachment = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     } else if (relation_type === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     } else if (relation_type === "profile") {
       // For profile attachments, verify the target user belongs to same BU
       const check = await getPool().query(
         "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "User not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "User not found" });
     }
 
     const query = `
       INSERT INTO v4.shared_attachments
       (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type, business_unit)
-      VALUES ($1, $2::text, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
 
@@ -218,19 +221,22 @@ export const getViewingUrl = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relation_type === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relation_type === "profile") {
       const check = await getPool().query(
         "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     }
 
     // Create Command
@@ -269,19 +275,22 @@ export const getAttachmentsByRelation = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relationId, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     } else if (relationType === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relationId, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     } else if (relationType === "profile") {
       const check = await getPool().query(
         "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
         [relationId, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "User not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "User not found" });
     }
 
     const query = `
@@ -344,19 +353,22 @@ export const deleteAttachment = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relation_type === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relation_type === "profile") {
       const check = await getPool().query(
         "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     }
     console.log("Deleting from S3:", s3_key);
 
@@ -406,7 +418,8 @@ export const deleteProfilePicture = async (req, res) => {
       "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
       [userId, userBU],
     );
-    if (buCheck.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+    if (buCheck.rowCount === 0)
+      return res.status(403).json({ error: "Unauthorized" });
     // Find the existing profile picture for this user
     const findQuery = `
       SELECT attachment_id, s3_key 
@@ -471,19 +484,22 @@ export const deleteAttachmentsByRelation = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relationId, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relationType === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relationId, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relationType === "profile") {
       const check = await getPool().query(
         "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
         [relationId, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     }
     // Get all attachments for this relation
     const findQuery = `
@@ -553,7 +569,8 @@ export const renameAttachment = async (req, res) => {
       "SELECT attachment_id FROM v4.shared_attachments WHERE attachment_id = $1",
       [id],
     );
-    if (attachCheck.rowCount === 0) return res.status(404).json({ error: "Attachment not found." });
+    if (attachCheck.rowCount === 0)
+      return res.status(404).json({ error: "Attachment not found." });
 
     // 2. Attempt update scoped to business_unit
     const query = `
@@ -565,7 +582,11 @@ export const renameAttachment = async (req, res) => {
       RETURNING *;
     `;
 
-    const result = await getPool().query(query, [display_name.trim(), id, userBU]);
+    const result = await getPool().query(query, [
+      display_name.trim(),
+      id,
+      userBU,
+    ]);
 
     if (result.rowCount === 0) {
       return res.status(403).json({ error: "Forbidden" });

@@ -15,13 +15,15 @@ export const getComments = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     } else if (type === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     }
 
     const query = `
@@ -73,20 +75,22 @@ export const addComment = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     } else if (relation_type === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(404).json({ error: "Record not found" });
+      if (check.rowCount === 0)
+        return res.status(404).json({ error: "Record not found" });
     }
 
     // 1. Insert comment (with business_unit for multi-tenant isolation)
     const insertQuery = `
       INSERT INTO v4.shared_comments
       (relation_type, relation_id, user_id, content_text, parent_comment_id, metadata, business_unit)
-      VALUES ($1, $2::text, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
     const result = await getPool().query(insertQuery, [
@@ -219,7 +223,8 @@ export const editComment = async (req, res) => {
       "SELECT comment_id FROM v4.shared_comments WHERE comment_id = $1",
       [commentId],
     );
-    if (commentCheck.rowCount === 0) return res.status(404).json({ error: "Comment not found" });
+    if (commentCheck.rowCount === 0)
+      return res.status(404).json({ error: "Comment not found" });
 
     // 2. Attempt update scoped to business_unit + owner
     const query = `
@@ -262,7 +267,8 @@ export const deleteComment = async (req, res) => {
       "SELECT relation_type, relation_id FROM v4.shared_comments WHERE comment_id = $1",
       [commentId],
     );
-    if (commentCheck.rowCount === 0) return res.status(404).json({ error: "Comment not found" });
+    if (commentCheck.rowCount === 0)
+      return res.status(404).json({ error: "Comment not found" });
 
     const { relation_type, relation_id } = commentCheck.rows[0];
     if (relation_type === "inquiries") {
@@ -270,13 +276,15 @@ export const deleteComment = async (req, res) => {
         "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     } else if (relation_type === "announcements") {
       const check = await getPool().query(
         "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
         [relation_id, userBU],
       );
-      if (check.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
+      if (check.rowCount === 0)
+        return res.status(403).json({ error: "Unauthorized" });
     }
 
     let query;
