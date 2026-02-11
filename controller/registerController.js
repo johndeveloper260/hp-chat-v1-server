@@ -64,6 +64,23 @@ export const registerUser = async (req, res) => {
     city,
     state, // This maps to state_province in your table
   } = req.body;
+  console.log(
+    email,
+    password,
+    firstName,
+    middleName,
+    lastName,
+    registrationCode,
+    position,
+    companyBranch,
+    phoneNumber,
+    visaType,
+    visaExpiry,
+    postalCode,
+    streetAddress,
+    city,
+    state,
+  );
 
   if (!email || !password || !firstName || !lastName || !registrationCode) {
     return res.status(400).json({ error: "Missing required fields." });
