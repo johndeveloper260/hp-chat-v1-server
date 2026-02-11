@@ -229,10 +229,8 @@ export const deletePushToken = async (req, res) => {
   }
 };
 
-// Add these to your existing notificationController.js
-
 /**
- * Updated: createNotification with language support
+ * Updated: createNotification with language support and business_unit
  */
 export const createNotification = async ({
   userId,
@@ -242,8 +240,13 @@ export const createNotification = async ({
   data,
 }) => {
   try {
-    // 1. Get user's language preference
-    const userLanguage = await getUserLanguage(userId);
+    // 1. Get user's language preference and business_unit
+    const langResult = await getPool().query(
+      "SELECT preferred_language, business_unit FROM v4.user_account_tbl WHERE id = $1",
+      [userId],
+    );
+    const userLanguage = langResult.rows[0]?.preferred_language || "en";
+    const businessUnit = langResult.rows[0]?.business_unit;
 
     // 2. Translate title and body
     const title = getTranslation(titleKey, userLanguage);
@@ -260,11 +263,11 @@ export const createNotification = async ({
 
     console.log(`📤 Sending notification in ${userLanguage}:`, { title, body });
 
-    // 4. Save to Database
+    // 4. Save to Database including business_unit
     const dbQuery = `
       INSERT INTO v4.notification_history_tbl 
-      (user_id, title, body, relation_type, relation_id)
-      VALUES ($1, $2, $3, $4, $5)
+      (user_id, title, body, relation_type, relation_id, business_unit)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `;
     await getPool().query(dbQuery, [
       userId,
@@ -272,6 +275,7 @@ export const createNotification = async ({
       body,
       data?.type,
       data?.rowId,
+      businessUnit,
     ]);
 
     // 5. Send Push Notification
@@ -282,19 +286,22 @@ export const createNotification = async ({
 };
 
 /**
- * GET: Fetch notifications for the logged-in user
+ * GET: Fetch notifications for the logged-in user (filtered by business_unit)
  */
 export const getMyNotifications = async (req, res) => {
   const userId = req.user.id;
+  const businessUnit = req.user.business_unit;
+
   try {
     const query = `
     SELECT * FROM v4.notification_history_tbl 
     WHERE user_id = $1 
+    AND business_unit = $2
     AND is_read = false 
     ORDER BY created_at DESC 
     LIMIT 50
     `;
-    const { rows } = await getPool().query(query, [userId]);
+    const { rows } = await getPool().query(query, [userId, businessUnit]);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -307,10 +314,12 @@ export const getMyNotifications = async (req, res) => {
 export const markAsRead = async (req, res) => {
   const { notificationId } = req.params;
   const userId = req.user.id;
+  const businessUnit = req.user.business_unit;
+
   try {
     await getPool().query(
-      "UPDATE v4.notification_history_tbl SET is_read = true WHERE notification_id = $1 AND user_id = $2",
-      [notificationId, userId],
+      "UPDATE v4.notification_history_tbl SET is_read = true WHERE notification_id = $1 AND user_id = $2 AND business_unit = $3",
+      [notificationId, userId, businessUnit],
     );
     res.json({ success: true });
   } catch (err) {
