@@ -50,6 +50,6 @@ router.delete(
 );
 
 // PUT /attachments/{id}/rename
-router.put("/:id/rename", attachmentController.renameAttachment);
+router.put("/:id/rename", auth, attachmentController.renameAttachment);
 
 export default router;
