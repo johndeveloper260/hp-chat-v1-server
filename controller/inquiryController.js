@@ -349,13 +349,13 @@ export const deleteInquiry = async (req, res) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
-    // 2. Fetch S3 keys - relation_id is text, so we use ::text cast
+    // 2. Fetch S3 keys - relation_id is text, so pass ticketId as string
     const attachRows = await client.query(
       `SELECT s3_key FROM v4.shared_attachments
-       WHERE relation_id = $1::text
+       WHERE relation_id = $1
          AND relation_type = 'inquiries'
          AND business_unit = $2`,
-      [ticketId, userBU],
+      [String(ticketId), userBU],
     );
 
     // 3. Delete physical files from S3
@@ -366,26 +366,26 @@ export const deleteInquiry = async (req, res) => {
     // 4. Cascading purge - all using ::text for relation_id compatibility
     await client.query(
       `DELETE FROM v4.shared_attachments
-       WHERE relation_id = $1::text
+       WHERE relation_id = $1
          AND relation_type = 'inquiries'
          AND business_unit = $2`,
-      [ticketId, userBU],
+      [String(ticketId), userBU],
     );
 
     await client.query(
       `DELETE FROM v4.shared_comments
-       WHERE relation_id = $1::text
+       WHERE relation_id = $1
          AND relation_type = 'inquiries'
          AND business_unit = $2`,
-      [ticketId, userBU],
+      [String(ticketId), userBU],
     );
 
     await client.query(
       `DELETE FROM v4.notification_history_tbl
-       WHERE relation_id = $1::text
+       WHERE relation_id = $1
          AND relation_type = 'inquiries'
          AND business_unit = $2`,
-      [ticketId, userBU],
+      [String(ticketId), userBU],
     );
 
     // 5. Delete the parent inquiry with explicit ::integer cast
