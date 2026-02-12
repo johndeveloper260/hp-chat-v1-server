@@ -29,7 +29,7 @@ const renderTemplate = async (templateName, replacements) => {
   const filePath = path.join(
     __dirname,
     "../email_templates",
-    `${templateName}.html`
+    `${templateName}.html`,
   );
   const source = await fs.readFile(filePath, "utf-8");
   const template = handlebars.compile(source);
@@ -64,7 +64,7 @@ export const newRegistration = async (
   emailTitle,
   name,
   password,
-  homeurl
+  homeurl,
 ) => {
   const html = await renderTemplate("newregistration", {
     name,
@@ -78,7 +78,7 @@ export const additionalRegistration = async (
   emailId,
   emailTitle,
   name,
-  business_unit
+  business_unit,
 ) => {
   const html = await renderTemplate("additionalregistration", {
     name,
@@ -102,4 +102,25 @@ export const contactUs = async (senderEmail, emailTitle, message) => {
   const supportEmail = "support@horensoplus.com";
   const recipientList = [supportEmail, senderEmail].join(", ");
   await sendEmail(recipientList, emailTitle, html);
+};
+
+/**
+ * Send Account Deletion Verification Code
+ */
+export const sendDeletionCode = async (emailId, emailTitle, otpCode, name) => {
+  const filePath = path.join(
+    __dirname,
+    "../email_templates/deleteaccount.html",
+  );
+  const source = fs.readFileSync(filePath, "utf-8").toString();
+  const template = handlebars.compile(source);
+
+  const replacements = {
+    otpCode: otpCode,
+    name: name || "User",
+  };
+  const htmlToSend = template(replacements);
+
+  // Send Email using your existing shared sendEmail function
+  await sendEmail(emailId, emailTitle, "", htmlToSend).catch(console.error);
 };

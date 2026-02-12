@@ -8,6 +8,8 @@ import {
   handleForgotPassword,
   updatePassword,
   deleteUserAccount,
+  requestWebDeletion,
+  finalizeDeletion,
 } from "../controller/loginController.js";
 
 // Public
@@ -16,7 +18,12 @@ router.post(`/forgot-password`, handleForgotPassword);
 
 // Private
 router.post(`/updatePassword`, auth, updatePassword);
+
+// Private Route (For In-App Settings)
 router.delete(`/deleteAccount`, auth, deleteUserAccount);
 
-// 2. Change module.exports to export default
+// Public Routes (For Web Deletion Page)
+router.post(`/requestWebDeletion`, requestWebDeletion);
+router.post(`/verifyAndExcludeAccount`, finalizeDeletion);
+
 export default router;

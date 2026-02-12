@@ -306,3 +306,103 @@ export const deleteUserAccount = async (req, res) => {
     res.status(500).json({ error: "Server error during account deletion." });
   }
 };
+
+/**
+ * Request Account Deletion (Public Web Flow)
+ * This sends an OTP to the email to verify the user owns the account.
+ */
+export const requestWebDeletion = async (req, res) => {
+  const { email } = req.body;
+  const lowerEmail = email.toLowerCase().trim();
+
+  try {
+    const userResult = await getPool().query(
+      "SELECT id FROM v4.user_account_tbl WHERE email = $1",
+      [lowerEmail],
+    );
+
+    if (userResult.rows.length === 0) {
+      // Security: Don't reveal if email exists, return same success message
+      return res
+        .status(200)
+        .json({
+          message: "If an account exists, a verification code has been sent.",
+        });
+    }
+
+    // Reuse your existing OTP logic
+    const otpCode = crypto.randomInt(100000, 999999).toString();
+    const otpExpiry = new Date(Date.now() + 15 * 60000); // 15 mins
+
+    await getPool().query(
+      "UPDATE v4.user_account_tbl SET otp_code = $1, otp_expiry = $2 WHERE email = $3",
+      [otpCode, otpExpiry, lowerEmail],
+    );
+
+    await emailService.sendDeletionCode(
+      lowerEmail,
+      "Account Deletion Request",
+      otpCode,
+    );
+
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "Verification code sent to your email.",
+      });
+  } catch (err) {
+    console.error("Web Deletion Request Error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
+ * Finalize Account Deletion
+ */
+export const finalizeDeletion = async (req, res) => {
+  const { email, otpCode } = req.body;
+  const userId = req.user?.id; // Defined if coming from in-app (auth middleware)
+
+  try {
+    let targetId = userId;
+
+    // If unauthenticated (Web Path), verify the OTP first
+    if (!userId) {
+      const userResult = await getPool().query(
+        "SELECT id, otp_code, otp_expiry FROM v4.user_account_tbl WHERE email = $1",
+        [email.toLowerCase().trim()],
+      );
+
+      const user = userResult.rows[0];
+      if (!user || user.otp_code !== otpCode || new Date() > user.otp_expiry) {
+        return res
+          .status(401)
+          .json({ error: "Invalid or expired verification code." });
+      }
+      targetId = user.id;
+    }
+
+    // 1. Delete from Stream Chat
+    await streamClient.deleteUser(targetId, {
+      mark_messages_deleted: true, // Clean up chat for privacy
+      hard: true,
+    });
+
+    // 2. Perform DB Deletion (or Soft Delete)
+    // Option: Hard Delete (Google/Apple standard)
+    const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
+    await getPool().query(deleteQuery, [targetId]);
+
+    res
+      .status(200)
+      .json({
+        success: true,
+        message:
+          "Your account and all associated data have been permanently deleted.",
+      });
+  } catch (err) {
+    console.error("Final Deletion Error:", err);
+    res.status(500).json({ error: "Server error during account deletion." });
+  }
+};
