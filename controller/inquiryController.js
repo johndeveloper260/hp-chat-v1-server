@@ -65,8 +65,9 @@ export const searchInquiries = async (req, res) => {
   }
 
   if (status && status !== "All") {
-    values.push(status);
-    query += ` AND i.status = $${values.length}`;
+    const statuses = status.split(",").map((s) => s.trim());
+    values.push(statuses);
+    query += ` AND i.status = ANY($${values.length}::text[])`;
   } else if (!status || status === "All") {
     query += ` AND i.status NOT IN ('Completed', 'Hold')`;
   }
