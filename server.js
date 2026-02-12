@@ -27,9 +27,17 @@ const httpServer = createServer(app);
 
 // --- 1. CORS Configuration ---
 const whitelist = [
+  // Legacy Heroku frontend URLs
   process.env.NODE_ENV === "production"
     ? "https://hp-chat-v1-prod-fe23bd464547.herokuapp.com"
     : "https://hp-chat-v1-dev-0d0d5d3944dd.herokuapp.com",
+  // Firebase Hosting URLs
+  "https://hp-chat-web.web.app",                    // Production
+  "https://hp-chat-web--dev-13u7zg05.web.app",      // Dev channel
+  // Custom domain (when connected)
+  "https://app.horensoplus.com",
+  "https://horensoplus.com",
+  // Local development
   "http://localhost:5173",
   "http://localhost:3000",
 ];
