@@ -323,6 +323,7 @@ export const updateInquiry = async (req, res) => {
 
 // 4. DELETE — Atomic cascading deletion with S3 cleanup and multi-tenant isolation
 export const deleteInquiry = async (req, res) => {
+  // Ensure ticketId is treated as a number in JS
   const ticketId = parseInt(req.params.ticketId, 10);
   const userBU = req.user.business_unit;
 
@@ -336,10 +337,10 @@ export const deleteInquiry = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // 1. Verify the inquiry exists within the caller's business_unit
+    // 1. Verify existence with explicit ::integer cast
     const checkRes = await client.query(
       `SELECT ticket_id FROM v4.inquiry_tbl
-       WHERE ticket_id = $1 AND business_unit = $2`,
+       WHERE ticket_id = $1::integer AND business_unit = $2`,
       [ticketId, userBU],
     );
 
@@ -348,7 +349,7 @@ export const deleteInquiry = async (req, res) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
-    // 2. Fetch S3 keys from shared_attachments BEFORE deleting rows
+    // 2. Fetch S3 keys - relation_id is text, so we use ::text cast
     const attachRows = await client.query(
       `SELECT s3_key FROM v4.shared_attachments
        WHERE relation_id = $1::text
@@ -362,7 +363,7 @@ export const deleteInquiry = async (req, res) => {
       await deleteFromS3(row.s3_key);
     }
 
-    // 4. Cascading purge — all child tables scoped to business_unit
+    // 4. Cascading purge - all using ::text for relation_id compatibility
     await client.query(
       `DELETE FROM v4.shared_attachments
        WHERE relation_id = $1::text
@@ -387,10 +388,10 @@ export const deleteInquiry = async (req, res) => {
       [ticketId, userBU],
     );
 
-    // 5. Delete the parent inquiry
+    // 5. Delete the parent inquiry with explicit ::integer cast
     await client.query(
       `DELETE FROM v4.inquiry_tbl
-       WHERE ticket_id = $1 AND business_unit = $2
+       WHERE ticket_id = $1::integer AND business_unit = $2
        RETURNING ticket_id`,
       [ticketId, userBU],
     );
@@ -402,11 +403,11 @@ export const deleteInquiry = async (req, res) => {
       message: "Inquiry and all related data deleted successfully",
     });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (client) await client.query("ROLLBACK");
     console.error("Delete Inquiry Error:", err);
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 };
 
