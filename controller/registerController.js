@@ -197,6 +197,28 @@ export const registerUser = async (req, res) => {
 
     await client.query("COMMIT");
 
+    // --- EMAIL BLOCK ---
+    try {
+      const emailTitle = "Welcome to HoRenSo+ / HoRenSo+へようこそ";
+      const homeUrl =
+        process.env.FRONTEND_URL || "https://forward-hp-ultra.horensoplus.com";
+
+      // Call your systemMailer method
+      // Note: we use 'password' from req.body to show them their temporary password
+      await emailService.newRegistration(
+        normalizedEmail,
+        emailTitle,
+        firstName,
+        password,
+        homeUrl,
+      );
+    } catch (emailErr) {
+      // We log the error but don't fail the registration
+      // since the account is already successfully created in DB
+      console.error("Welcome Email Failed to Send:", emailErr);
+    }
+    // -----------
+
     return res.status(201).json({
       message: "Registration successful",
       user: { id: userId, email: normalizedEmail, role: userRole },
