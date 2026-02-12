@@ -6,6 +6,9 @@ import bcrypt from "bcrypt";
 
 const router = express.Router();
 
+// Add this at the top of registerController.js
+import * as emailService from "../config/systemMailer.js";
+
 const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET,
