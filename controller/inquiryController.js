@@ -323,8 +323,13 @@ export const updateInquiry = async (req, res) => {
 
 // 4. DELETE — Atomic cascading deletion with S3 cleanup and multi-tenant isolation
 export const deleteInquiry = async (req, res) => {
-  const { ticketId } = req.params;
+  const ticketId = parseInt(req.params.ticketId, 10);
   const userBU = req.user.business_unit;
+
+  // Validate that ticketId is actually a number
+  if (isNaN(ticketId)) {
+    return res.status(400).json({ error: "Invalid Ticket ID format" });
+  }
 
   const client = await getPool().connect();
 
