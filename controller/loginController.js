@@ -323,11 +323,9 @@ export const requestWebDeletion = async (req, res) => {
 
     if (userResult.rows.length === 0) {
       // Security: Don't reveal if email exists, return same success message
-      return res
-        .status(200)
-        .json({
-          message: "If an account exists, a verification code has been sent.",
-        });
+      return res.status(200).json({
+        message: "If an account exists, a verification code has been sent.",
+      });
     }
 
     // Reuse your existing OTP logic
@@ -345,12 +343,10 @@ export const requestWebDeletion = async (req, res) => {
       otpCode,
     );
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Verification code sent to your email.",
-      });
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to your email.",
+    });
   } catch (err) {
     console.error("Web Deletion Request Error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -362,45 +358,64 @@ export const requestWebDeletion = async (req, res) => {
  */
 export const finalizeDeletion = async (req, res) => {
   const { email, otpCode } = req.body;
-  const userId = req.user?.id; // Defined if coming from in-app (auth middleware)
+  // If req.user exists, they are logged in (In-App Path)
+  const authenticatedUserId = req.user?.id;
 
   try {
-    let targetId = userId;
+    let targetId;
 
-    // If unauthenticated (Web Path), verify the OTP first
-    if (!userId) {
+    if (authenticatedUserId) {
+      // PATH A: In-App (Already have the ID from JWT)
+      targetId = authenticatedUserId;
+    } else {
+      // PATH B: Web/Public (Must get ID from DB using Email + OTP)
+      if (!email || !otpCode) {
+        return res
+          .status(400)
+          .json({ error: "Email and verification code are required." });
+      }
+
       const userResult = await getPool().query(
         "SELECT id, otp_code, otp_expiry FROM v4.user_account_tbl WHERE email = $1",
         [email.toLowerCase().trim()],
       );
 
       const user = userResult.rows[0];
+
+      // Security check: Verify user exists, OTP matches, and hasn't expired
       if (!user || user.otp_code !== otpCode || new Date() > user.otp_expiry) {
         return res
           .status(401)
           .json({ error: "Invalid or expired verification code." });
       }
+
+      // TAKE TARGET ID FROM userResult here
       targetId = user.id;
     }
 
-    // 1. Delete from Stream Chat
-    await streamClient.deleteUser(targetId, {
-      mark_messages_deleted: true, // Clean up chat for privacy
-      hard: true,
+    // 1. Delete from GetStream
+    // Wrap targetId in an array and convert to string to be safe
+    await streamClient.deleteUsers([String(targetId)], {
+      user: "hard",
+      messages: "hard",
+      conversations: "hard",
     });
 
-    // 2. Perform DB Deletion (or Soft Delete)
-    // Option: Hard Delete (Google/Apple standard)
+    // 2. Delete from your PostgreSQL DB
     const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
-    await getPool().query(deleteQuery, [targetId]);
+    const dbResult = await getPool().query(deleteQuery, [targetId]);
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message:
-          "Your account and all associated data have been permanently deleted.",
-      });
+    if (dbResult.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ error: "User found in Stream but not in database." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message:
+        "Your account and all associated data have been permanently deleted.",
+    });
   } catch (err) {
     console.error("Final Deletion Error:", err);
     res.status(500).json({ error: "Server error during account deletion." });
