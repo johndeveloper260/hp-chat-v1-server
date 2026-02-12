@@ -103,24 +103,21 @@ export const contactUs = async (senderEmail, emailTitle, message) => {
   const recipientList = [supportEmail, senderEmail].join(", ");
   await sendEmail(recipientList, emailTitle, html);
 };
-
 /**
  * Send Account Deletion Verification Code
  */
 export const sendDeletionCode = async (emailId, emailTitle, otpCode, name) => {
-  const filePath = path.join(
-    __dirname,
-    "../email_templates/deleteaccount.html",
-  );
-  const source = fs.readFileSync(filePath, "utf-8").toString();
-  const template = handlebars.compile(source);
+  try {
+    // 1. Use the existing renderTemplate helper to keep logic consistent
+    const html = await renderTemplate("deleteaccount", {
+      otpCode,
+      name: name || "User",
+    });
 
-  const replacements = {
-    otpCode: otpCode,
-    name: name || "User",
-  };
-  const htmlToSend = template(replacements);
-
-  // Send Email using your existing shared sendEmail function
-  await sendEmail(emailId, emailTitle, "", htmlToSend).catch(console.error);
+    // 2. Call the base sendEmail function with consistent parameters
+    await sendEmail(emailId, emailTitle, html);
+  } catch (error) {
+    console.error("Error in sendDeletionCode:", error);
+    throw error;
+  }
 };
