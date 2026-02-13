@@ -17,6 +17,7 @@ dotenv.config();
 // IMPORTANT: You must include the .js extension in the import path
 import { getPool } from "../config/getPool.js";
 import * as emailService from "../config/systemMailer.js";
+import { deleteFromS3 } from "./attachmentController.js";
 
 const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
@@ -280,17 +281,69 @@ export const updatePassword = async (req, res) => {
 };
 
 /**
+ * Cleanup: Delete all profile attachments from S3 and DB for a given user.
+ * Handles batch deletion (multiple profile history entries) and tolerates
+ * files that are already missing from S3.
+ */
+const cleanupUserProfileAttachments = async (userId) => {
+  const { rows } = await getPool().query(
+    `SELECT attachment_id, s3_key, s3_bucket
+     FROM v4.shared_attachments
+     WHERE relation_type = 'profile' AND relation_id = $1`,
+    [String(userId)],
+  );
+
+  if (rows.length === 0) {
+    console.log(`No profile attachments found for user ${userId}`);
+    return;
+  }
+
+  console.log(
+    `Found ${rows.length} profile attachment(s) for user ${userId}. Cleaning up...`,
+  );
+
+  for (const row of rows) {
+    try {
+      await deleteFromS3(row.s3_key);
+      console.log(`S3 deleted: ${row.s3_key} from bucket ${row.s3_bucket}`);
+    } catch (s3Err) {
+      // File may already be missing from S3 — log and continue
+      console.warn(
+        `S3 deletion skipped for ${row.s3_key} (may already be removed):`,
+        s3Err.message,
+      );
+    }
+  }
+
+  // Bulk delete all profile rows from the DB after S3 cleanup
+  await getPool().query(
+    `DELETE FROM v4.shared_attachments
+     WHERE relation_type = 'profile' AND relation_id = $1`,
+    [String(userId)],
+  );
+
+  console.log(
+    `DB cleanup complete: removed ${rows.length} profile attachment row(s) for user ${userId}`,
+  );
+};
+
+/**
  * Delete User Account
  */
 export const deleteUserAccount = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    // 1. Delete from GetStream
     await streamClient.deleteUser(userId, {
       mark_messages_deleted: false,
       hard: false,
     });
 
+    // 2. Cleanup profile attachments (S3 + DB) before removing the user row
+    await cleanupUserProfileAttachments(userId);
+
+    // 3. Delete user row from PostgreSQL
     const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
     const result = await getPool().query(deleteQuery, [userId]);
 
@@ -401,7 +454,10 @@ export const finalizeDeletion = async (req, res) => {
       conversations: "hard",
     });
 
-    // 2. Delete from your PostgreSQL DB
+    // 2. Cleanup profile attachments (S3 + DB) before removing the user row
+    await cleanupUserProfileAttachments(targetId);
+
+    // 3. Delete from your PostgreSQL DB
     const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
     const dbResult = await getPool().query(deleteQuery, [targetId]);
 

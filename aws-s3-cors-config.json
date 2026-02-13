@@ -1,0 +1,16 @@
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "AllowedOrigins": [
+      "https://hp-chat-web.web.app",
+      "https://hp-chat-web--dev-13u7zg05.web.app",
+      "https://app.horensoplus.com",
+      "https://horensoplus.com",
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
+    "ExposeHeaders": ["ETag", "x-amz-meta-custom-header"],
+    "MaxAgeSeconds": 3600
+  }
+]
