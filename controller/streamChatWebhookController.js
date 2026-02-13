@@ -57,15 +57,32 @@ export const handleChatWebhook = async (req, res) => {
 
     console.log(`📨 New message from ${senderName} in channel ${channel_id}`);
 
-    // 4. Get channel members from Stream API
-    const streamClient = new StreamClient(STREAM_API_KEY, STREAM_API_SECRET);
-    const channel = streamClient.chat.channel(channel_type || "messaging", channel_id);
-    const channelState = await channel.query({ members: { limit: 100 } });
+    // 4. Get channel members from webhook payload or fetch from API
+    let recipientIds = [];
 
-    const members = channelState.members || [];
-    const recipientIds = members
-      .map(m => m.user_id)
-      .filter(id => id !== senderId);
+    if (body.members && body.members.length > 0) {
+      // Members included in webhook payload
+      recipientIds = body.members
+        .map(m => m.user_id || m.user?.id)
+        .filter(id => id && id !== senderId);
+    } else {
+      // Fallback: Query Stream API for channel members
+      try {
+        const streamClient = new StreamClient(STREAM_API_KEY, STREAM_API_SECRET);
+        const channelResponse = await streamClient.queryChannels({
+          type: channel_type || "messaging",
+          id: channel_id,
+        });
+
+        if (channelResponse.channels && channelResponse.channels.length > 0) {
+          const channelData = channelResponse.channels[0];
+          const memberIds = Object.keys(channelData.members || {});
+          recipientIds = memberIds.filter(id => id !== senderId);
+        }
+      } catch (apiError) {
+        console.error("Error fetching channel members:", apiError);
+      }
+    }
 
     if (recipientIds.length === 0) {
       console.log("No recipients found");
