@@ -11,6 +11,7 @@ import {
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
+import { getS3Key } from "../utils/getS3Key.js";
 
 // Initialize S3 Client
 const s3Client = new S3Client({
@@ -85,19 +86,17 @@ export const syncProfilePictureToStream = async (userId, s3Key, s3Bucket) => {
 
 /**
  * 1. Generate Pre-signed URL for Upload
- * Used by: Profile pictures, Feed attachments, Inquiry attachments
+ * Uses unified S3 key: uploads/${business_unit}/${relation_type}/${relation_id}/${filename}
  */
 export const getPresignedUrl = async (
   fileName,
   fileType,
-  folder = "general",
+  businessUnit,
+  relationType,
+  relationId,
 ) => {
   try {
-    const dateFolder = new Date().toISOString().split("T")[0];
-    const s3Key = `${folder}/${dateFolder}/${Date.now()}-${fileName.replace(
-      /\s/g,
-      "_",
-    )}`;
+    const s3Key = getS3Key(businessUnit, relationType, relationId, fileName);
 
     const command = new PutObjectCommand({
       Bucket: process.env.REACT_APP_AWS_BUCKET,
