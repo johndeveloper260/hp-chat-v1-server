@@ -19,15 +19,15 @@ router.patch("/:notificationId/read", auth, notificationController.markAsRead);
 
 // Stream webhook
 router.post("/stream-webhook", async (req, res) => {
-  console.log("🚀 Webhook Received!");
-  console.log("Event Type:", req.body.type);
-  console.log("Body:", JSON.stringify(req.body, null, 2));
+  // console.log("🚀 Webhook Received!");
+  // console.log("Event Type:", req.body.type);
+  // console.log("Body:", JSON.stringify(req.body, null, 2));
 
   const event = req.body;
 
   // Handle call.ring event (primary)
   if (event && event.type === "call.ring") {
-    console.log("📞 RING Event - Incoming Call!");
+    // console.log("📞 RING Event - Incoming Call!");
 
     const callCid = event.call_cid;
     const callId = callCid.split(":")[1];
@@ -38,7 +38,7 @@ router.post("/stream-webhook", async (req, res) => {
     const members = event.members || event.call?.members || [];
     const recipients = members.filter((m) => m.user_id !== callerId);
 
-    console.log(`📤 Sending notifications to ${recipients.length} recipients`);
+    // console.log(`📤 Sending notifications to ${recipients.length} recipients`);
 
     for (const member of recipients) {
       console.log(`  → Notifying user ${member.user_id}`);
@@ -54,7 +54,7 @@ router.post("/stream-webhook", async (req, res) => {
 
   // Handle call.created as fallback (when ring: true is set)
   if (event && event.type === "call.created" && event.call?.ring) {
-    console.log("📞 CREATED Event with ring=true - Sending notifications");
+    // console.log("📞 CREATED Event with ring=true - Sending notifications");
 
     const callCid = event.call_cid;
     const callId = callCid.split(":")[1];
@@ -66,7 +66,7 @@ router.post("/stream-webhook", async (req, res) => {
     const members = event.call?.members || [];
     const recipients = members.filter((m) => m.user_id !== callerId);
 
-    console.log(`📤 Sending notifications to ${recipients.length} recipients`);
+    // console.log(`📤 Sending notifications to ${recipients.length} recipients`);
 
     for (const member of recipients) {
       console.log(`  → Notifying user ${member.user_id}`);
