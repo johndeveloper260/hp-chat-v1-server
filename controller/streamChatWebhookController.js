@@ -91,7 +91,7 @@ export const handleChatWebhook = async (req, res) => {
 
     // 5. Get sender's business_unit and profile picture from shared_attachments
     const senderQuery = await getPool().query(
-      `SELECT ua.business_unit, sa.file_path
+      `SELECT ua.business_unit, sa.s3_key, sa.s3_bucket
        FROM v4.user_account_tbl ua
        LEFT JOIN v4.shared_attachments sa
          ON sa.relation_id = ua.id::text
@@ -104,7 +104,13 @@ export const handleChatWebhook = async (req, res) => {
     );
 
     const businessUnit = senderQuery.rows[0]?.business_unit;
-    const senderProfilePic = senderQuery.rows[0]?.file_path || null;
+    const s3Key = senderQuery.rows[0]?.s3_key;
+    const s3Bucket = senderQuery.rows[0]?.s3_bucket;
+
+    // Construct full S3 URL if profile pic exists
+    const senderProfilePic = s3Key && s3Bucket
+      ? `https://${s3Bucket}.s3.ap-northeast-1.amazonaws.com/${s3Key}`
+      : null;
 
     // 6. Send notifications to all recipients
     for (const recipientId of recipientIds) {
