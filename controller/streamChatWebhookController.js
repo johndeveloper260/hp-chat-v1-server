@@ -6,33 +6,39 @@ import { StreamClient } from "@stream-io/node-sdk";
 const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 
-
 /**
- * Verify Stream Chat webhook signature
+ * Verify Stream Chat webhook signature using HMAC-SHA256
+ * @param {Buffer|string} rawBody - Raw body as Buffer or string
+ * @param {string} signature - x-signature header from Stream
  */
-const verifySignature = (body, signature) => {
-  const hash = crypto
-    .createHash("sha256")
-    .update(JSON.stringify(body))
+const verifyStreamSignature = (rawBody, signature) => {
+  const secret = STREAM_API_SECRET;
+  const expectedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
     .digest("hex");
-  return hash === signature;
+  return signature === expectedSignature;
 };
 
 /**
  * Stream Chat Webhook Handler for message.new event
+ * Expects raw body as Buffer for signature verification
  */
 export const handleChatWebhook = async (req, res) => {
   try {
     const signature = req.headers["x-signature"];
-    const body = req.body;
+    const rawBody = req.body; // Buffer from express.raw()
 
-    // 1. Verify signature
-    if (!verifySignature(body, signature)) {
+    // 1. Verify signature using raw body
+    if (!verifyStreamSignature(rawBody, signature)) {
       console.error("❌ Invalid webhook signature");
+      console.error("Expected secret:", STREAM_API_SECRET?.substring(0, 10) + "...");
+      console.error("Received signature:", signature);
       return res.status(401).json({ error: "Invalid signature" });
     }
 
-    // 2. Extract event type
+    // 2. Parse JSON body after signature verification
+    const body = JSON.parse(rawBody.toString());
     const { type, message, channel_id, channel_type } = body;
 
     // Only handle message.new events

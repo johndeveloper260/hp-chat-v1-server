@@ -63,6 +63,10 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// --- CRITICAL: Register webhook routes BEFORE express.json() ---
+// Stream Chat webhook needs raw body for signature verification
+app.use("/stream", stream);
+
 // --- 2. Middleware ---
 app.use(express.json({ limit: "10mb" })); // Built-in body parser
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -83,7 +87,7 @@ app.use("/profile", profile);
 app.use("/feed", feed);
 app.use("/inquiry", inquiry);
 app.use("/company", company);
-app.use("/stream", stream);
+// Stream routes already registered above (before express.json)
 app.use("/attachments", attachmentRoutes);
 app.use("/comments", commentsRoutes);
 app.use("/notifications", notificationRoutes);

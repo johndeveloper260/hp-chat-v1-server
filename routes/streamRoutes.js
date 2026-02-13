@@ -13,7 +13,12 @@ router.get("/token/:userId", auth, getStreamToken);
 
 // @route   POST /stream/webhook/chat
 // @desc    Handle Stream Chat webhooks (no auth - verified by signature)
-router.post("/webhook/chat", handleChatWebhook);
+// IMPORTANT: Uses raw body middleware to preserve original bytes for HMAC verification
+router.post(
+  "/webhook/chat",
+  express.raw({ type: "application/json" }),
+  handleChatWebhook
+);
 
 // 2. Change module.exports to export default
 export default router;
