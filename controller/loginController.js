@@ -500,8 +500,8 @@ const archiveUserBeforeDelete = async (
         a.id, 
         a.email, 
         CONCAT(p.first_name, ' ', p.last_name),
-        COALESCE(c.company_name ->> 'en', 'Unknown'),
-        a.user_type,
+        COALESCE(c.company_name ->> 'ja', 'Unknown'),
+        p.user_type,
         $2, 
         $3
       FROM v4.user_account_tbl a
