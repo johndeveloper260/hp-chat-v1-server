@@ -334,6 +334,9 @@ export const deleteUserAccount = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    // 0. ARCHIVE FIRST (Before data is gone)
+    await archiveUserBeforeDelete(userId, "SELF", "In-App Deletion");
+
     // 1. Delete from GetStream
     await streamClient.deleteUser(userId, {
       mark_messages_deleted: false,
@@ -446,6 +449,9 @@ export const finalizeDeletion = async (req, res) => {
       targetId = user.id;
     }
 
+    // 0. ARCHIVE FIRST (Before data is gone)
+    await archiveUserBeforeDelete(targetId, "SELF", "In-App Deletion");
+
     // 1. Delete from GetStream
     // Wrap targetId in an array and convert to string to be safe
     await streamClient.deleteUsers([String(targetId)], {
@@ -475,5 +481,41 @@ export const finalizeDeletion = async (req, res) => {
   } catch (err) {
     console.error("Final Deletion Error:", err);
     res.status(500).json({ error: "Server error during account deletion." });
+  }
+};
+
+/**
+ * Archive user data to the deleted_users_log table
+ */
+const archiveUserBeforeDelete = async (
+  userId,
+  deletedBy = "SELF",
+  reason = "User Request",
+) => {
+  try {
+    const query = `
+      INSERT INTO v4.deleted_users_log 
+      (original_user_id, email, full_name, company_name, user_type, deleted_by, deletion_reason)
+      SELECT 
+        a.id, 
+        a.email, 
+        CONCAT(p.first_name, ' ', p.last_name),
+        COALESCE(c.company_name ->> 'en', 'Unknown'),
+        a.user_type,
+        $2, 
+        $3
+      FROM v4.user_account_tbl a
+      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
+      WHERE a.id = $1
+      RETURNING log_id;
+    `;
+
+    const result = await getPool().query(query, [userId, deletedBy, reason]);
+    console.log(`User ${userId} archived to log_id: ${result.rows[0]?.log_id}`);
+  } catch (err) {
+    console.error(`Failed to archive user ${userId}:`, err);
+    // Decide: Do you want to throw error and stop deletion?
+    // Usually better to log error and proceed with deletion to not block the user.
   }
 };
