@@ -134,9 +134,12 @@ export const updateWorkVisa = async (req, res) => {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
+    // Helper to convert empty strings to NULL for Postgres DATE columns
+    const toDate = (val) => (val === "" || !val ? null : val);
+
     // 1. Update the Visa Info Table
     const visaQuery = `
-      UPDATE v4.user_visa_info_tbl
+      UPDATE v4.user_legal_profile_tbl
       SET
         visa_type = $1, 
         visa_number = $2, 
@@ -147,25 +150,25 @@ export const updateWorkVisa = async (req, res) => {
         passport_name = $7, 
         passport_expiry = $8,
         passport_issuing_country = $9, 
-        joining_date = $10,          -- Added
-        assignment_start_date = $11, -- Added
+        joining_date = $10,
+        assignment_start_date = $11,
         updated_at = NOW()
-      WHERE user_id = $12             -- Incremented index
+      WHERE user_id = $12
     `;
 
     const visaValues = [
       data.visa_type,
       data.visa_number,
-      data.visa_issue_date,
-      data.visa_expiry_date,
+      toDate(data.visa_issue_date), // $3 - Fixed
+      toDate(data.visa_expiry_date), // $4 - Fixed
       data.issuing_authority,
       data.passport_no,
       data.passport_name,
-      data.passport_expiry,
+      toDate(data.passport_expiry), // $8 - Fixed
       data.passport_issuing_country,
-      data.joining_date, // Added
-      data.assignment_start_date, // Added
-      userId, // Now $12
+      toDate(data.joining_date), // $10 - Fixed
+      toDate(data.assignment_start_date), // $11 - Fixed
+      userId, // $12
     ];
 
     await client.query(visaQuery, visaValues);
@@ -174,7 +177,7 @@ export const updateWorkVisa = async (req, res) => {
     res.status(200).json({ message: "Update successful" });
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error(error);
+    console.error("Update Work Visa Error:", error); // Log the specific error
     res.status(500).json({ error: "Database transaction failed" });
   } finally {
     client.release();
