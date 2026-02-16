@@ -139,7 +139,7 @@ export const updateWorkVisa = async (req, res) => {
 
     // 1. Update the Visa Info Table
     const visaQuery = `
-      UPDATE v4.user_legal_profile_tbl
+      UPDATE v4.user_visa_info_tbl
       SET
         visa_type = $1, 
         visa_number = $2, 
