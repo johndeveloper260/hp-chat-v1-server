@@ -238,42 +238,38 @@ export const handleForgotPassword = async (req, res) => {
 };
 
 /**
- * Update Password
+ * Update Password (without current password verification)
  */
 export const updatePassword = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { newPassword } = req.body;
     const userId = req.user.id;
 
-    const userResult = await getPool().query(
-      "SELECT password_hash FROM v4.user_account_tbl WHERE id = $1",
-      [userId],
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
+    // 1. Basic Validation
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters long.",
+      });
     }
 
-    const user = userResult.rows[0];
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!isMatch) {
-      return res
-        .status(400)
-        .json({ message: "Current password is incorrect." });
-    }
-
+    // 2. Hash the new password
     const salt = await bcrypt.genSalt(10);
     const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
-    await getPool().query(
-      "UPDATE v4.user_account_tbl SET password_hash = $1 WHERE id = $2",
+    // 3. Update the database directly
+    const updateResult = await getPool().query(
+      "UPDATE v4.user_account_tbl SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id",
       [hashedNewPassword, userId],
     );
 
-    res
-      .status(200)
-      .json({ success: true, message: "Password updated successfully!" });
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Password updated successfully!",
+    });
   } catch (error) {
     console.error("Update Password Error:", error);
     res.status(500).json({ message: "Internal server error" });
