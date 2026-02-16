@@ -138,12 +138,21 @@ export const updateWorkVisa = async (req, res) => {
     const visaQuery = `
       UPDATE v4.user_visa_info_tbl
       SET
-        visa_type = $1, visa_number = $2, visa_issue_date = $3,
-        visa_expiry_date = $4, issuing_authority = $5,
-        passport_no = $6, passport_name = $7, passport_expiry = $8,
-        passport_issuing_country = $9, updated_at = NOW()
-      WHERE user_id = $10
+        visa_type = $1, 
+        visa_number = $2, 
+        visa_issue_date = $3,
+        visa_expiry_date = $4, 
+        issuing_authority = $5,
+        passport_no = $6, 
+        passport_name = $7, 
+        passport_expiry = $8,
+        passport_issuing_country = $9, 
+        joining_date = $10,          -- Added
+        assignment_start_date = $11, -- Added
+        updated_at = NOW()
+      WHERE user_id = $12             -- Incremented index
     `;
+
     const visaValues = [
       data.visa_type,
       data.visa_number,
@@ -154,8 +163,11 @@ export const updateWorkVisa = async (req, res) => {
       data.passport_name,
       data.passport_expiry,
       data.passport_issuing_country,
-      userId,
+      data.joining_date, // Added
+      data.assignment_start_date, // Added
+      userId, // Now $12
     ];
+
     await client.query(visaQuery, visaValues);
 
     await client.query("COMMIT");
