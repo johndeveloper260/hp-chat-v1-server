@@ -333,7 +333,7 @@ export const updateUserProfile = async (req, res) => {
         emergency_contact_number, // $17
         emergency_contact_address, // $18
         emergency_email, // $19
-        birthdate, // $20
+        cleanDate(birthdate), // $20
         gender, // $21
         cleanDate(company_joining_date), // $22
         userId, // $23
