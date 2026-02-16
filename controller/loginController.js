@@ -157,6 +157,7 @@ export const loginUser = async (req, res) => {
       business_unit: user.business_unit,
       company: user.company,
       company_name: user.company_name,
+      visa_type_descr: user.visa_type_descr,
       batch_no: user.batch_no,
       preferred_language: user.preferred_language || "en",
     };
@@ -187,6 +188,7 @@ export const loginUser = async (req, res) => {
         company_name: user.company_name,
         batch_no: user.batch_no,
         companyBranch: user.company_branch,
+        visa_type_descr: user.visa_type_descr,
         phoneNumber: user.phone_number,
         postalCode: user.postal_code,
         streetAddress: user.street_address,
