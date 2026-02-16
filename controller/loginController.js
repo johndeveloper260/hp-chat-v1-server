@@ -71,14 +71,20 @@ export const loginUser = async (req, res) => {
         p.street_address,
         p.city,
         p.state_province,
-        -- Get translated company name with fallbacks
+        -- Get translated company name
         COALESCE(
           c.company_name ->> a.preferred_language, 
           c.company_name ->> 'en', 
           (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
         ) AS company_name,
-        v.visa_type,
+        v.visa_type, -- This is the code (e.g., 'V01')
         v.visa_expiry_date,
+        -- Get translated visa description from visa_list_tbl
+        COALESCE(
+          vl.descr ->> a.preferred_language,
+          vl.descr ->> 'en',
+          (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
+        ) AS visa_type_descr,
         sa.attachment_id as profile_pic_id,
         sa.s3_key as profile_pic_s3_key,
         sa.s3_bucket as profile_pic_s3_bucket,
@@ -88,6 +94,11 @@ export const loginUser = async (req, res) => {
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
       LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
       LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
+      -- New Join for Visa List
+      LEFT JOIN v4.visa_list_tbl vl ON (
+        v.visa_type = vl.code 
+        AND a.business_unit = vl.business_unit
+      )
       LEFT JOIN LATERAL (
         SELECT 
           attachment_id,
