@@ -499,16 +499,19 @@ const archiveUserBeforeDelete = async (
       SELECT 
         a.id, 
         a.email, 
-        CONCAT(p.first_name, ' ', p.last_name),
-        COALESCE(c.company_name ->> 'ja', 'Unknown'),
-        p.user_type,
+        TRIM(CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)),
+        COALESCE(
+          c.company_name ->> a.preferred_language, 
+          c.company_name ->> 'ja', 
+          'Unknown'
+        ),
+        p.user_type, 
         $2, 
         $3
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
       LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-      WHERE a.id = $1
-      RETURNING log_id;
+      WHERE a.id = $1;
     `;
 
     const result = await getPool().query(query, [userId, deletedBy, reason]);
