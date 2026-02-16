@@ -81,7 +81,7 @@ export const loginUser = async (req, res) => {
         v.visa_expiry_date,
         -- Get translated visa description from visa_list_tbl
         COALESCE(
-          vl.descr ->> a.preferred_language,
+          vl.descr ->> 'ja' -- a.preferred_language,
           vl.descr ->> 'en',
           (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
         ) AS visa_type_descr,
