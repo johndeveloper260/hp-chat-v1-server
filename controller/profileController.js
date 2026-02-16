@@ -244,9 +244,6 @@ export const getUserProfile = async (req, res) => {
 };
 
 /**
- * Update User Profile
- */
-/**
  * Update User Profile - WITH STREAM SYNC INCLUDING PROFILE PICTURE
  */
 export const updateUserProfile = async (req, res) => {
@@ -285,7 +282,10 @@ export const updateUserProfile = async (req, res) => {
       "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
       [userId, userBU],
     );
+
     if (buCheck.rowCount === 0) return res.status(403).send("Unauthorized");
+
+    const cleanDate = (date) => (date === "" ? null : date);
 
     const result = await getPool().query(
       `UPDATE v4.user_profile_tbl SET
@@ -335,7 +335,7 @@ export const updateUserProfile = async (req, res) => {
         emergency_email, // $19
         birthdate, // $20
         gender, // $21
-        company_joining_date, // $22
+        cleanDate(company_joining_date), // $22
         userId, // $23
       ],
     );
