@@ -21,6 +21,7 @@ import commentsRoutes from "./routes/commentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import translateRoutes from "./routes/translateRoutes.js";
 import sendingOrgRoutes from "./routes/sendingOrgRoutes.js";
+import sharepointRoutes from "./routes/sharepointRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -32,8 +33,8 @@ const whitelist = [
     ? "https://hp-chat-v1-prod-fe23bd464547.herokuapp.com"
     : "https://hp-chat-v1-dev-0d0d5d3944dd.herokuapp.com",
   // Firebase Hosting URLs
-  "https://hp-chat-web.web.app",                    // Production
-  "https://hp-chat-web--dev-13u7zg05.web.app",      // Dev channel
+  "https://hp-chat-web.web.app", // Production
+  "https://hp-chat-web--dev-13u7zg05.web.app", // Dev channel
   // Custom domain (when connected)
   "https://app.horensoplus.com",
   "https://horensoplus.com",
@@ -93,6 +94,8 @@ app.use("/comments", commentsRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/translate", translateRoutes);
 app.use("/sending-org", sendingOrgRoutes);
+
+app.use("/sharepoint", sharepointRoutes);
 
 const PORT = process.env.PORT || 8010;
 httpServer.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
