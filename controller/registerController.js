@@ -6,8 +6,8 @@ import bcrypt from "bcrypt";
 
 const router = express.Router();
 
-// Add this at the top of registerController.js
 import * as emailService from "../config/systemMailer.js";
+import { syncUserToStream } from "../utils/syncUserToStream.js";
 
 const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
@@ -156,45 +156,8 @@ export const registerUser = async (req, res) => {
 
     await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry]);
 
-    const getUserCompany = `
-      SELECT 
-    a.id AS user_id,
-    a.email,
-    p.first_name,
-    p.last_name,
-    a.preferred_language,
-    -- Extract language-specific name from JSONB with an English fallback
-    COALESCE(
-        c.company_name ->> 'ja', 
-        c.company_name ->> 'en'
-    ) AS company_name,
-    c.website_url,
-    p.user_type,
-    p.position
-    FROM v4.user_account_tbl a
-    JOIN v4.user_profile_tbl p ON a.id = p.user_id
-    LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-    WHERE a.id = $1
-    `;
-    const getUserCompanyRes = await client.query(getUserCompany, [userId]);
-
-    const { company_name } = getUserCompanyRes.rows[0];
-
-    // 5. Stream Chat Integration
-    const fullName = `${firstName} ${lastName}`.trim();
-
-    await streamClient.upsertUser({
-      id: userId,
-      email: normalizedEmail,
-      name: fullName,
-      // role: userRole.toLowerCase() === "admin" ? "admin" : "user",
-      role: "user",
-      user_type: userRole,
-      company: company,
-      company_name: company_name,
-      batch_no: batch_no,
-      business_unit: business_unit,
-    });
+    // 5. Stream Chat Integration - sync full profile to GetStream
+    await syncUserToStream(userId, client);
 
     const streamToken = streamClient.createToken(userId);
 
