@@ -11,12 +11,15 @@ export const searchReturnHome = async (req, res) => {
   const businessUnit = req.user.business_unit;
   const userId = req.user.id;
   const userRole = req.user.userType?.toUpperCase() || "";
+  const lang = req.user.preferred_language || "en";
 
   let query = `
     SELECT
       r.*,
       TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS user_name,
-      p.company AS user_company,
+      p.company AS user_company_id,
+      -- NEW: Extract the company name from JSONB based on user language
+      COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
       v.visa_type,
       v.joining_date,
       v.visa_expiry_date,
@@ -29,8 +32,6 @@ export const searchReturnHome = async (req, res) => {
           SELECT json_agg(
             json_build_object(
               'attachment_id', attachment_id,
-              's3_key', s3_key,
-              's3_bucket', s3_bucket,
               'name', display_name,
               'type', file_type
             )
@@ -38,15 +39,17 @@ export const searchReturnHome = async (req, res) => {
           FROM v4.shared_attachments
           WHERE relation_type = 'return_home'
           AND relation_id = r.id::text
-        ), '[]'::json
+        ), '[]'
       ) AS attachments
     FROM v4.return_home_tbl r
     LEFT JOIN v4.user_profile_tbl p ON r.user_id = p.user_id
+    -- NEW JOIN: Linking profile company (ID) to company table
+    LEFT JOIN v4.company_tbl c ON p.company = c.company_id::text
     LEFT JOIN v4.user_visa_info_tbl v ON r.user_id = v.user_id
-    WHERE r.business_unit = $1
+    WHERE r.business_unit = $2
   `;
 
-  const values = [businessUnit];
+  const values = [lang, businessUnit];
 
   // Non-elevated users see only their own records
   if (!ELEVATED_ROLES.includes(userRole)) {
@@ -150,22 +153,34 @@ export const createReturnHome = async (req, res) => {
   }
 };
 
-// 3. GET SINGLE RECORD — With user profile, visa info, comments & attachments
+// 3. GET SINGLE RECORD — Updated with Company Name and Preferred Language
 export const getReturnHomeById = async (req, res) => {
   const { id } = req.params;
   const businessUnit = req.user.business_unit;
 
+  // Extract preferred language from auth middleware, defaulting to 'en'
+  const lang = req.user.preferred_language || "en";
+
   try {
     const mainRes = await getPool().query(
-      `SELECT r.*,
+      `SELECT 
+        r.*,
         TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS user_name,
-        p.first_name, p.last_name, p.company AS user_company,
-        v.visa_type, v.joining_date, v.visa_expiry_date
+        p.first_name, 
+        p.last_name, 
+        p.company AS user_company_id,
+        -- Fetch localized company name with fallback logic
+        COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
+        v.visa_type, 
+        v.joining_date, 
+        v.visa_expiry_date
        FROM v4.return_home_tbl r
        LEFT JOIN v4.user_profile_tbl p ON r.user_id = p.user_id
+       -- Join company table using the company ID from profile
+       LEFT JOIN v4.company_tbl c ON p.company = c.company_id::text
        LEFT JOIN v4.user_visa_info_tbl v ON r.user_id = v.user_id
-       WHERE r.id = $1 AND r.business_unit = $2`,
-      [id, businessUnit],
+       WHERE r.id = $2 AND r.business_unit = $3`,
+      [lang, id, businessUnit],
     );
 
     if (mainRes.rows.length === 0) {
@@ -173,8 +188,16 @@ export const getReturnHomeById = async (req, res) => {
     }
 
     const attachmentsRes = await getPool().query(
-      `SELECT * FROM v4.shared_attachments
-       WHERE relation_type = 'return_home' AND relation_id = $1 AND business_unit = $2`,
+      `SELECT 
+        attachment_id, 
+        display_name as name, 
+        file_type as type, 
+        s3_key, 
+        s3_bucket 
+       FROM v4.shared_attachments
+       WHERE relation_type = 'return_home' 
+       AND relation_id = $1::text 
+       AND business_unit = $2`,
       [id, businessUnit],
     );
 
