@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { StreamChat } from "stream-chat";
+import { StreamClient } from "@stream-io/node-sdk";
 import { getPool } from "../config/getPool.js";
 import express from "express";
 import bcrypt from "bcrypt";
@@ -159,7 +160,10 @@ export const registerUser = async (req, res) => {
     // 5. Stream Chat Integration - sync full profile to GetStream
     await syncUserToStream(userId, client);
 
-    const streamToken = streamClient.createToken(userId);
+    // Use @stream-io/node-sdk for token generation — produces a unified
+    // token that grants both chat AND video permissions.
+    const nodeClient = new StreamClient(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
+    const streamToken = nodeClient.generateUserToken({ user_id: String(userId) });
 
     await client.query("COMMIT");
 

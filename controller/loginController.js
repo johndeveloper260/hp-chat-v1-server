@@ -4,6 +4,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 import { StreamChat } from "stream-chat";
+import { StreamClient } from "@stream-io/node-sdk";
 import express from "express";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -166,7 +167,11 @@ export const loginUser = async (req, res) => {
       expiresIn: "30d",
     });
 
-    const streamToken = streamClient.createToken(String(user.id));
+    // Use @stream-io/node-sdk for token generation — produces a unified
+    // token that grants both chat AND video permissions (unlike StreamChat.createToken
+    // which only grants chat scope).
+    const nodeClient = new StreamClient(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
+    const streamToken = nodeClient.generateUserToken({ user_id: String(user.id) });
 
     // Return the COMPLETE user object for AuthContext
     return res.status(200).json({

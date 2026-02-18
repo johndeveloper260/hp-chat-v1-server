@@ -30,7 +30,8 @@ export const getCompanyDropdown = async (req, res) => {
     const preferredLanguage = await getUserLanguage(req.user.id);
 
     const query = `
-      SELECT company_id AS value, company_name->>$2 AS label
+      SELECT company_id AS value, 
+      COALESCE(company_name->>$2, company_name->>'en') AS label
       FROM v4.company_tbl
       WHERE is_active = true
       AND business_unit = $1
@@ -140,7 +141,8 @@ export const deleteCompany = async (req, res) => {
       "DELETE FROM v4.company_tbl WHERE company_id = $1 AND business_unit = $2",
       [id, business_unit],
     );
-    if (rowCount === 0) return res.status(404).json({ error: "Company not found" });
+    if (rowCount === 0)
+      return res.status(404).json({ error: "Company not found" });
     res.json({ message: "Company deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
