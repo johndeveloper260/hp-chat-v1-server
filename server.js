@@ -22,6 +22,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import translateRoutes from "./routes/translateRoutes.js";
 import sendingOrgRoutes from "./routes/sendingOrgRoutes.js";
 import sharepointRoutes from "./routes/sharepointRoutes.js";
+import returnHomeRoutes from "./routes/returnHomeRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -96,6 +97,8 @@ app.use("/translate", translateRoutes);
 app.use("/sending-org", sendingOrgRoutes);
 
 app.use("/sharepoint", sharepointRoutes);
+
+app.use("/return-home", returnHomeRoutes);
 
 const PORT = process.env.PORT || 8010;
 httpServer.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
