@@ -23,7 +23,7 @@ export const searchReturnHome = async (req, res) => {
       (SELECT COUNT(*)
        FROM v4.shared_comments
        WHERE relation_type = 'return_home'
-       AND relation_id = r.id::text) AS comment_count,
+       AND relation_id = r.id) AS comment_count,
       COALESCE(
         (
           SELECT json_agg(
@@ -51,7 +51,8 @@ export const searchReturnHome = async (req, res) => {
   // Non-elevated users see only their own records
   if (!ELEVATED_ROLES.includes(userRole)) {
     values.push(userId);
-    query += ` AND r.user_id = $${values.length}::uuid`;
+    // query += ` AND r.user_id = $${values.length}::uuid`;
+    query += ` AND r.user_id::uuid = $${values.length}::uuid`;
   }
 
   // Filter: company (text match on user_profile company field)
@@ -275,14 +276,14 @@ export const deleteReturnHome = async (req, res) => {
 
     // Cascading purge
     await client.query(
-      `DELETE FROM v4.shared_attachments
-       WHERE relation_id = $1 AND relation_type = 'return_home' AND business_unit = $2`,
+      `DELETE FROM v4.shared_comments
+   WHERE relation_id = $1::text AND relation_type = 'return_home' AND business_unit = $2`,
       [id, businessUnit],
     );
 
     await client.query(
       `DELETE FROM v4.shared_comments
-       WHERE relation_id = $1::text AND relation_type = 'return_home' AND business_unit = $2`,
+   WHERE relation_id = $1::integer AND relation_type = 'return_home' AND business_unit = $2`,
       [id, businessUnit],
     );
 
