@@ -24,8 +24,7 @@ const BUCKET = process.env.REACT_APP_AWS_BUCKET;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 const OFFICER_TYPES = ["officer", "admin"];
-const isOfficer = (userType) =>
-  OFFICER_TYPES.includes(userType?.toLowerCase());
+const isOfficer = (userType) => OFFICER_TYPES.includes(userType?.toLowerCase());
 
 // =====================================================================
 // FOLDERS
@@ -46,12 +45,12 @@ export const getFolders = async (req, res) => {
 
     if (isOfficer(userType)) {
       if (parent_id) {
-        folderQuery = `SELECT * FROM sharepoint.sharepoint_folders
+        folderQuery = `SELECT * FROM v4.sharepoint_folders
                        WHERE parent_id = $1 AND business_unit = $2
                        ORDER BY name ASC`;
         folderParams = [parent_id, business_unit];
       } else {
-        folderQuery = `SELECT * FROM sharepoint.sharepoint_folders
+        folderQuery = `SELECT * FROM v4.sharepoint_folders
                        WHERE parent_id IS NULL AND business_unit = $1
                        ORDER BY name ASC`;
         folderParams = [business_unit];
@@ -59,7 +58,7 @@ export const getFolders = async (req, res) => {
     } else {
       // Trainees
       if (!parent_id) {
-        folderQuery = `SELECT * FROM sharepoint.sharepoint_folders
+        folderQuery = `SELECT * FROM v4.sharepoint_folders
                        WHERE parent_id IS NULL
                          AND business_unit = $1
                          AND company_ids @> $2::jsonb
@@ -67,7 +66,7 @@ export const getFolders = async (req, res) => {
         folderParams = [business_unit, JSON.stringify([userCompany])];
       } else {
         // Sub-folders: if trainee can see the parent, they see its children
-        folderQuery = `SELECT * FROM sharepoint.sharepoint_folders
+        folderQuery = `SELECT * FROM v4.sharepoint_folders
                        WHERE parent_id = $1 AND business_unit = $2
                        ORDER BY name ASC`;
         folderParams = [parent_id, business_unit];
@@ -80,7 +79,7 @@ export const getFolders = async (req, res) => {
     let files = [];
     if (parent_id) {
       const { rows } = await getPool().query(
-        `SELECT * FROM sharepoint.sharepoint_files
+        `SELECT * FROM v4.sharepoint_files
          WHERE folder_id = $1 ORDER BY created_at DESC`,
         [parent_id],
       );
@@ -115,7 +114,7 @@ export const createFolder = async (req, res) => {
 
   try {
     const { rows } = await getPool().query(
-      `INSERT INTO sharepoint.sharepoint_folders
+      `INSERT INTO v4.sharepoint_folders
          (name, parent_id, created_by, company_ids, business_unit)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
@@ -153,10 +152,10 @@ export const deleteFolder = async (req, res) => {
     // Collect all descendant folder IDs via recursive CTE
     const { rows: descendantRows } = await client.query(
       `WITH RECURSIVE tree AS (
-         SELECT id FROM sharepoint.sharepoint_folders
+         SELECT id FROM v4.sharepoint_folders
          WHERE id = $1 AND business_unit = $2
          UNION ALL
-         SELECT f.id FROM sharepoint.sharepoint_folders f
+         SELECT f.id FROM v4.sharepoint_folders f
          JOIN tree t ON f.parent_id = t.id
        )
        SELECT id FROM tree`,
@@ -172,7 +171,7 @@ export const deleteFolder = async (req, res) => {
 
     // Get all S3 keys for files in those folders
     const { rows: fileRows } = await client.query(
-      `SELECT s3_key FROM sharepoint.sharepoint_files
+      `SELECT s3_key FROM v4.sharepoint_files
        WHERE folder_id = ANY($1::uuid[])`,
       [folderIds],
     );
@@ -187,18 +186,21 @@ export const deleteFolder = async (req, res) => {
 
     // Delete files from DB
     await client.query(
-      `DELETE FROM sharepoint.sharepoint_files WHERE folder_id = ANY($1::uuid[])`,
+      `DELETE FROM v4.sharepoint_files WHERE folder_id = ANY($1::uuid[])`,
       [folderIds],
     );
 
     // Delete folders from DB
     await client.query(
-      `DELETE FROM sharepoint.sharepoint_folders WHERE id = ANY($1::uuid[])`,
+      `DELETE FROM v4.sharepoint_folders WHERE id = ANY($1::uuid[])`,
       [folderIds],
     );
 
     await client.query("COMMIT");
-    res.json({ message: "Folder deleted successfully", deletedCount: folderIds.length });
+    res.json({
+      message: "Folder deleted successfully",
+      deletedCount: folderIds.length,
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("deleteFolder error:", err);
@@ -230,7 +232,7 @@ export const generateUploadUrl = async (req, res) => {
   try {
     // Verify folder exists and belongs to this BU
     const { rowCount } = await getPool().query(
-      `SELECT 1 FROM sharepoint.sharepoint_folders
+      `SELECT 1 FROM v4.sharepoint_folders
        WHERE id = $1 AND business_unit = $2`,
       [folderId, business_unit],
     );
@@ -270,15 +272,13 @@ export const confirmFileUpload = async (req, res) => {
   const { id: userId, business_unit } = req.user;
 
   if (!folder_id || !s3_key) {
-    return res
-      .status(400)
-      .json({ error: "folder_id and s3_key are required" });
+    return res.status(400).json({ error: "folder_id and s3_key are required" });
   }
 
   try {
     // Verify folder belongs to this BU
     const { rowCount } = await getPool().query(
-      `SELECT 1 FROM sharepoint.sharepoint_folders
+      `SELECT 1 FROM v4.sharepoint_folders
        WHERE id = $1 AND business_unit = $2`,
       [folder_id, business_unit],
     );
@@ -287,11 +287,19 @@ export const confirmFileUpload = async (req, res) => {
     }
 
     const { rows } = await getPool().query(
-      `INSERT INTO sharepoint.sharepoint_files
+      `INSERT INTO v4.sharepoint_files
          (folder_id, display_name, s3_key, s3_bucket, file_type, file_size, uploaded_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [folder_id, display_name, s3_key, s3_bucket, file_type, file_size, userId],
+      [
+        folder_id,
+        display_name,
+        s3_key,
+        s3_bucket,
+        file_type,
+        file_size,
+        userId,
+      ],
     );
 
     res.status(201).json(rows[0]);
@@ -312,8 +320,8 @@ export const getFileViewUrl = async (req, res) => {
   try {
     const { rows } = await getPool().query(
       `SELECT f.s3_key, f.s3_bucket
-       FROM sharepoint.sharepoint_files f
-       JOIN sharepoint.sharepoint_folders fld ON f.folder_id = fld.id
+       FROM v4.sharepoint_files f
+       JOIN v4.sharepoint_folders fld ON f.folder_id = fld.id
        WHERE f.id = $1 AND fld.business_unit = $2`,
       [id, business_unit],
     );
@@ -354,8 +362,8 @@ export const deleteFile = async (req, res) => {
   try {
     const { rows } = await getPool().query(
       `SELECT f.s3_key
-       FROM sharepoint.sharepoint_files f
-       JOIN sharepoint.sharepoint_folders fld ON f.folder_id = fld.id
+       FROM v4.sharepoint_files f
+       JOIN v4.sharepoint_folders fld ON f.folder_id = fld.id
        WHERE f.id = $1 AND fld.business_unit = $2`,
       [id, business_unit],
     );
@@ -370,10 +378,9 @@ export const deleteFile = async (req, res) => {
     );
 
     // Delete from DB
-    await getPool().query(
-      `DELETE FROM sharepoint.sharepoint_files WHERE id = $1`,
-      [id],
-    );
+    await getPool().query(`DELETE FROM v4.sharepoint_files WHERE id = $1`, [
+      id,
+    ]);
 
     res.json({ message: "File deleted successfully" });
   } catch (err) {
@@ -398,11 +405,11 @@ export const getBreadcrumb = async (req, res) => {
     const { rows } = await getPool().query(
       `WITH RECURSIVE chain AS (
          SELECT id, name, parent_id, 0 AS depth
-         FROM sharepoint.sharepoint_folders
+         FROM v4.sharepoint_folders
          WHERE id = $1 AND business_unit = $2
          UNION ALL
          SELECT f.id, f.name, f.parent_id, c.depth + 1
-         FROM sharepoint.sharepoint_folders f
+         FROM v4.sharepoint_folders f
          JOIN chain c ON f.id = c.parent_id
        )
        SELECT id, name FROM chain ORDER BY depth DESC`,
