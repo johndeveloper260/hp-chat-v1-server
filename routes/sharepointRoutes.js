@@ -3,6 +3,7 @@ import auth from "../middleware/auth.js";
 import {
   getFolders,
   createFolder,
+  updateFolder,
   deleteFolder,
   generateUploadUrl,
   confirmFileUpload,
@@ -16,6 +17,7 @@ const router = express.Router();
 // ── Folders ──────────────────────────────────────────────────────────
 router.get("/folders", auth, getFolders);
 router.post("/folders", auth, createFolder);
+router.patch("/folders/:id", auth, updateFolder);
 router.delete("/folders/:id", auth, deleteFolder);
 
 // ── Files (presigned-URL approach) ───────────────────────────────────

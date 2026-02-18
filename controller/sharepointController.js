@@ -134,6 +134,68 @@ export const createFolder = async (req, res) => {
 };
 
 /**
+ * PATCH /sharepoint/folders/:id
+ * Body: { name?, company_ids? }
+ * Updates a top-level folder's name and/or company access list.
+ */
+export const updateFolder = async (req, res) => {
+  const { id } = req.params;
+  const { name, company_ids } = req.body;
+  const { userType, business_unit } = req.user;
+
+  if (!isOfficer(userType)) {
+    return res.status(403).json({ error: "Only officers can update folders" });
+  }
+
+  if (!name?.trim() && !company_ids) {
+    return res.status(400).json({ error: "Nothing to update" });
+  }
+
+  try {
+    // Verify folder exists, belongs to this BU, and is top-level
+    const { rows: existing } = await getPool().query(
+      `SELECT id, parent_id FROM v4.sharepoint_folders
+       WHERE id = $1 AND business_unit = $2`,
+      [id, business_unit],
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Folder not found" });
+    }
+
+    // Build dynamic SET clause
+    const sets = [];
+    const params = [];
+    let idx = 1;
+
+    if (name?.trim()) {
+      sets.push(`name = $${idx++}`);
+      params.push(name.trim());
+    }
+    if (company_ids) {
+      sets.push(`company_ids = $${idx++}`);
+      params.push(JSON.stringify(company_ids));
+    }
+
+    sets.push(`updated_at = NOW()`);
+    params.push(id, business_unit);
+
+    const { rows } = await getPool().query(
+      `UPDATE v4.sharepoint_folders
+       SET ${sets.join(", ")}
+       WHERE id = $${idx++} AND business_unit = $${idx}
+       RETURNING *`,
+      params,
+    );
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("updateFolder error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
  * DELETE /sharepoint/folders/:id
  * Recursively deletes a folder, its sub-folders, files in DB, and S3 objects.
  */
