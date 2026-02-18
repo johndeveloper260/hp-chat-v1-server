@@ -1,6 +1,8 @@
 import { getPool } from "../config/getPool.js";
 import { deleteFromS3 } from "./attachmentController.js";
 
+const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
+
 // 1. SEARCH — With filters, user profile joins, and business_unit isolation
 export const searchReturnHome = async (req, res) => {
   const { company, user_name, flight_date_from, flight_date_to, status } =
@@ -46,8 +48,8 @@ export const searchReturnHome = async (req, res) => {
 
   const values = [businessUnit];
 
-  // Non-officers see only their own records
-  if (userRole !== "OFFICER") {
+  // Non-elevated users see only their own records
+  if (!ELEVATED_ROLES.includes(userRole)) {
     values.push(userId);
     query += ` AND r.user_id = $${values.length}::uuid`;
   }
