@@ -24,6 +24,7 @@ export const searchInquiries = async (req, res) => {
     TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
     TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
     TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
+    COALESCE(vl.descr->>$1, vl.descr->>'en', vi.visa_type) AS visa_type,
     (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ') 
      FROM v4.user_profile_tbl 
      WHERE user_id = ANY(i.watcher)) AS watcher_names, 
@@ -54,6 +55,8 @@ export const searchInquiries = async (req, res) => {
   LEFT JOIN v4.user_profile_tbl u_owner ON i.owner_id = u_owner.user_id
   LEFT JOIN v4.user_profile_tbl u_open ON i.opened_by = u_open.user_id
   LEFT JOIN v4.user_profile_tbl u_upd ON i.last_updated_by = u_upd.user_id
+  LEFT JOIN v4.user_visa_info_tbl vi ON i.owner_id = vi.user_id
+  LEFT JOIN v4.visa_list_tbl vl ON vi.visa_type = vl.code AND vl.business_unit = i.business_unit
   WHERE i.business_unit = $2
   `;
 
