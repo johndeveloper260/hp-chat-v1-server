@@ -121,3 +121,26 @@ export const sendDeletionCode = async (emailId, emailTitle, otpCode, name) => {
     throw error;
   }
 };
+
+/**
+ * Send Leave Application Alert to Company Admins/HR
+ */
+export const leaveApplicationAlert = async (
+  emailId,
+  emailTitle,
+  applicantName,
+  answersData,
+  homeurl,
+) => {
+  try {
+    const html = await renderTemplate("leave_application", {
+      applicantName,
+      answersData, // Array of { question: "...", answer: "..." }
+      homeurl,
+    });
+    await sendEmail(emailId, emailTitle, html);
+  } catch (error) {
+    console.error("Error in leaveApplicationAlert:", error);
+    throw error;
+  }
+};

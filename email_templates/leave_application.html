@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-body { 
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            color: #333333; 
+            line-height: 1.6; 
+            padding: 20px; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #ffffff; 
+            text-align: left; 
+        }
+        h3 { color: #0275d8; margin-top: 0; }
+        hr { border: 0; border-top: 1px solid #eeeeee; margin: 20px 0; }
+        .btn-link { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            background-color: #0275d8; 
+            color: #ffffff !important; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            font-weight: bold; 
+            margin: 10px 0; 
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #dddddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f8f9fa;
+            color: #555;
+            width: 40%;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f4f4; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <div class="email-body">
+                    <h3>New Leave Application</h3>
+                    <hr>
+                    <p>Hello,</p>
+                    <p>A new leave application has been submitted by <strong>{{applicantName}}</strong>.</p>
+                    
+                    <table class="data-table">
+                        <tbody>
+                            {{#each answersData}}
+                            <tr>
+                                <th>{{this.question}}</th>
+                                <td>{{this.answer}}</td>
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{{homeurl}}" class="btn-link">Review in HoRenSo+</a>
+                    </div>
+
+                    <p style="margin-top: 25px; border-top: 1px solid #eeeeee; padding-top: 10px; font-size: 0.85rem; color: #777;">
+                        Automated message from HoRenSo+
+                    </p>
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

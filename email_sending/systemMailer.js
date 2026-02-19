@@ -32,11 +32,11 @@ exports.newRegistration = async (
   emailTitle,
   name,
   password,
-  homeurl
+  homeurl,
 ) => {
   const filePath = path.join(
     __dirname,
-    "../email_templates/newregistration.html"
+    "../email_templates/newregistration.html",
   );
   const source = fs.readFileSync(filePath, "utf-8").toString();
   const template = handlebars.compile(source);
@@ -56,11 +56,11 @@ exports.additionalRegistration = async (
   emailId,
   emailTitle,
   name,
-  business_unit
+  business_unit,
 ) => {
   const filePath = path.join(
     __dirname,
-    "../email_templates/additionalregistration.html"
+    "../email_templates/additionalregistration.html",
   );
   const source = fs.readFileSync(filePath, "utf-8").toString();
   const template = handlebars.compile(source);
@@ -92,7 +92,7 @@ exports.passwordResetCode = async (emailId, emailTitle, resetCode) => {
 exports.newPasswordMail = async (emailId, emailTitle, password) => {
   const filePath = path.join(
     __dirname,
-    "../email_templates/resetpassword.html"
+    "../email_templates/resetpassword.html",
   );
   const source = fs.readFileSync(filePath, "utf-8").toString();
   const template = handlebars.compile(source);
