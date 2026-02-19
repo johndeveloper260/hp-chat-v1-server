@@ -1,8 +1,20 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 import { getUserLanguage } from "../utils/getUserLanguage.js";
 import { leaveApplicationAlert } from "../config/systemMailer.js";
+
+const s3Client = new S3Client({
+  region: process.env.REACT_APP_AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+  },
+  requestHandler: new NodeHttpHandler({ connectionTimeout: 5000 }),
+});
 
 dotenv.config();
 
@@ -195,22 +207,58 @@ export const submitLeave = async (req, res) => {
                 ? `${userRes.rows[0].first_name} ${userRes.rows[0].last_name}`
                 : "An Employee";
 
-            // 3. Create a dictionary to quickly look up labels by field ID
-            // e.g., { "f_start_date": "Start Date", "f_reason": "Reason for Leave" }
-            const fieldLabels = fields.reduce((acc, field) => {
-              acc[field.id] = field.label;
+            // 3. Create a dictionary to quickly look up field definitions by ID
+            const fieldMap = fields.reduce((acc, field) => {
+              acc[field.id] = field;
               return acc;
             }, {});
 
-            // 4. Map the raw answers JSON into an array for Handlebars
-            // Converts { "f_start_date": "2026-03-01" }
-            // Into [{ question: "Start Date", answer: "2026-03-01" }]
-            const answersData = Object.keys(answers).map((key) => {
-              return {
-                question: fieldLabels[key] || key, // Fallback to raw key if label missing
-                answer: answers[key] || "N/A",
-              };
-            });
+            // 4. Map the raw answers JSON into an array for Handlebars,
+            //    resolving file-type fields to presigned S3 links
+            const answersData = await Promise.all(
+              Object.keys(answers).map(async (key) => {
+                const field = fieldMap[key];
+                const label = field?.label || key;
+                const rawValue = answers[key];
+
+                if (field?.type === "file" && rawValue && rawValue !== "__pending__") {
+                  try {
+                    // Fetch s3_key and bucket from attachments table
+                    const attRes = await getPool().query(
+                      `SELECT s3_key, s3_bucket, display_name FROM v4.attachments_tbl WHERE attachment_id = $1`,
+                      [rawValue]
+                    );
+                    if (attRes.rows.length > 0) {
+                      const { s3_key, s3_bucket, display_name } = attRes.rows[0];
+                      const command = new GetObjectCommand({
+                        Bucket: s3_bucket,
+                        Key: s3_key,
+                      });
+                      const signedUrl = await getSignedUrl(s3Client, command, {
+                        expiresIn: 604800, // 7 days — long enough to be useful in an email
+                        signableHeaders: new Set(["host"]),
+                      });
+                      const fileName = display_name || s3_key.split("/").pop() || "attachment";
+                      return {
+                        question: label,
+                        answer: `<a href="${signedUrl}" target="_blank" style="color:#0275d8;">${fileName}</a>`,
+                        isHtml: true,
+                      };
+                    }
+                  } catch (fileErr) {
+                    console.error("Failed to resolve file attachment for email:", fileErr.message);
+                  }
+                  // Fallback if lookup fails
+                  return { question: label, answer: "File attached (view in portal)", isHtml: false };
+                }
+
+                return {
+                  question: label,
+                  answer: rawValue || "N/A",
+                  isHtml: false,
+                };
+              })
+            );
 
             // 5. Send the email to all configured recipients
             const homeurl =
