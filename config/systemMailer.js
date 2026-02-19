@@ -129,14 +129,18 @@ export const leaveApplicationAlert = async (
   emailId,
   emailTitle,
   applicantName,
+  company_name,
   answersData,
   homeurl,
+  buName,
 ) => {
   try {
     const html = await renderTemplate("leave_application", {
       applicantName,
+      company_name,
       answersData, // Array of { question: "...", answer: "..." }
       homeurl,
+      buName,
     });
     await sendEmail(emailId, emailTitle, html);
   } catch (error) {

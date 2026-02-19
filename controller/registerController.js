@@ -163,7 +163,10 @@ export const registerUser = async (req, res) => {
     // Use @stream-io/node-sdk for token generation — produces a unified
     // token that grants both chat AND video permissions.
     const nodeClient = new StreamClient(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
-    const streamToken = nodeClient.generateUserToken({ user_id: String(userId) });
+    const streamToken = nodeClient.generateUserToken({
+      user_id: String(userId),
+      validity_period_hs: 24,
+    });
 
     await client.query("COMMIT");
 

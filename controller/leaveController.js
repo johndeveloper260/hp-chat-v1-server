@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { getPool } from "../config/getPool.js";
 
+import { getUserLanguage } from "../utils/getUserLanguage.js";
 import { leaveApplicationAlert } from "../config/systemMailer.js";
 
 dotenv.config();
@@ -24,8 +25,10 @@ export const saveLeaveTemplate = async (req, res) => {
     ]);
 
     // Ensure config and fields are stored as proper JSON strings for pg
-    const configJSON = typeof config === "string" ? config : JSON.stringify(config);
-    const fieldsJSON = typeof fields === "string" ? fields : JSON.stringify(fields);
+    const configJSON =
+      typeof config === "string" ? config : JSON.stringify(config);
+    const fieldsJSON =
+      typeof fields === "string" ? fields : JSON.stringify(fields);
 
     let result;
     if (rows.length > 0) {
@@ -45,8 +48,8 @@ export const saveLeaveTemplate = async (req, res) => {
     } else {
       // Insert new
       const insertQuery = `
-        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, status)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *;
       `;
       result = await getPool().query(insertQuery, [
@@ -55,6 +58,7 @@ export const saveLeaveTemplate = async (req, res) => {
         configJSON,
         fieldsJSON,
         userId,
+        "approved",
       ]);
     }
 
@@ -106,7 +110,8 @@ export const submitLeave = async (req, res) => {
 
   try {
     // Ensure answers is stored as a proper JSON string for pg
-    const answersJSON = typeof answers === "string" ? answers : JSON.stringify(answers);
+    const answersJSON =
+      typeof answers === "string" ? answers : JSON.stringify(answers);
 
     // 1. Save the submission
     const insertQuery = `
@@ -138,7 +143,25 @@ export const submitLeave = async (req, res) => {
           const emails = config?.notificationEmails || [];
 
           if (emails.length > 0) {
-            // 1. Get the applicant's name
+            // 1. Fetch Company Name from JSONB column
+            const companyQuery = `SELECT company_name->>'en' as name_en, company_name->>'ja' as name_jp FROM v4.company_tbl WHERE company_id = $1`;
+            const companyRes = await getPool().query(companyQuery, [company]);
+
+            // Fallback logic: Use Japanese name if available, otherwise English, otherwise a default string
+            const company_name =
+              companyRes.rows.length > 0
+                ? companyRes.rows[0].name_jp || companyRes.rows[0].name_en
+                : "Our Company";
+
+            // 1.1. NEW: Fetch Business Unit Name
+            const buQuery = `SELECT bu_name->>'ja' as bu_jp, bu_name->>'en' as bu_en FROM v4.business_unit_tbl WHERE bu_code = $1`;
+            const buRes = await getPool().query(buQuery, [business_unit]); // business_unit comes from req.user
+            const buName =
+              buRes.rows.length > 0
+                ? buRes.rows[0].bu_jp || buRes.rows[0].bu_en
+                : "General Dept";
+
+            // 2. Fetch Applicant's Name
             const userQuery = `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`;
             const userRes = await getPool().query(userQuery, [userId]);
             const applicantName =
@@ -146,14 +169,14 @@ export const submitLeave = async (req, res) => {
                 ? `${userRes.rows[0].first_name} ${userRes.rows[0].last_name}`
                 : "An Employee";
 
-            // 2. Create a dictionary to quickly look up labels by field ID
+            // 3. Create a dictionary to quickly look up labels by field ID
             // e.g., { "f_start_date": "Start Date", "f_reason": "Reason for Leave" }
             const fieldLabels = fields.reduce((acc, field) => {
               acc[field.id] = field.label;
               return acc;
             }, {});
 
-            // 3. Map the raw answers JSON into an array for Handlebars
+            // 4. Map the raw answers JSON into an array for Handlebars
             // Converts { "f_start_date": "2026-03-01" }
             // Into [{ question: "Start Date", answer: "2026-03-01" }]
             const answersData = Object.keys(answers).map((key) => {
@@ -163,13 +186,13 @@ export const submitLeave = async (req, res) => {
               };
             });
 
-            // 4. Send the email to all configured recipients
+            // 5. Send the email to all configured recipients
             const homeurl =
               process.env.NODE_ENV === "production"
                 ? "https://app.horensoplus.com"
                 : "http://localhost:5173";
 
-            const emailTitle = `New Leave Application: ${applicantName}`;
+            const emailTitle = `新しい休暇申請: ${applicantName}`;
 
             for (const email of emails) {
               // Call the named export directly
@@ -177,8 +200,10 @@ export const submitLeave = async (req, res) => {
                 email,
                 emailTitle,
                 applicantName,
+                company_name,
                 answersData,
                 homeurl,
+                buName,
               );
             }
           }
@@ -202,20 +227,42 @@ export const submitLeave = async (req, res) => {
 // ==========================================
 export const getCompanySubmissions = async (req, res) => {
   const business_unit = req.user.business_unit;
-  // Allow admin/officer to query a specific company's submissions via query param
-  const company = req.query.company_id || req.user.company;
+  const company_id = req.query.company_id || null; // null = all companies
+  const start_date = req.query.start_date || null;
+  const end_date = req.query.end_date || null;
+  const preferredLanguage = await getUserLanguage(req.user.id);
 
   try {
     const query = `
-      SELECT s.submission_id, s.status, s.answers, s.created_at,
-             u.email, p.first_name, p.last_name
+      SELECT 
+        s.submission_id, 
+        s.status, 
+        s.answers, 
+        s.created_at,
+        u.email, 
+        p.first_name, 
+        p.last_name,
+        COALESCE(c.company_name->>$3, c.company_name->>'en') AS company_name
       FROM v4.leave_submission_tbl s
       JOIN v4.user_account_tbl u ON s.user_id = u.id
       JOIN v4.user_profile_tbl p ON u.id = p.user_id
-      WHERE s.company_id = $1 AND s.business_unit = $2
-      ORDER BY s.created_at DESC;
+      LEFT JOIN v4.company_tbl c ON s.company_id = c.company_id::text
+      WHERE s.business_unit = $1
+        AND ($2::text IS NULL OR s.company_id = $2)
+        AND ($4::timestamptz IS NULL OR s.created_at >= $4)
+        AND ($5::timestamptz IS NULL OR s.created_at <= $5)
+      ORDER BY s.created_at DESC
+      LIMIT 50;
     `;
-    const { rows } = await getPool().query(query, [company, business_unit]);
+
+    const { rows } = await getPool().query(query, [
+      business_unit, // $1
+      company_id, // $2
+      preferredLanguage, // $3
+      start_date, // $4
+      end_date, // $5
+    ]);
+
     res.status(200).json(rows);
   } catch (err) {
     console.error("Get Submissions Error:", err.message);

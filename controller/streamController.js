@@ -24,11 +24,11 @@ export const getStreamToken = async (req, res) => {
 
     const client = new StreamClient(apiKey, apiSecret);
 
-    // Create a token that expires in 1 hour
-    const validity = Math.floor(Date.now() / 1000) + 60 * 60;
+    // Create a token that expires in 24 hours
+    // NOTE: validity_period_hs is in HOURS, not seconds
     const token = client.generateUserToken({
       user_id: userId,
-      validity_period_hs: 3600,
+      validity_period_hs: 24,
     });
 
     res.json({ token });

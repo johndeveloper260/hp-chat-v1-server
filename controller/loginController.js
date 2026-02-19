@@ -171,7 +171,10 @@ export const loginUser = async (req, res) => {
     // token that grants both chat AND video permissions (unlike StreamChat.createToken
     // which only grants chat scope).
     const nodeClient = new StreamClient(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
-    const streamToken = nodeClient.generateUserToken({ user_id: String(user.id) });
+    const streamToken = nodeClient.generateUserToken({
+      user_id: String(user.id),
+      validity_period_hs: 24,
+    });
 
     // Return the COMPLETE user object for AuthContext
     return res.status(200).json({
