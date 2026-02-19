@@ -103,10 +103,36 @@ export const getLeaveTemplate = async (req, res) => {
 // USER: SUBMIT LEAVE APPLICATION
 // ==========================================
 export const submitLeave = async (req, res) => {
-  const { templateId, answers } = req.body;
-  const business_unit = req.user.business_unit;
-  const company = req.user.company;
-  const userId = req.user.id;
+  const { templateId, answers, targetUserId } = req.body;
+  const OFFICER_TYPES = ["officer", "admin"];
+  const isOfficer = OFFICER_TYPES.includes((req.user.user_type || "").toLowerCase());
+
+  // On-behalf: officer submits for another user
+  let userId = req.user.id;
+  let business_unit = req.user.business_unit;
+  let company = req.user.company;
+
+  if (targetUserId) {
+    if (!isOfficer) {
+      return res.status(403).json({ error: "Only officers can submit on behalf of another user." });
+    }
+    // Look up the target user's company & business_unit
+    try {
+      const targetRes = await getPool().query(
+        `SELECT user_id, company, business_unit FROM v4.user_tbl WHERE user_id = $1`,
+        [targetUserId]
+      );
+      if (targetRes.rows.length === 0) {
+        return res.status(404).json({ error: "Target user not found." });
+      }
+      userId = targetRes.rows[0].user_id;
+      company = targetRes.rows[0].company;
+      business_unit = targetRes.rows[0].business_unit;
+    } catch (lookupErr) {
+      console.error("Target user lookup error:", lookupErr.message);
+      return res.status(500).json({ error: "Failed to look up target user." });
+    }
+  }
 
   try {
     // Ensure answers is stored as a proper JSON string for pg
