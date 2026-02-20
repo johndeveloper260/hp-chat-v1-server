@@ -5,7 +5,7 @@ const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
 
 // 1. SEARCH — With filters, user profile joins, and business_unit isolation
 export const searchReturnHome = async (req, res) => {
-  const { company, user_name, flight_date_from, flight_date_to, status } =
+  const { company, user_name, status, is_resignation, is_paid_leave } =
     req.query;
 
   const businessUnit = req.user.business_unit;
@@ -50,6 +50,12 @@ export const searchReturnHome = async (req, res) => {
   `;
 
   const values = [lang, businessUnit];
+
+  if (status) query += ` AND r.status = '${status}'`;
+  if (is_resignation !== undefined)
+    query += ` AND r.is_resignation = ${is_resignation}`;
+  if (is_paid_leave !== undefined)
+    query += ` AND r.is_paid_leave = ${is_paid_leave}`;
 
   // Non-elevated users see only their own records
   if (!ELEVATED_ROLES.includes(userRole)) {
@@ -105,15 +111,17 @@ export const searchReturnHome = async (req, res) => {
 // 2. CREATE
 export const createReturnHome = async (req, res) => {
   const {
-    user_id,
     flight_date,
     return_date,
     route_origin,
     route_destination,
     ticket_type,
     lumpsum_applying,
-    tio_jo,
     details,
+    tio_jo,
+    is_resignation,
+    is_paid_leave,
+    status, // status can be 'Draft' or 'Pending'
   } = req.body;
 
   const creatorId = req.user.id;
@@ -124,25 +132,29 @@ export const createReturnHome = async (req, res) => {
   try {
     const query = `
       INSERT INTO v4.return_home_tbl (
-        user_id, flight_date, return_date, route_origin, route_destination,
-        ticket_type, lumpsum_applying, tio_jo, details,
-        business_unit, created_by, updated_by
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
-      RETURNING *;
+        user_id, business_unit, flight_date, return_date, 
+        route_origin, route_destination, ticket_type, 
+        lumpsum_applying, details, tio_jo, 
+        is_resignation, is_paid_leave, status,
+        created_by, updated_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
+      RETURNING id;
     `;
 
     const { rows } = await getPool().query(query, [
       targetUserId,
+      businessUnit,
       flight_date,
       return_date,
       route_origin,
       route_destination,
       ticket_type,
       lumpsum_applying,
-      tio_jo,
       details,
-      businessUnit,
+      tio_jo,
+      is_resignation,
+      is_paid_leave,
+      status,
       creatorId,
     ]);
 
@@ -224,6 +236,9 @@ export const updateReturnHome = async (req, res) => {
     tio_jo,
     details,
     user_id,
+    is_resignation,
+    is_paid_leave,
+    status,
   } = req.body;
   const updatedBy = req.user.id;
   const businessUnit = req.user.business_unit;
@@ -231,11 +246,14 @@ export const updateReturnHome = async (req, res) => {
   try {
     const query = `
       UPDATE v4.return_home_tbl
-      SET flight_date = $1, return_date = $2, route_origin = $3, route_destination = $4,
+      SET flight_date = $1, return_date = $2, 
+          route_origin = $3, route_destination = $4,
           ticket_type = $5, lumpsum_applying = $6, tio_jo = $7,
-          details = $8, updated_by = $9, updated_at = NOW(),
-          user_id = COALESCE($11, user_id)
-      WHERE id = $10 AND business_unit = $12
+          details = $8, is_resignation = $9, 
+          is_paid_leave = $10, status = $11, 
+          updated_by = $12, updated_at = NOW(),
+          user_id = COALESCE($13, user_id)
+      WHERE id = $14 AND business_unit = $15
       RETURNING *;
     `;
     const { rows } = await getPool().query(query, [
@@ -247,6 +265,9 @@ export const updateReturnHome = async (req, res) => {
       lumpsum_applying,
       tio_jo,
       details,
+      is_resignation,
+      is_paid_leave,
+      status,
       updatedBy,
       id,
       user_id || null,
@@ -261,6 +282,48 @@ export const updateReturnHome = async (req, res) => {
   } catch (err) {
     console.error("Update ReturnHome Error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// 4.1. NEW: APPROVE/REJECT - Officer Action
+export const approveReturnHome = async (req, res) => {
+  const { id } = req.params;
+  const { status, approver_remarks } = req.body; // status: 'Approved' or 'Rejected'
+  const userRole = req.user.userType?.toUpperCase() || "";
+
+  if (!ELEVATED_ROLES.includes(userRole)) {
+    return res
+      .status(403)
+      .json({ message: "Permission denied. Only officers can approve." });
+  }
+
+  const client = await getPool().connect();
+  try {
+    const query = `
+      UPDATE v4.return_home_tbl
+      SET 
+        status = $1,
+        approver_remarks = $2,
+        approved_by = $3,
+        approved_at = now(),
+        updated_at = now(),
+        updated_by = $3
+      WHERE id = $4 AND business_unit = $5
+    `;
+
+    await client.query(query, [
+      status,
+      approver_remarks,
+      req.user.id,
+      id,
+      req.user.business_unit,
+    ]);
+
+    res.json({ success: true, message: `Application ${status} successfully` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 

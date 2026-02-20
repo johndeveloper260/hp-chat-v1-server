@@ -6,6 +6,7 @@ import {
   getReturnHomeById,
   updateReturnHome,
   deleteReturnHome,
+  approveReturnHome,
 } from "../controller/returnHomeController.js";
 
 const router = express.Router();
@@ -39,5 +40,11 @@ router.put("/update/:id", auth, updateReturnHome);
  * @desc    Delete a record with cascading cleanup
  */
 router.delete("/delete/:id", auth, deleteReturnHome);
+
+/**
+ * @route   PATCH /return-home/approve/:id
+ * @desc    Officer action: Approve or Reject an application
+ */
+router.patch("/approve/:id", auth, approveReturnHome);
 
 export default router;
