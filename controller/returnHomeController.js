@@ -128,14 +128,15 @@ export const createReturnHome = async (req, res) => {
   const creatorId = req.user.id;
   const businessUnit = req.user.business_unit;
   // Officers can create on behalf of another user
-  const targetUserId = user_id || creatorId;
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const targetUserId = (user_id && UUID_RE.test(user_id)) ? user_id : creatorId;
 
   try {
     const query = `
       INSERT INTO v4.return_home_tbl (
-        user_id, business_unit, flight_date, return_date, 
-        route_origin, route_destination, ticket_type, 
-        lumpsum_applying, details, tio_jo, 
+        user_id, business_unit, flight_date, return_date,
+        route_origin, route_destination, ticket_type,
+        lumpsum_applying, details, tio_jo,
         is_resignation, is_paid_leave, status,
         created_by, updated_by
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
@@ -145,17 +146,17 @@ export const createReturnHome = async (req, res) => {
     const { rows } = await getPool().query(query, [
       targetUserId,
       businessUnit,
-      flight_date,
-      return_date,
-      route_origin,
-      route_destination,
-      ticket_type,
+      flight_date || null,
+      return_date || null,
+      route_origin || null,
+      route_destination || null,
+      ticket_type || null,
       lumpsum_applying,
-      details,
-      tio_jo,
-      is_resignation,
-      is_paid_leave,
-      status,
+      details || null,
+      tio_jo || null,
+      is_resignation ?? false,
+      is_paid_leave ?? false,
+      status || "Draft",
       creatorId,
     ]);
 
@@ -245,35 +246,69 @@ export const updateReturnHome = async (req, res) => {
   const businessUnit = req.user.business_unit;
 
   try {
-    const query = `
-      UPDATE v4.return_home_tbl
-      SET flight_date = $1, return_date = $2, 
-          route_origin = $3, route_destination = $4,
-          ticket_type = $5, lumpsum_applying = $6, tio_jo = $7,
-          details = $8, is_resignation = $9, 
-          is_paid_leave = $10, status = $11, 
-          updated_by = $12, updated_at = NOW(),
-          user_id = COALESCE($13, user_id)
-      WHERE id = $14 AND business_unit = $15
-      RETURNING *;
-    `;
-    const { rows } = await getPool().query(query, [
-      flight_date,
-      return_date,
-      route_origin,
-      route_destination,
-      ticket_type,
-      lumpsum_applying,
-      tio_jo,
-      details,
-      is_resignation,
-      is_paid_leave,
-      status,
-      updatedBy,
-      id,
-      user_id || null,
-      businessUnit,
-    ]);
+    // Validate user_id is a proper UUID or null
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeUserId = user_id && UUID_RE.test(String(user_id).trim()) ? String(user_id).trim() : null;
+
+    console.log("[updateReturnHome] user_id from body:", JSON.stringify(user_id), "-> safeUserId:", safeUserId);
+
+    const query = safeUserId
+      ? `UPDATE v4.return_home_tbl
+         SET flight_date = $1, return_date = $2,
+             route_origin = $3, route_destination = $4,
+             ticket_type = $5, lumpsum_applying = $6, tio_jo = $7,
+             details = $8, is_resignation = $9,
+             is_paid_leave = $10, status = $11,
+             updated_by = $12, updated_at = NOW(),
+             user_id = $13
+         WHERE id = $14 AND business_unit = $15
+         RETURNING *;`
+      : `UPDATE v4.return_home_tbl
+         SET flight_date = $1, return_date = $2,
+             route_origin = $3, route_destination = $4,
+             ticket_type = $5, lumpsum_applying = $6, tio_jo = $7,
+             details = $8, is_resignation = $9,
+             is_paid_leave = $10, status = $11,
+             updated_by = $12, updated_at = NOW()
+         WHERE id = $13 AND business_unit = $14
+         RETURNING *;`;
+
+    const values = safeUserId
+      ? [
+          flight_date || null,
+          return_date || null,
+          route_origin || null,
+          route_destination || null,
+          ticket_type || null,
+          lumpsum_applying,
+          tio_jo || null,
+          details || null,
+          is_resignation ?? false,
+          is_paid_leave ?? false,
+          status || null,
+          updatedBy,
+          safeUserId,
+          id,
+          businessUnit,
+        ]
+      : [
+          flight_date || null,
+          return_date || null,
+          route_origin || null,
+          route_destination || null,
+          ticket_type || null,
+          lumpsum_applying,
+          tio_jo || null,
+          details || null,
+          is_resignation ?? false,
+          is_paid_leave ?? false,
+          status || null,
+          updatedBy,
+          id,
+          businessUnit,
+        ];
+
+    const { rows } = await getPool().query(query, values);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "Record not found" });
@@ -353,7 +388,7 @@ export const deleteReturnHome = async (req, res) => {
     const attachRows = await client.query(
       `SELECT s3_key FROM v4.shared_attachments
        WHERE relation_id = $1 AND relation_type = 'return_home' AND business_unit = $2`,
-      [id, businessUnit],
+      [String(id), businessUnit],
     );
 
     // Delete physical S3 files
@@ -361,23 +396,29 @@ export const deleteReturnHome = async (req, res) => {
       await deleteFromS3(row.s3_key);
     }
 
-    // Cascading purge
+    // Cascading purge (pass String(id) to avoid type-cast mismatches)
     await client.query(
       `DELETE FROM v4.shared_comments
-   WHERE relation_id = $1::text AND relation_type = 'return_home' AND business_unit = $2`,
-      [id, businessUnit],
+       WHERE relation_id = $1
+         AND relation_type = 'return_home'
+         AND business_unit = $2`,
+      [String(id), businessUnit],
     );
 
     await client.query(
-      `DELETE FROM v4.shared_comments
-   WHERE relation_id = $1::integer AND relation_type = 'return_home' AND business_unit = $2`,
-      [id, businessUnit],
+      `DELETE FROM v4.shared_attachments
+       WHERE relation_id = $1
+         AND relation_type = 'return_home'
+         AND business_unit = $2`,
+      [String(id), businessUnit],
     );
 
     await client.query(
       `DELETE FROM v4.notification_history_tbl
-       WHERE relation_id = $1 AND relation_type = 'return_home' AND business_unit = $2`,
-      [id, businessUnit],
+       WHERE relation_id = $1
+         AND relation_type = 'return_home'
+         AND business_unit = $2`,
+      [String(id), businessUnit],
     );
 
     // Delete the parent record
