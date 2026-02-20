@@ -117,7 +117,7 @@ export const getLeaveTemplate = async (req, res) => {
 export const submitLeave = async (req, res) => {
   const { templateId, answers, targetUserId } = req.body;
   const OFFICER_TYPES = ["officer", "admin"];
-  const isOfficer = OFFICER_TYPES.includes((req.user.user_type || "").toLowerCase());
+  const isOfficer = OFFICER_TYPES.includes((req.user.userType || "").toLowerCase());
 
   // On-behalf: officer submits for another user
   let userId = req.user.id;
