@@ -131,7 +131,10 @@ export const submitLeave = async (req, res) => {
     // Look up the target user's company & business_unit
     try {
       const targetRes = await getPool().query(
-        `SELECT user_id, company, business_unit FROM v4.user_tbl WHERE user_id = $1`,
+        `SELECT a.id AS user_id, p.company, a.business_unit
+         FROM v4.user_account_tbl a
+         JOIN v4.user_profile_tbl p ON a.id = p.user_id
+         WHERE a.id = $1`,
         [targetUserId]
       );
       if (targetRes.rows.length === 0) {
