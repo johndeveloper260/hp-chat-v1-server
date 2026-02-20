@@ -5,7 +5,7 @@ const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
 
 // 1. SEARCH — With filters, user profile joins, and business_unit isolation
 export const searchReturnHome = async (req, res) => {
-  const { company, user_name, status, is_resignation, is_paid_leave } =
+  const { company, user_name, status, is_resignation, is_paid_leave, flight_date_from, flight_date_to } =
     req.query;
 
   const businessUnit = req.user.business_unit;
@@ -122,6 +122,7 @@ export const createReturnHome = async (req, res) => {
     is_resignation,
     is_paid_leave,
     status, // status can be 'Draft' or 'Pending'
+    user_id, // Officers can pass a target user_id
   } = req.body;
 
   const creatorId = req.user.id;
