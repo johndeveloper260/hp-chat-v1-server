@@ -63,8 +63,8 @@ export const saveLeaveTemplate = async (req, res) => {
     } else {
       // Insert new
       const insertQuery = `
-        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, status, title, description)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, title, description)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *;
       `;
       result = await getPool().query(insertQuery, [
@@ -73,7 +73,6 @@ export const saveLeaveTemplate = async (req, res) => {
         configJSON,
         fieldsJSON,
         userId,
-        "approved",
         title || "",
         description || null,
       ]);
