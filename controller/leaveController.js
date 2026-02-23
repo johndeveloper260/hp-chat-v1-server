@@ -368,3 +368,38 @@ export const getCompanySubmissions = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// ==========================================
+// USER: GET OWN SUBMISSIONS
+// ==========================================
+export const getMySubmissions = async (req, res) => {
+  const userId = req.user.id;
+  const preferredLanguage = await getUserLanguage(userId);
+
+  try {
+    const query = `
+      SELECT
+        s.submission_id,
+        s.status,
+        s.answers,
+        s.created_at,
+        u.email,
+        p.first_name,
+        p.last_name,
+        COALESCE(c.company_name->>$2, c.company_name->>'en') AS company_name
+      FROM v4.leave_submission_tbl s
+      JOIN v4.user_account_tbl u ON s.user_id = u.id
+      JOIN v4.user_profile_tbl p ON u.id = p.user_id
+      LEFT JOIN v4.company_tbl c ON s.company_id = c.company_id::text
+      WHERE s.user_id = $1
+      ORDER BY s.created_at DESC
+      LIMIT 100;
+    `;
+
+    const { rows } = await getPool().query(query, [userId, preferredLanguage]);
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error("Get My Submissions Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+};

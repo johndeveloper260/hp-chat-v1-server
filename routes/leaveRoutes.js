@@ -7,6 +7,7 @@ import {
   getLeaveTemplate,
   submitLeave,
   getCompanySubmissions,
+  getMySubmissions,
 } from "../controller/leaveController.js";
 
 /**
@@ -32,5 +33,11 @@ router.post("/submit", auth, submitLeave);
  * @desc    Get all leave submissions for a company (Admin/Officer)
  */
 router.get("/submissions", auth, getCompanySubmissions);
+
+/**
+ * @route   GET /api/leave/my-submissions
+ * @desc    Get the current user's own leave submissions
+ */
+router.get("/my-submissions", auth, getMySubmissions);
 
 export default router;
