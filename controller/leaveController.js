@@ -22,7 +22,7 @@ dotenv.config();
 // ADMIN: SAVE OR UPDATE TEMPLATE
 // ==========================================
 export const saveLeaveTemplate = async (req, res) => {
-  const { config, fields, company_id } = req.body;
+  const { config, fields, company_id, title, description } = req.body;
   const business_unit = req.user.business_unit;
   // Allow admin/officer to specify a target company, fallback to own company
   const company = company_id || req.user.company;
@@ -47,7 +47,8 @@ export const saveLeaveTemplate = async (req, res) => {
       // Update existing (increment version)
       const updateQuery = `
         UPDATE v4.leave_template_tbl
-        SET config = $1, fields = $2, version = version + 0.1, last_updated_by = $3, updated_at = NOW()
+        SET config = $1, fields = $2, version = version + 0.1, last_updated_by = $3, updated_at = NOW(),
+            title = $5, description = $6
         WHERE template_id = $4
         RETURNING *;
       `;
@@ -56,12 +57,14 @@ export const saveLeaveTemplate = async (req, res) => {
         fieldsJSON,
         userId,
         rows[0].template_id,
+        title || "",
+        description || null,
       ]);
     } else {
       // Insert new
       const insertQuery = `
-        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, status)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, status, title, description)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *;
       `;
       result = await getPool().query(insertQuery, [
@@ -71,6 +74,8 @@ export const saveLeaveTemplate = async (req, res) => {
         fieldsJSON,
         userId,
         "approved",
+        title || "",
+        description || null,
       ]);
     }
 
@@ -91,8 +96,8 @@ export const getLeaveTemplate = async (req, res) => {
 
   try {
     const query = `
-      SELECT template_id, version, config, fields 
-      FROM v4.leave_template_tbl 
+      SELECT template_id, version, config, fields, title, description
+      FROM v4.leave_template_tbl
       WHERE company_id = $1 AND business_unit = $2 AND is_active = true
       ORDER BY updated_at DESC LIMIT 1;
     `;
