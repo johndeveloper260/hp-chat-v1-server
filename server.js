@@ -66,16 +66,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// --- CRITICAL: Register webhook routes BEFORE express.json() ---
-// Stream Chat webhook needs raw body for signature verification
+// --- 2. Middleware ---
+// slidingExpiration reads headers only (no body), so it is safe to run first
+// and will now correctly apply to /stream/token requests.
+app.use(slidingExpiration);
+
+// --- CRITICAL: Register stream routes BEFORE express.json() ---
+// The POST /stream/webhook/chat route mounts express.raw() at the route level
+// to preserve the raw Buffer for HMAC signature verification.
+// If express.json() ran first globally, it would consume the body and the
+// signature check would fail. The GET /stream/token route has no body.
 app.use("/stream", stream);
 
-// --- 2. Middleware ---
 app.use(express.json({ limit: "10mb" })); // Built-in body parser
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-// --- Sliding Expiration Middleware (Before Routes) ---
-app.use(slidingExpiration);
 
 // --- 3. Database ---
 connectDB();
@@ -90,7 +94,6 @@ app.use("/profile", profile);
 app.use("/feed", feed);
 app.use("/inquiry", inquiry);
 app.use("/company", company);
-// Stream routes already registered above (before express.json)
 app.use("/attachments", attachmentRoutes);
 app.use("/comments", commentsRoutes);
 app.use("/notifications", notificationRoutes);

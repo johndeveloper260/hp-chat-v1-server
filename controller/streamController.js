@@ -1,6 +1,5 @@
 import { StreamClient } from "@stream-io/node-sdk";
 import dotenv from "dotenv";
-import { getPool } from "../config/getPool.js";
 
 dotenv.config();
 
@@ -8,24 +7,20 @@ const apiKey = process.env.STREAM_API_KEY;
 const apiSecret = process.env.STREAM_API_SECRET;
 
 /**
- * Generate a Stream Token for a specific user
+ * Generate a Stream Token for the currently authenticated user.
+ *
+ * The user ID comes from the verified JWT (req.user.id), not from the URL,
+ * so there is no way to spoof a token for another user and no fragile
+ * client-side AsyncStorage lookup is needed.
  */
 export const getStreamToken = async (req, res) => {
-  const { userId } = req.params;
-  const userBU = req.user.business_unit;
+  const userId = req.user.id;
 
   try {
-    // Verify the target user belongs to the requestor's business_unit
-    const buCheck = await getPool().query(
-      "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
-      [userId, userBU],
-    );
-    if (buCheck.rowCount === 0) return res.status(403).json({ error: "Unauthorized" });
-
     const client = new StreamClient(apiKey, apiSecret);
 
-    // Create a token that expires in 24 hours
-    // NOTE: validity_period_hs is in HOURS, not seconds
+    // Token expires in 24 hours; the mobile SDK's tokenProvider will
+    // call this endpoint again automatically before it expires.
     const token = client.generateUserToken({
       user_id: userId,
       validity_period_hs: 24,

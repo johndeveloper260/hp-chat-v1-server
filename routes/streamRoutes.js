@@ -7,8 +7,14 @@ const router = express.Router();
 import { getStreamToken } from "../controller/streamController.js";
 import { handleChatWebhook } from "../controller/streamChatWebhookController.js";
 
-// @route   GET /stream/token/:userId
-// @desc    Generate a Stream Chat token for a user
+// @route   GET /stream/token
+// @desc    Generate a Stream token for the authenticated user (ID taken from JWT).
+//          The mobile app uses this paramless variant.
+router.get("/token", auth, getStreamToken);
+
+// @route   GET /stream/token/:userId  (kept for web frontend backward compatibility)
+// @desc    Same handler — the :userId param is accepted but the controller
+//          derives the user ID from the verified JWT (req.user.id), not the URL.
 router.get("/token/:userId", auth, getStreamToken);
 
 // @route   POST /stream/webhook/chat
