@@ -123,6 +123,11 @@ export const createReturnHome = async (req, res) => {
     is_paid_leave,
     status, // status can be 'Draft' or 'Pending'
     user_id, // Officers can pass a target user_id
+    resign_date,
+    leave_days,
+    mode_of_payment,
+    payment_amount,
+    currency,
   } = req.body;
 
   const creatorId = req.user.id;
@@ -138,26 +143,32 @@ export const createReturnHome = async (req, res) => {
         route_origin, route_destination, ticket_type,
         lumpsum_applying, details, tio_jo,
         is_resignation, is_paid_leave, status,
+        resign_date, leave_days, mode_of_payment, payment_amount, currency,
         created_by, updated_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $19)
       RETURNING id;
     `;
 
     const { rows } = await getPool().query(query, [
-      targetUserId,
-      businessUnit,
-      flight_date || null,
-      return_date || null,
-      route_origin || null,
-      route_destination || null,
-      ticket_type || null,
-      lumpsum_applying,
-      details || null,
-      tio_jo || null,
-      is_resignation ?? false,
-      is_paid_leave ?? false,
-      status || "Draft",
-      creatorId,
+      targetUserId,          // $1
+      businessUnit,          // $2
+      flight_date || null,   // $3
+      return_date || null,   // $4
+      route_origin || null,  // $5
+      route_destination || null, // $6
+      ticket_type || null,   // $7
+      lumpsum_applying,      // $8
+      details || null,       // $9
+      tio_jo || null,        // $10
+      is_resignation ?? false, // $11
+      is_paid_leave ?? false,  // $12
+      status || "Draft",     // $13
+      resign_date || null,   // $14
+      leave_days != null ? Number(leave_days) : null, // $15
+      mode_of_payment || null, // $16
+      payment_amount != null ? Number(payment_amount) : null, // $17
+      currency || "JPY",     // $18
+      creatorId,             // $19
     ]);
 
     res.status(201).json(rows[0]);
@@ -241,6 +252,11 @@ export const updateReturnHome = async (req, res) => {
     is_resignation,
     is_paid_leave,
     status,
+    resign_date,
+    leave_days,
+    mode_of_payment,
+    payment_amount,
+    currency,
   } = req.body;
   const updatedBy = req.user.id;
   const businessUnit = req.user.business_unit;
@@ -259,9 +275,11 @@ export const updateReturnHome = async (req, res) => {
              ticket_type = $5, lumpsum_applying = $6, tio_jo = $7,
              details = $8, is_resignation = $9,
              is_paid_leave = $10, status = $11,
-             updated_by = $12, updated_at = NOW(),
-             user_id = $13
-         WHERE id = $14 AND business_unit = $15
+             resign_date = $12, leave_days = $13,
+             mode_of_payment = $14, payment_amount = $15, currency = $16,
+             updated_by = $17, updated_at = NOW(),
+             user_id = $18
+         WHERE id = $19 AND business_unit = $20
          RETURNING *;`
       : `UPDATE v4.return_home_tbl
          SET flight_date = $1, return_date = $2,
@@ -269,44 +287,35 @@ export const updateReturnHome = async (req, res) => {
              ticket_type = $5, lumpsum_applying = $6, tio_jo = $7,
              details = $8, is_resignation = $9,
              is_paid_leave = $10, status = $11,
-             updated_by = $12, updated_at = NOW()
-         WHERE id = $13 AND business_unit = $14
+             resign_date = $12, leave_days = $13,
+             mode_of_payment = $14, payment_amount = $15, currency = $16,
+             updated_by = $17, updated_at = NOW()
+         WHERE id = $18 AND business_unit = $19
          RETURNING *;`;
 
+    const commonValues = [
+      flight_date || null,           // $1
+      return_date || null,           // $2
+      route_origin || null,          // $3
+      route_destination || null,     // $4
+      ticket_type || null,           // $5
+      lumpsum_applying,              // $6
+      tio_jo || null,                // $7
+      details || null,               // $8
+      is_resignation ?? false,       // $9
+      is_paid_leave ?? false,        // $10
+      status || null,                // $11
+      resign_date || null,           // $12
+      leave_days != null ? Number(leave_days) : null,         // $13
+      mode_of_payment || null,       // $14
+      payment_amount != null ? Number(payment_amount) : null, // $15
+      currency || "JPY",             // $16
+      updatedBy,                     // $17
+    ];
+
     const values = safeUserId
-      ? [
-          flight_date || null,
-          return_date || null,
-          route_origin || null,
-          route_destination || null,
-          ticket_type || null,
-          lumpsum_applying,
-          tio_jo || null,
-          details || null,
-          is_resignation ?? false,
-          is_paid_leave ?? false,
-          status || null,
-          updatedBy,
-          safeUserId,
-          id,
-          businessUnit,
-        ]
-      : [
-          flight_date || null,
-          return_date || null,
-          route_origin || null,
-          route_destination || null,
-          ticket_type || null,
-          lumpsum_applying,
-          tio_jo || null,
-          details || null,
-          is_resignation ?? false,
-          is_paid_leave ?? false,
-          status || null,
-          updatedBy,
-          id,
-          businessUnit,
-        ];
+      ? [...commonValues, safeUserId, id, businessUnit]   // $18, $19, $20
+      : [...commonValues, id, businessUnit];               // $18, $19
 
     const { rows } = await getPool().query(query, values);
 

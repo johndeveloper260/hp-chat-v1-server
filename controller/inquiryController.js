@@ -8,7 +8,7 @@ dotenv.config();
 
 // 1. SEARCH
 export const searchInquiries = async (req, res) => {
-  const { status, type, company_id, assigned_to, high_pri } = req.query;
+  const { status, type, company_id, assigned_to, high_pri, ticket_id } = req.query;
 
   const businessUnit = req.user.business_unit;
   const userId = req.user.id;
@@ -67,31 +67,39 @@ export const searchInquiries = async (req, res) => {
     query += ` AND i.owner_id = $${values.length}::uuid`;
   }
 
-  if (status && status !== "All") {
-    const statuses = status.split(",").map((s) => s.trim());
-    values.push(statuses);
-    query += ` AND i.status = ANY($${values.length}::text[])`;
-  } else if (!status || status === "All") {
-    query += ` AND i.status NOT IN ('Completed', 'Hold')`;
-  }
+  if (ticket_id) {
+    // Single-ticket fetch (form page) — bypass status filter so CLOSED tickets load
+    values.push(ticket_id);
+    query += ` AND i.ticket_id = $${values.length}`;
+  } else {
+    // List view — apply status / search filters
+    if (status && status !== "All") {
+      const statuses = status.split(",").map((s) => s.trim());
+      values.push(statuses);
+      query += ` AND i.status = ANY($${values.length}::text[])`;
+    } else {
+      // Default: hide closed tickets (covers both legacy 'Completed' and new 'CLOSED')
+      query += ` AND i.status NOT IN ('CLOSED', 'Completed', 'Hold')`;
+    }
 
-  if (type && type !== "All") {
-    values.push(type);
-    query += ` AND i.type = $${values.length}`;
-  }
+    if (type && type !== "All") {
+      values.push(type);
+      query += ` AND i.type = $${values.length}`;
+    }
 
-  if (company_id && company_id !== "null") {
-    values.push(company_id);
-    query += ` AND i.company = $${values.length}`;
-  }
+    if (company_id && company_id !== "null") {
+      values.push(company_id);
+      query += ` AND i.company = $${values.length}`;
+    }
 
-  if (assigned_to && assigned_to !== "null") {
-    values.push(assigned_to);
-    query += ` AND i.assigned_to = $${values.length}::uuid`;
-  }
+    if (assigned_to && assigned_to !== "null") {
+      values.push(assigned_to);
+      query += ` AND i.assigned_to = $${values.length}::uuid`;
+    }
 
-  if (high_pri === "true" || high_pri === true) {
-    query += ` AND i.high_pri = true`;
+    if (high_pri === "true" || high_pri === true) {
+      query += ` AND i.high_pri = true`;
+    }
   }
 
   query += ` ORDER BY i.last_update_dttm DESC`;
