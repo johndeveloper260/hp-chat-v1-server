@@ -39,16 +39,18 @@ export const getAnnouncements = async (req, res) => {
   // Ensure preferredLanguage is passed in your values array (e.g., 'en', 'es')
   const preferredLanguage = await getUserLanguage(req.user.id);
 
+  const isOfficer = userRole === "ADMIN" || userRole === "OFFICER";
+
   let query = `
-    SELECT 
+    SELECT
       a.row_id,
       a.business_unit,
       a.company as company_ids,
       a.batch_no,
       ARRAY(
         SELECT COALESCE(c.company_name->>$1, c.company_name->>'en')
-        FROM v4.company_tbl c 
-        WHERE c.company_id = ANY(a.company::uuid[]) 
+        FROM v4.company_tbl c
+        WHERE c.company_id = ANY(a.company::uuid[])
         ORDER BY c.sort_order ASC
       ) as target_companies,
       a.title,
@@ -76,14 +78,18 @@ export const getAnnouncements = async (req, res) => {
       ) as attachments
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
-    WHERE a.active = true 
-      AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
+    WHERE (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
   `;
+
+  // Regular users only see active (publicly visible) announcements
+  if (!isOfficer) {
+    query += ` AND a.active = true`;
+  }
 
   const values = [preferredLanguage || "en", userId];
 
-  if (userRole === "ADMIN" || userRole === "OFFICER") {
-    // ADMIN/OFFICER sees everything in the BU
+  if (isOfficer) {
+    // ADMIN/OFFICER sees everything in the BU (active and inactive)
   } else if (company_filter) {
     values.push(company_filter);
     query += ` AND ($${values.length} = ANY(a.company::uuid[]) OR a.company IS NULL OR cardinality(a.company) = 0)`;
