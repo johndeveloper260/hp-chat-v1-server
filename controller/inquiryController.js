@@ -13,7 +13,7 @@ export const searchInquiries = async (req, res) => {
   const businessUnit = req.user.business_unit;
   const userId = req.user.id;
   const userRole = req.user.userType?.toUpperCase() || "";
-  const lang = await getUserLanguage(req.user.id);
+  const lang = req.query.lang || await getUserLanguage(req.user.id);
 
   let query = `
   SELECT 
@@ -416,7 +416,7 @@ export const deleteInquiry = async (req, res) => {
 
 //5. GET ISSUE TYPE
 export const getIssues = async (req, res) => {
-  const lang = await getUserLanguage(req.user.id);
+  const lang = req.query.lang || await getUserLanguage(req.user.id);
   const bu = req.user.business_unit;
 
   try {
