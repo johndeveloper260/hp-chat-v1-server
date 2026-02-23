@@ -121,7 +121,9 @@ export const getLeaveTemplate = async (req, res) => {
 export const submitLeave = async (req, res) => {
   const { templateId, answers, targetUserId } = req.body;
   const OFFICER_TYPES = ["officer", "admin"];
-  const isOfficer = OFFICER_TYPES.includes((req.user.userType || "").toLowerCase());
+  const isOfficer = OFFICER_TYPES.includes(
+    (req.user.userType || "").toLowerCase(),
+  );
 
   // On-behalf: officer submits for another user
   let userId = req.user.id;
@@ -130,7 +132,9 @@ export const submitLeave = async (req, res) => {
 
   if (targetUserId) {
     if (!isOfficer) {
-      return res.status(403).json({ error: "Only officers can submit on behalf of another user." });
+      return res
+        .status(403)
+        .json({ error: "Only officers can submit on behalf of another user." });
     }
     // Look up the target user's company & business_unit
     try {
@@ -139,7 +143,7 @@ export const submitLeave = async (req, res) => {
          FROM v4.user_account_tbl a
          JOIN v4.user_profile_tbl p ON a.id = p.user_id
          WHERE a.id = $1`,
-        [targetUserId]
+        [targetUserId],
       );
       if (targetRes.rows.length === 0) {
         return res.status(404).json({ error: "Target user not found." });
@@ -228,15 +232,20 @@ export const submitLeave = async (req, res) => {
                 const label = field?.label || key;
                 const rawValue = answers[key];
 
-                if (field?.type === "file" && rawValue && rawValue !== "__pending__") {
+                if (
+                  field?.type === "file" &&
+                  rawValue &&
+                  rawValue !== "__pending__"
+                ) {
                   try {
                     // Fetch s3_key and bucket from attachments table
                     const attRes = await getPool().query(
                       `SELECT s3_key, s3_bucket, display_name FROM v4.attachments_tbl WHERE attachment_id = $1`,
-                      [rawValue]
+                      [rawValue],
                     );
                     if (attRes.rows.length > 0) {
-                      const { s3_key, s3_bucket, display_name } = attRes.rows[0];
+                      const { s3_key, s3_bucket, display_name } =
+                        attRes.rows[0];
                       const command = new GetObjectCommand({
                         Bucket: s3_bucket,
                         Key: s3_key,
@@ -245,7 +254,8 @@ export const submitLeave = async (req, res) => {
                         expiresIn: 604800, // 7 days — long enough to be useful in an email
                         signableHeaders: new Set(["host"]),
                       });
-                      const fileName = display_name || s3_key.split("/").pop() || "attachment";
+                      const fileName =
+                        display_name || s3_key.split("/").pop() || "attachment";
                       return {
                         question: label,
                         answer: `<a href="${signedUrl}" target="_blank" style="color:#0275d8;">${fileName}</a>`,
@@ -253,10 +263,17 @@ export const submitLeave = async (req, res) => {
                       };
                     }
                   } catch (fileErr) {
-                    console.error("Failed to resolve file attachment for email:", fileErr.message);
+                    console.error(
+                      "Failed to resolve file attachment for email:",
+                      fileErr.message,
+                    );
                   }
                   // Fallback if lookup fails
-                  return { question: label, answer: "File attached (view in portal)", isHtml: false };
+                  return {
+                    question: label,
+                    answer: "File attached (view in portal)",
+                    isHtml: false,
+                  };
                 }
 
                 return {
@@ -264,7 +281,7 @@ export const submitLeave = async (req, res) => {
                   answer: rawValue || "N/A",
                   isHtml: false,
                 };
-              })
+              }),
             );
 
             // 5. Send the email to all configured recipients
@@ -273,7 +290,7 @@ export const submitLeave = async (req, res) => {
                 ? "https://app.horensoplus.com"
                 : "http://localhost:5173";
 
-            const emailTitle = templateTitle || `新しい休暇申請: ${applicantName}`;
+            const emailTitle = templateTitle || `新しい申請: ${applicantName}`;
 
             for (const email of emails) {
               // Call the named export directly
