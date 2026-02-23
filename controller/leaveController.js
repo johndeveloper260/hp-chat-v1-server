@@ -175,7 +175,7 @@ export const submitLeave = async (req, res) => {
     const submission = rows[0];
 
     // 2. Fetch template config to get email recipients
-    const templateQuery = `SELECT config, fields FROM v4.leave_template_tbl WHERE template_id = $1`;
+    const templateQuery = `SELECT config, fields, title FROM v4.leave_template_tbl WHERE template_id = $1`;
     const templateRes = await getPool().query(templateQuery, [templateId]);
 
     if (templateRes.rows.length > 0) {
@@ -184,7 +184,7 @@ export const submitLeave = async (req, res) => {
 
       if (emails.length > 0) {
         if (templateRes.rows.length > 0) {
-          const { config, fields } = templateRes.rows[0];
+          const { config, fields, title: templateTitle } = templateRes.rows[0];
           const emails = config?.notificationEmails || [];
 
           if (emails.length > 0) {
@@ -273,7 +273,7 @@ export const submitLeave = async (req, res) => {
                 ? "https://app.horensoplus.com"
                 : "http://localhost:5173";
 
-            const emailTitle = `新しい休暇申請: ${applicantName}`;
+            const emailTitle = templateTitle || `新しい休暇申請: ${applicantName}`;
 
             for (const email of emails) {
               // Call the named export directly
@@ -285,6 +285,7 @@ export const submitLeave = async (req, res) => {
                 answersData,
                 homeurl,
                 buName,
+                templateTitle,
               );
             }
           }

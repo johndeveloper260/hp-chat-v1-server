@@ -133,6 +133,7 @@ export const leaveApplicationAlert = async (
   answersData,
   homeurl,
   buName,
+  templateTitle,
 ) => {
   try {
     const html = await renderTemplate("leave_application", {
@@ -141,6 +142,7 @@ export const leaveApplicationAlert = async (
       answersData, // Array of { question: "...", answer: "..." }
       homeurl,
       buName,
+      title: templateTitle,
     });
     await sendEmail(emailId, emailTitle, html);
   } catch (error) {
