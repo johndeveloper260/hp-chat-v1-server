@@ -164,8 +164,8 @@ export const submitLeave = async (req, res) => {
 
     // 1. Save the submission
     const insertQuery = `
-      INSERT INTO v4.leave_submission_tbl (template_id, user_id, company_id, business_unit, answers)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO v4.leave_submission_tbl (template_id, user_id, company_id, business_unit, answers, status)
+      VALUES ($1, $2, $3, $4, $5, 'sent')
       RETURNING *;
     `;
     const { rows } = await getPool().query(insertQuery, [

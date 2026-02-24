@@ -24,6 +24,7 @@ import sendingOrgRoutes from "./routes/sendingOrgRoutes.js";
 import sharepointRoutes from "./routes/sharepointRoutes.js";
 import returnHomeRoutes from "./routes/returnHomeRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
+import auditRoutes from "./routes/auditRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -105,6 +106,8 @@ app.use("/sharepoint", sharepointRoutes);
 app.use("/return-home", returnHomeRoutes);
 
 app.use("/leave", leaveRoutes);
+
+app.use("/audit", auditRoutes);
 
 const PORT = process.env.PORT || 8010;
 httpServer.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
