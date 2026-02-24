@@ -128,6 +128,7 @@ export const createReturnHome = async (req, res) => {
     mode_of_payment,
     payment_amount,
     currency,
+    payment_settled,
   } = req.body;
 
   const creatorId = req.user.id;
@@ -144,8 +145,9 @@ export const createReturnHome = async (req, res) => {
         lumpsum_applying, details, tio_jo,
         is_resignation, is_paid_leave, status,
         resign_date, leave_days, mode_of_payment, payment_amount, currency,
+        payment_settled,
         created_by, updated_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $19)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20)
       RETURNING id;
     `;
 
@@ -168,7 +170,8 @@ export const createReturnHome = async (req, res) => {
       mode_of_payment || null, // $16
       payment_amount != null ? Number(payment_amount) : null, // $17
       currency || "JPY",     // $18
-      creatorId,             // $19
+      payment_settled ?? false, // $19
+      creatorId,             // $20
     ]);
 
     res.status(201).json(rows[0]);
@@ -257,6 +260,7 @@ export const updateReturnHome = async (req, res) => {
     mode_of_payment,
     payment_amount,
     currency,
+    payment_settled,
   } = req.body;
   const updatedBy = req.user.id;
   const businessUnit = req.user.business_unit;
@@ -278,8 +282,9 @@ export const updateReturnHome = async (req, res) => {
              resign_date = $12, leave_days = $13,
              mode_of_payment = $14, payment_amount = $15, currency = $16,
              updated_by = $17, updated_at = NOW(),
-             user_id = $18
-         WHERE id = $19 AND business_unit = $20
+             payment_settled = $18,
+             user_id = $19
+         WHERE id = $20 AND business_unit = $21
          RETURNING *;`
       : `UPDATE v4.return_home_tbl
          SET flight_date = $1, return_date = $2,
@@ -289,8 +294,9 @@ export const updateReturnHome = async (req, res) => {
              is_paid_leave = $10, status = $11,
              resign_date = $12, leave_days = $13,
              mode_of_payment = $14, payment_amount = $15, currency = $16,
-             updated_by = $17, updated_at = NOW()
-         WHERE id = $18 AND business_unit = $19
+             updated_by = $17, updated_at = NOW(),
+             payment_settled = $18
+         WHERE id = $19 AND business_unit = $20
          RETURNING *;`;
 
     const commonValues = [
@@ -311,11 +317,12 @@ export const updateReturnHome = async (req, res) => {
       payment_amount != null ? Number(payment_amount) : null, // $15
       currency || "JPY",             // $16
       updatedBy,                     // $17
+      payment_settled ?? false,      // $18
     ];
 
     const values = safeUserId
-      ? [...commonValues, safeUserId, id, businessUnit]   // $18, $19, $20
-      : [...commonValues, id, businessUnit];               // $18, $19
+      ? [...commonValues, safeUserId, id, businessUnit]   // $19, $20, $21
+      : [...commonValues, id, businessUnit];               // $19, $20
 
     const { rows } = await getPool().query(query, values);
 
