@@ -99,7 +99,7 @@ export const getAnnouncements = async (req, res) => {
 
   if (userBU) {
     values.push(userBU);
-    query += ` AND business_unit = $${values.length}`;
+    query += ` AND a.business_unit = $${values.length}`;
   }
 
   query += ` ORDER BY a.created_at DESC`;
