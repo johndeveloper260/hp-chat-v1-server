@@ -350,8 +350,8 @@ export const confirmFileUpload = async (req, res) => {
 
     const { rows } = await getPool().query(
       `INSERT INTO v4.sharepoint_files
-         (folder_id, display_name, s3_key, s3_bucket, file_type, file_size, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (folder_id, display_name, s3_key, s3_bucket, file_type, file_size, uploaded_by, business_unit)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         folder_id,
@@ -361,6 +361,7 @@ export const confirmFileUpload = async (req, res) => {
         file_type,
         file_size,
         userId,
+        business_unit,
       ],
     );
 

@@ -116,12 +116,12 @@ export const registerUser = async (req, res) => {
     // 3. Insert into user_profile_tbl
     const profileQuery = `
   INSERT INTO v4.user_profile_tbl (
-    user_id, first_name, middle_name, last_name, 
-    user_type, position, company, company_branch, 
+    user_id, first_name, middle_name, last_name,
+    user_type, position, company, company_branch,
     phone_number, postal_code, street_address, city, state_province,
-    batch_no, created_at, updated_at
+    batch_no, business_unit, created_at, updated_at
   )
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
 `;
 
     const profileValues = [
@@ -138,7 +138,8 @@ export const registerUser = async (req, res) => {
       streetAddress,
       city,
       state,
-      batch_no, // ✅ Moved to end
+      batch_no,
+      business_unit,
     ];
 
     await client.query(profileQuery, profileValues);
@@ -146,16 +147,16 @@ export const registerUser = async (req, res) => {
     // 4. Insert into user_visa_info_tbl
     const visaQuery = `
       INSERT INTO v4.user_visa_info_tbl (
-        user_id, visa_type, visa_expiry_date, created_at, updated_at
+        user_id, visa_type, visa_expiry_date, business_unit, created_at, updated_at
       )
-      VALUES ($1, $2, $3, NOW(), NOW());
+      VALUES ($1, $2, $3, $4, NOW(), NOW());
     `;
     const defaultVisaType = visaType || "Standard Work Visa";
     const defaultVisaExpiry =
       visaExpiry ||
       new Date(new Date().setFullYear(new Date().getFullYear() + 1));
 
-    await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry]);
+    await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry, business_unit]);
 
     // 5. Stream Chat Integration - sync full profile to GetStream
     await syncUserToStream(userId, client);

@@ -580,19 +580,20 @@ const archiveUserBeforeDelete = async (
 ) => {
   try {
     const query = `
-      INSERT INTO v4.deleted_users_log 
-      (original_user_id, email, full_name, company_name, user_type, deleted_by, deletion_reason)
-      SELECT 
-        a.id, 
-        a.email, 
+      INSERT INTO v4.deleted_users_log
+      (original_user_id, email, full_name, company_name, user_type, business_unit, deleted_by, deletion_reason)
+      SELECT
+        a.id,
+        a.email,
         TRIM(CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)),
         COALESCE(
-          c.company_name ->> a.preferred_language, 
-          c.company_name ->> 'ja', 
+          c.company_name ->> a.preferred_language,
+          c.company_name ->> 'ja',
           'Unknown'
         ),
-        p.user_type, 
-        $2, 
+        p.user_type,
+        a.business_unit,
+        $2,
         $3
       FROM v4.user_account_tbl a
       LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
