@@ -137,6 +137,21 @@ export const loginUser = async (req, res) => {
       return res.status(403).json({ error: "Your account has been deactivated. Please contact your administrator.", error_code: "api_errors.login.account_deactivated" });
     }
 
+    // Record last login timestamp
+    await getPool().query(
+      "UPDATE v4.user_account_tbl SET last_login = NOW() WHERE id = $1",
+      [user.id],
+    );
+
+    // Log access history
+    const ipAddress = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+    const userAgent = req.headers["user-agent"] || null;
+    await getPool().query(
+      `INSERT INTO v4.access_log_tbl (user_id, business_unit, ip_address, user_agent)
+       VALUES ($1, $2, $3, $4)`,
+      [user.id, user.business_unit, ipAddress, userAgent],
+    );
+
     // Generate profile picture URL if exists
     let profilePictureUrl = null;
     if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
