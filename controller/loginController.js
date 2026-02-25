@@ -132,6 +132,11 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Block deactivated accounts
+    if (user.is_active === false) {
+      return res.status(403).json({ error: "Your account has been deactivated. Please contact your administrator." });
+    }
+
     // Generate profile picture URL if exists
     let profilePictureUrl = null;
     if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
