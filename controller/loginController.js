@@ -46,7 +46,7 @@ export const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
+    return res.status(400).json({ error: "Email and password are required", error_code: "api_errors.login.fields_required" });
   }
 
   try {
@@ -121,7 +121,7 @@ export const loginUser = async (req, res) => {
     ]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ error: "Invalid email or password", error_code: "api_errors.login.invalid_credentials" });
     }
 
     const user = result.rows[0];
@@ -129,12 +129,12 @@ export const loginUser = async (req, res) => {
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      return res.status(401).json({ error: "Invalid email or password", error_code: "api_errors.login.invalid_credentials" });
     }
 
     // Block deactivated accounts
     if (user.is_active === false) {
-      return res.status(403).json({ error: "Your account has been deactivated. Please contact your administrator." });
+      return res.status(403).json({ error: "Your account has been deactivated. Please contact your administrator.", error_code: "api_errors.login.account_deactivated" });
     }
 
     // Generate profile picture URL if exists
@@ -275,6 +275,7 @@ export const updatePassword = async (req, res) => {
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({
         message: "New password must be at least 6 characters long.",
+        error_code: "api_errors.login.password_too_short",
       });
     }
 
@@ -464,7 +465,7 @@ export const finalizeDeletion = async (req, res) => {
       if (!user || user.otp_code !== otpCode || new Date() > user.otp_expiry) {
         return res
           .status(401)
-          .json({ error: "Invalid or expired verification code." });
+          .json({ error: "Invalid or expired verification code.", error_code: "api_errors.login.invalid_otp" });
       }
 
       // TAKE TARGET ID FROM userResult here
@@ -517,7 +518,7 @@ export const adminDeleteUser = async (req, res) => {
 
   // Prevent self-deletion via this route
   if (String(userId) === String(officerId)) {
-    return res.status(400).json({ error: "Cannot delete your own account via this route" });
+    return res.status(400).json({ error: "Cannot delete your own account via this route", error_code: "api_errors.login.cannot_delete_self" });
   }
 
   try {

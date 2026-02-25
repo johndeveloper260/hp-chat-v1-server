@@ -348,7 +348,7 @@ export const toggleUserActive = async (req, res) => {
 
   // Prevent self-deactivation
   if (String(userId) === String(officerId)) {
-    return res.status(400).json({ error: "Cannot change your own status" });
+    return res.status(400).json({ error: "Cannot change your own status", error_code: "api_errors.user_mgmt.cannot_change_own_status" });
   }
 
   try {
@@ -358,7 +358,7 @@ export const toggleUserActive = async (req, res) => {
     );
 
     if (check.rowCount === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found", error_code: "api_errors.user_mgmt.user_not_found" });
     }
 
     const newStatus = !check.rows[0].is_active;

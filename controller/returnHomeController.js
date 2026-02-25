@@ -212,7 +212,7 @@ export const getReturnHomeById = async (req, res) => {
     );
 
     if (mainRes.rows.length === 0) {
-      return res.status(404).json({ error: "Record not found" });
+      return res.status(404).json({ error: "Record not found", error_code: "api_errors.return_home.record_not_found" });
     }
 
     const attachmentsRes = await getPool().query(
@@ -346,7 +346,7 @@ export const approveReturnHome = async (req, res) => {
   if (!ELEVATED_ROLES.includes(userRole)) {
     return res
       .status(403)
-      .json({ message: "Permission denied. Only officers can approve." });
+      .json({ message: "Permission denied. Only officers can approve.", error_code: "api_errors.return_home.officer_only_approve" });
   }
 
   const client = await getPool().connect();

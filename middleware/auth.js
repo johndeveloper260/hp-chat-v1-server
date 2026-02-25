@@ -40,7 +40,7 @@ const auth = (req, res, next) => {
           [req.user.id],
         );
         if (!rows[0] || rows[0].is_active === false) {
-          return res.status(401).json({ msg: "Account has been deactivated" });
+          return res.status(401).json({ msg: "Account has been deactivated", error_code: "api_errors.auth.account_deactivated" });
         }
       } catch (dbErr) {
         // Fail open on DB error — let the request proceed rather than

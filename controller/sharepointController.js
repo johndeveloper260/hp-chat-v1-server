@@ -105,11 +105,11 @@ export const createFolder = async (req, res) => {
   if (!isOfficer(userType) && !parent_id) {
     return res
       .status(403)
-      .json({ error: "Only officers can create top-level folders" });
+      .json({ error: "Only officers can create top-level folders", error_code: "api_errors.files.officer_only_create" });
   }
 
   if (!name || !name.trim()) {
-    return res.status(400).json({ error: "Folder name is required" });
+    return res.status(400).json({ error: "Folder name is required", error_code: "api_errors.files.folder_name_required" });
   }
 
   try {
@@ -144,7 +144,7 @@ export const updateFolder = async (req, res) => {
   const { userType, business_unit } = req.user;
 
   if (!isOfficer(userType)) {
-    return res.status(403).json({ error: "Only officers can update folders" });
+    return res.status(403).json({ error: "Only officers can update folders", error_code: "api_errors.files.officer_only_update" });
   }
 
   if (!name?.trim() && !company_ids) {
@@ -204,7 +204,7 @@ export const deleteFolder = async (req, res) => {
   const { userType, business_unit } = req.user;
 
   if (!isOfficer(userType)) {
-    return res.status(403).json({ error: "Only officers can delete folders" });
+    return res.status(403).json({ error: "Only officers can delete folders", error_code: "api_errors.files.officer_only_delete" });
   }
 
   const client = await getPool().connect();
@@ -418,7 +418,7 @@ export const deleteFile = async (req, res) => {
   const { userType, business_unit } = req.user;
 
   if (!isOfficer(userType)) {
-    return res.status(403).json({ error: "Only officers can delete files" });
+    return res.status(403).json({ error: "Only officers can delete files", error_code: "api_errors.files.officer_only_delete_file" });
   }
 
   try {

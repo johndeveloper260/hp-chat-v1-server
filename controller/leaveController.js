@@ -105,7 +105,7 @@ export const getLeaveTemplate = async (req, res) => {
     if (rows.length === 0) {
       return res
         .status(404)
-        .json({ message: "No leave template configured for this company." });
+        .json({ message: "No leave template configured for this company.", error_code: "api_errors.leave.no_template" });
     }
 
     res.status(200).json(rows[0]);
@@ -134,7 +134,7 @@ export const submitLeave = async (req, res) => {
     if (!isOfficer) {
       return res
         .status(403)
-        .json({ error: "Only officers can submit on behalf of another user." });
+        .json({ error: "Only officers can submit on behalf of another user.", error_code: "api_errors.leave.officer_only_behalf" });
     }
     // Look up the target user's company & business_unit
     try {
@@ -146,7 +146,7 @@ export const submitLeave = async (req, res) => {
         [targetUserId],
       );
       if (targetRes.rows.length === 0) {
-        return res.status(404).json({ error: "Target user not found." });
+        return res.status(404).json({ error: "Target user not found.", error_code: "api_errors.leave.target_user_not_found" });
       }
       userId = targetRes.rows[0].user_id;
       company = targetRes.rows[0].company;

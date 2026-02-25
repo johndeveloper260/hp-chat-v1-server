@@ -24,14 +24,14 @@ export const validateCode = async (req, res) => {
   try {
     // Check against your specific table structure
     const query = `
-      SELECT business_unit, role_name, company, batch_no 
-      FROM v4.customer_xref_tbl 
+      SELECT business_unit, role_name, company, batch_no
+      FROM v4.customer_xref_tbl
       WHERE registration_code = $1
     `;
     const { rows } = await pool.query(query, [code]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Invalid Registration Code" });
+      return res.status(404).json({ error: "Invalid Registration Code", error_code: "api_errors.register.invalid_code" });
     }
 
     // Return the found details so frontend can confirm/debug if needed
@@ -70,7 +70,7 @@ export const registerUser = async (req, res) => {
   } = req.body;
 
   if (!email || !password || !firstName || !lastName || !registrationCode) {
-    return res.status(400).json({ error: "Missing required fields." });
+    return res.status(400).json({ error: "Missing required fields.", error_code: "api_errors.register.fields_required" });
   }
 
   const pool = getPool();
@@ -89,7 +89,7 @@ export const registerUser = async (req, res) => {
 
     if (xrefRes.rowCount === 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Invalid Registration Code" });
+      return res.status(400).json({ error: "Invalid Registration Code", error_code: "api_errors.register.invalid_code" });
     }
 
     const { business_unit, role_name, company, batch_no } = xrefRes.rows[0];
@@ -201,7 +201,7 @@ export const registerUser = async (req, res) => {
     await client.query("ROLLBACK");
     if (err.code === "23505") {
       // Unique violation for email
-      return res.status(409).json({ error: "Email already exists" });
+      return res.status(409).json({ error: "Email already exists", error_code: "api_errors.register.email_exists" });
     }
     console.error("Registration Error:", err);
     return res.status(500).json({ error: "Internal Server Error" });
