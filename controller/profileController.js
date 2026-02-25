@@ -44,7 +44,9 @@ export const searchUsers = async (req, res) => {
         ) AS company_name,
         p.batch_no,
         p.position,
-        p.user_type
+        p.user_type,
+        a.is_active,
+        a.email
       FROM v4.user_profile_tbl p
       JOIN v4.user_account_tbl a ON p.user_id = a.id
       LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
@@ -333,6 +335,42 @@ export const updateUserProfile = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Database Error");
+  }
+};
+
+/**
+ * Toggle User Active Status (Officer/Admin only)
+ */
+export const toggleUserActive = async (req, res) => {
+  const { userId } = req.params;
+  const officerBU = req.user.business_unit;
+  const officerId = req.user.id;
+
+  // Prevent self-deactivation
+  if (String(userId) === String(officerId)) {
+    return res.status(400).json({ error: "Cannot change your own status" });
+  }
+
+  try {
+    const check = await getPool().query(
+      "SELECT id, is_active FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+      [userId, officerBU],
+    );
+
+    if (check.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const newStatus = !check.rows[0].is_active;
+    await getPool().query(
+      "UPDATE v4.user_account_tbl SET is_active = $1, updated_at = NOW() WHERE id = $2",
+      [newStatus, userId],
+    );
+
+    res.json({ is_active: newStatus });
+  } catch (err) {
+    console.error("Toggle Active Error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };
 

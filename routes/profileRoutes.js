@@ -10,6 +10,7 @@ import {
   getUserProfile,
   updateUserProfile,
   updateUserLanguage,
+  toggleUserActive,
 } from "../controller/profileController.js";
 
 // Private //
@@ -26,6 +27,9 @@ router.put("/personal-info/:userId", auth, updateUserProfile);
 
 // Account
 router.patch("/update-language", auth, updateUserLanguage);
+
+// User Management (Officer/Admin only)
+router.patch("/toggle-active/:userId", auth, toggleUserActive);
 
 // 2. Change module.exports to export default
 export default router;

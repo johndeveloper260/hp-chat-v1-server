@@ -502,6 +502,54 @@ export const finalizeDeletion = async (req, res) => {
 };
 
 /**
+ * Officer/Admin Delete User
+ * Deletes another user within the same business_unit from both DB and GetStream.
+ */
+export const adminDeleteUser = async (req, res) => {
+  const { userId } = req.params;
+  const officerBU = req.user.business_unit;
+  const officerId = req.user.id;
+
+  // Prevent self-deletion via this route
+  if (String(userId) === String(officerId)) {
+    return res.status(400).json({ error: "Cannot delete your own account via this route" });
+  }
+
+  try {
+    // Verify target user belongs to the same business_unit
+    const check = await getPool().query(
+      "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+      [userId, officerBU],
+    );
+
+    if (check.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // 0. Archive first (before data is gone)
+    await archiveUserBeforeDelete(userId, officerId, "Officer-initiated deletion");
+
+    // 1. Delete from GetStream (hard delete)
+    await streamClient.deleteUsers([String(userId)], {
+      user: "hard",
+      messages: "hard",
+      conversations: "hard",
+    });
+
+    // 2. Cleanup profile attachments (S3 + DB)
+    await cleanupUserProfileAttachments(userId);
+
+    // 3. Delete from PostgreSQL
+    await getPool().query("DELETE FROM v4.user_account_tbl WHERE id = $1", [userId]);
+
+    res.json({ success: true, message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Admin Delete User Error:", err);
+    res.status(500).json({ error: "Server error during deletion" });
+  }
+};
+
+/**
  * Archive user data to the deleted_users_log table
  */
 const archiveUserBeforeDelete = async (

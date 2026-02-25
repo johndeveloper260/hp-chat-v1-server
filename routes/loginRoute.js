@@ -10,6 +10,7 @@ import {
   deleteUserAccount,
   requestWebDeletion,
   finalizeDeletion,
+  adminDeleteUser,
 } from "../controller/loginController.js";
 
 // Public
@@ -21,6 +22,9 @@ router.post(`/updatePassword`, auth, updatePassword);
 
 // Private Route (For In-App Settings)
 router.delete(`/deleteAccount`, auth, deleteUserAccount);
+
+// Officer/Admin: Delete another user
+router.delete(`/admin-delete-user/:userId`, auth, adminDeleteUser);
 
 // Public Routes (For Web Deletion Page)
 router.post(`/requestWebDeletion`, requestWebDeletion);
