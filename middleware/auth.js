@@ -32,11 +32,19 @@ const auth = (req, res, next) => {
         preferred_language: decoded.preferred_language || "en",
       };
 
-      // Check if the account is still active on every request.
-      // This ensures deactivated users are kicked out immediately.
+      // Check is_active and update last_seen in a single query.
+      // last_seen is throttled: only written if >5 min since last update,
+      // preventing excessive DB writes on rapid API calls.
       try {
         const { rows } = await getPool().query(
-          "SELECT is_active FROM v4.user_account_tbl WHERE id = $1",
+          `UPDATE v4.user_account_tbl
+           SET last_seen = CASE
+             WHEN last_seen IS NULL OR last_seen < NOW() - INTERVAL '5 minutes'
+             THEN NOW()
+             ELSE last_seen
+           END
+           WHERE id = $1
+           RETURNING is_active`,
           [req.user.id],
         );
         if (!rows[0] || rows[0].is_active === false) {
