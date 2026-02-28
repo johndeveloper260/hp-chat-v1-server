@@ -380,13 +380,19 @@ export const getCompanySubmissions = async (req, res) => {
         p.first_name,
         p.last_name,
         COALESCE(c.company_name->>$3, c.company_name->>'en') AS company_name,
-        t.fields AS template_fields,
-        t.title AS template_title
+        COALESCE(t.fields, t_default.fields) AS template_fields,
+        COALESCE(t.title, t_default.title) AS template_title
       FROM v4.leave_submission_tbl s
       JOIN v4.user_account_tbl u ON s.user_id = u.id
       JOIN v4.user_profile_tbl p ON u.id = p.user_id
       LEFT JOIN v4.company_tbl c ON s.company_id = c.company_id::text
-      LEFT JOIN v4.leave_template_tbl t ON s.template_id = t.template_id::text
+      LEFT JOIN v4.leave_template_tbl t ON s.template_id = t.template_id
+      LEFT JOIN LATERAL (
+        SELECT title, fields
+        FROM v4.leave_template_tbl
+        WHERE company_id::text = s.company_id AND business_unit = s.business_unit AND is_active = true
+        ORDER BY updated_at DESC LIMIT 1
+      ) t_default ON s.template_id IS NULL
       WHERE s.business_unit = $1
         AND ($2::text IS NULL OR s.company_id = $2)
         AND ($4::timestamptz IS NULL OR s.created_at >= $4)
@@ -428,13 +434,19 @@ export const getMySubmissions = async (req, res) => {
         p.first_name,
         p.last_name,
         COALESCE(c.company_name->>$2, c.company_name->>'en') AS company_name,
-        t.fields AS template_fields,
-        t.title AS template_title
+        COALESCE(t.fields, t_default.fields) AS template_fields,
+        COALESCE(t.title, t_default.title) AS template_title
       FROM v4.leave_submission_tbl s
       JOIN v4.user_account_tbl u ON s.user_id = u.id
       JOIN v4.user_profile_tbl p ON u.id = p.user_id
       LEFT JOIN v4.company_tbl c ON s.company_id = c.company_id::text
-      LEFT JOIN v4.leave_template_tbl t ON s.template_id = t.template_id::text
+      LEFT JOIN v4.leave_template_tbl t ON s.template_id = t.template_id
+      LEFT JOIN LATERAL (
+        SELECT title, fields
+        FROM v4.leave_template_tbl
+        WHERE company_id::text = s.company_id AND business_unit = s.business_unit AND is_active = true
+        ORDER BY updated_at DESC LIMIT 1
+      ) t_default ON s.template_id IS NULL
       WHERE s.user_id = $1
       ORDER BY s.created_at DESC
       LIMIT 100;
