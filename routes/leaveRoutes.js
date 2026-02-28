@@ -5,20 +5,27 @@ const router = express.Router();
 import {
   saveLeaveTemplate,
   getLeaveTemplate,
+  getCompanyTemplates,
   submitLeave,
   getCompanySubmissions,
   getMySubmissions,
 } from "../controller/leaveController.js";
 
 /**
+ * @route   GET /api/leave/templates
+ * @desc    Get all active form templates for a company (Admin/Officer)
+ */
+router.get("/templates", auth, getCompanyTemplates);
+
+/**
  * @route   GET /api/leave/template
- * @desc    Get the dynamic form template for the user's company
+ * @desc    Get a specific template by template_id, or the latest for the company
  */
 router.get("/template", auth, getLeaveTemplate);
 
 /**
  * @route   POST /api/leave/template
- * @desc    Create or update the dynamic form template (Admin)
+ * @desc    Create a new template (no template_id) or update an existing one (with template_id)
  */
 router.post("/template", auth, saveLeaveTemplate);
 

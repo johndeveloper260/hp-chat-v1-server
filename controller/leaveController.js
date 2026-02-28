@@ -22,20 +22,13 @@ dotenv.config();
 // ADMIN: SAVE OR UPDATE TEMPLATE
 // ==========================================
 export const saveLeaveTemplate = async (req, res) => {
-  const { config, fields, company_id, title, description } = req.body;
+  const { config, fields, company_id, title, description, template_id, category, is_published } = req.body;
   const business_unit = req.user.business_unit;
   // Allow admin/officer to specify a target company, fallback to own company
   const company = company_id || req.user.company;
   const userId = req.user.id;
 
   try {
-    // Check if a template already exists for this company
-    const checkQuery = `SELECT template_id, version FROM v4.leave_template_tbl WHERE company_id = $1 AND business_unit = $2 AND is_active = true`;
-    const { rows } = await getPool().query(checkQuery, [
-      company,
-      business_unit,
-    ]);
-
     // Ensure config and fields are stored as proper JSON strings for pg
     const configJSON =
       typeof config === "string" ? config : JSON.stringify(config);
@@ -43,12 +36,12 @@ export const saveLeaveTemplate = async (req, res) => {
       typeof fields === "string" ? fields : JSON.stringify(fields);
 
     let result;
-    if (rows.length > 0) {
-      // Update existing (increment version)
+    if (template_id) {
+      // Update a specific existing template by ID
       const updateQuery = `
         UPDATE v4.leave_template_tbl
         SET config = $1, fields = $2, version = version + 0.1, last_updated_by = $3, updated_at = NOW(),
-            title = $5, description = $6
+            title = $5, description = $6, category = $7, is_published = $8
         WHERE template_id = $4
         RETURNING *;
       `;
@@ -56,15 +49,20 @@ export const saveLeaveTemplate = async (req, res) => {
         configJSON,
         fieldsJSON,
         userId,
-        rows[0].template_id,
+        template_id,
         title || "",
         description || null,
+        category || null,
+        is_published ?? false,
       ]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Template not found." });
+      }
     } else {
-      // Insert new
+      // Insert new template
       const insertQuery = `
-        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, title, description)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, title, description, category, is_published)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *;
       `;
       result = await getPool().query(insertQuery, [
@@ -75,6 +73,8 @@ export const saveLeaveTemplate = async (req, res) => {
         userId,
         title || "",
         description || null,
+        category || null,
+        is_published ?? false,
       ]);
     }
 
@@ -86,21 +86,59 @@ export const saveLeaveTemplate = async (req, res) => {
 };
 
 // ==========================================
-// USER: GET CURRENT TEMPLATE
+// ADMIN: GET ALL TEMPLATES FOR A COMPANY
 // ==========================================
-export const getLeaveTemplate = async (req, res) => {
+export const getCompanyTemplates = async (req, res) => {
   const business_unit = req.user.business_unit;
-  // Allow admin/officer to query a specific company's template via query param
   const company = req.query.company_id || req.user.company;
 
   try {
     const query = `
-      SELECT template_id, version, config, fields, title, description
+      SELECT template_id, title, description, category, is_published, version, updated_at
       FROM v4.leave_template_tbl
       WHERE company_id = $1 AND business_unit = $2 AND is_active = true
-      ORDER BY updated_at DESC LIMIT 1;
+      ORDER BY updated_at DESC;
     `;
     const { rows } = await getPool().query(query, [company, business_unit]);
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error("Get Company Templates Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ==========================================
+// USER: GET A SPECIFIC TEMPLATE
+// ==========================================
+export const getLeaveTemplate = async (req, res) => {
+  const business_unit = req.user.business_unit;
+  const template_id = req.query.template_id;
+  // Allow admin/officer to query a specific company's template via query param
+  const company = req.query.company_id || req.user.company;
+
+  try {
+    let rows;
+
+    if (template_id) {
+      // Fetch a specific template by its ID
+      const result = await getPool().query(
+        `SELECT template_id, version, config, fields, title, description, category, is_published
+         FROM v4.leave_template_tbl
+         WHERE template_id = $1 AND is_active = true`,
+        [template_id]
+      );
+      rows = result.rows;
+    } else {
+      // Fallback: fetch the most recent template for this company (backward compat)
+      const result = await getPool().query(
+        `SELECT template_id, version, config, fields, title, description, category, is_published
+         FROM v4.leave_template_tbl
+         WHERE company_id = $1 AND business_unit = $2 AND is_active = true
+         ORDER BY updated_at DESC LIMIT 1`,
+        [company, business_unit]
+      );
+      rows = result.rows;
+    }
 
     if (rows.length === 0) {
       return res
