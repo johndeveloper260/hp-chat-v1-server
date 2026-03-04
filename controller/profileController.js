@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 
 import { getPool } from "../config/getPool.js";
 import { syncUserToStream } from "../utils/syncUserToStream.js";
+import { getUserLanguage } from "../utils/getUserLanguage.js";
 
 dotenv.config();
 
@@ -213,11 +214,15 @@ export const getUserProfile = async (req, res) => {
   const { userId } = req.params;
   const userBU = req.user.business_unit;
   try {
+    const lang = await getUserLanguage(req.user.id);
     const result = await getPool().query(
-      `SELECT p.* FROM v4.user_profile_tbl p
+      `SELECT p.*,
+        COALESCE(NULLIF(c.company_name->>$3, ''), NULLIF(c.company_name->>'en', ''), 'N/A') AS company_name_text
+       FROM v4.user_profile_tbl p
        JOIN v4.user_account_tbl a ON p.user_id = a.id
+       LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
        WHERE p.user_id = $1 AND a.business_unit = $2`,
-      [userId, userBU],
+      [userId, userBU, lang],
     );
 
     if (result.rows.length === 0) {
