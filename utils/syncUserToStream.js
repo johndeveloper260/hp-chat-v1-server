@@ -1,6 +1,3 @@
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { StreamChat } from "stream-chat";
 import dotenv from "dotenv";
 
@@ -12,19 +9,6 @@ const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET,
 );
-
-const s3Client = new S3Client({
-  region: process.env.REACT_APP_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-  },
-  requestHandler: new NodeHttpHandler({
-    connectionTimeout: 5000,
-  }),
-  responseChecksumValidation: "WHEN_REQUIRED",
-  requestChecksumCalculation: "WHEN_REQUIRED",
-});
 
 const STREAM_SYNC_QUERY = `
   SELECT
@@ -70,8 +54,9 @@ const STREAM_SYNC_QUERY = `
 
 /**
  * Sync a user's profile to GetStream Chat.
- * Queries the DB for full profile + visa + company data, generates
- * a signed S3 URL for the profile picture, and upserts to Stream.
+ * Queries the DB for full profile + visa + company data and upserts to Stream.
+ * The profile image is stored as a permanent proxy URL (BACKEND_URL/profile/avatar/:id)
+ * that generates a fresh S3 signed URL on each request — never expires.
  *
  * @param {string} userId - The user's UUID
  * @param {import('pg').PoolClient} [dbClient] - Optional pg client (use when inside a transaction)
@@ -90,23 +75,12 @@ export const syncUserToStream = async (userId, dbClient) => {
   const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
   const normalizedEmail = user.email.toLowerCase().trim();
 
-  // Generate profile picture signed URL if exists
-  let profileImageUrl = null;
-  if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: user.profile_pic_s3_bucket,
-        Key: user.profile_pic_s3_key,
-      });
-
-      profileImageUrl = await getSignedUrl(s3Client, command, {
-        expiresIn: 86400, // 24 hours
-        signableHeaders: new Set(["host"]),
-      });
-    } catch (error) {
-      console.error("syncUserToStream: Error generating profile picture URL:", error);
-    }
-  }
+  // Use the permanent avatar proxy URL instead of a pre-signed S3 URL.
+  // The proxy endpoint generates a fresh signed URL on every load, so this
+  // URL never expires and is safe to store permanently in Stream Chat.
+  const profileImageUrl = user.profile_pic_s3_key
+    ? `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
+    : null;
 
   const streamUserData = {
     id: user.id,

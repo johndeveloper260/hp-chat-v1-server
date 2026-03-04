@@ -1,8 +1,3 @@
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { S3Client } from "@aws-sdk/client-s3";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
-
 import { StreamChat } from "stream-chat";
 import { StreamClient } from "@stream-io/node-sdk";
 import express from "express";
@@ -24,20 +19,6 @@ const streamClient = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_API_SECRET,
 );
-
-//  Add S3 Client initialization (same as attachmentController)
-const s3Client = new S3Client({
-  region: process.env.REACT_APP_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-  },
-  requestHandler: new NodeHttpHandler({
-    connectionTimeout: 5000,
-  }),
-  responseChecksumValidation: "WHEN_REQUIRED",
-  requestChecksumCalculation: "WHEN_REQUIRED",
-});
 
 /**
  * Login User - Updated to include full profile & visa details
@@ -155,24 +136,10 @@ export const loginUser = async (req, res) => {
       [user.id, user.business_unit, ipAddress, userAgent],
     );
 
-    // Generate profile picture URL if exists
-    let profilePictureUrl = null;
-    if (user.profile_pic_s3_key && user.profile_pic_s3_bucket) {
-      try {
-        const command = new GetObjectCommand({
-          Bucket: user.profile_pic_s3_bucket,
-          Key: user.profile_pic_s3_key,
-        });
-
-        profilePictureUrl = await getSignedUrl(s3Client, command, {
-          expiresIn: 3600, // 1 hour
-          signableHeaders: new Set(["host"]),
-        });
-      } catch (error) {
-        console.error("Error generating profile picture URL:", error);
-        // Continue without profile picture URL if generation fails
-      }
-    }
+    // Use permanent avatar proxy URL instead of a pre-signed S3 URL.
+    const profilePictureUrl = user.profile_pic_s3_key
+      ? `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
+      : null;
 
     // Prepare JWT Payload (keep this lightweight)
     const payload = {
