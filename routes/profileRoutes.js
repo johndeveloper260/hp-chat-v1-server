@@ -11,7 +11,13 @@ import {
   updateUserProfile,
   updateUserLanguage,
   toggleUserActive,
+  getUserAvatar,
 } from "../controller/profileController.js";
+
+// Public //
+
+// Avatar proxy — no auth, permanent URL safe to store in Stream Chat
+router.get("/avatar/:userId", getUserAvatar);
 
 // Private //
 

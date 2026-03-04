@@ -1,10 +1,24 @@
 import dotenv from "dotenv";
 
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { getPool } from "../config/getPool.js";
 import { syncUserToStream } from "../utils/syncUserToStream.js";
 import { getUserLanguage } from "../utils/getUserLanguage.js";
 
 dotenv.config();
+
+const s3Client = new S3Client({
+  region: process.env.REACT_APP_AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+  },
+  requestHandler: new NodeHttpHandler({ connectionTimeout: 5000 }),
+  responseChecksumValidation: "WHEN_REQUIRED",
+  requestChecksumCalculation: "WHEN_REQUIRED",
+});
 
 /**
  * Search Users by Company, Batch Number, and Name
@@ -398,5 +412,46 @@ export const updateUserLanguage = async (req, res) => {
   } catch (error) {
     console.error("Update Language Error:", error);
     res.status(500).json({ error: "Failed to update language" });
+  }
+};
+
+/**
+ * Public avatar proxy — no auth required.
+ * Returns a 302 redirect to a fresh S3 signed URL for the user's latest
+ * profile picture. Storing this endpoint URL in Stream Chat means the image
+ * never expires; a fresh signed URL is generated on every load.
+ */
+export const getUserAvatar = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const { rows } = await getPool().query(
+      `SELECT s3_key, s3_bucket
+       FROM v4.shared_attachments
+       WHERE relation_type = 'profile'
+         AND relation_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "No profile picture found" });
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: rows[0].s3_bucket,
+      Key: rows[0].s3_key,
+    });
+
+    const signedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 3600,
+      signableHeaders: new Set(["host"]),
+    });
+
+    return res.redirect(302, signedUrl);
+  } catch (error) {
+    console.error("getUserAvatar error:", error);
+    res.status(500).json({ error: "Failed to fetch avatar" });
   }
 };
