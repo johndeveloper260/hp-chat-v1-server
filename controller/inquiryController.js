@@ -18,7 +18,7 @@ export const searchInquiries = async (req, res) => {
   let query = `
   SELECT 
     i.*, 
-    COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
+    COALESCE(NULLIF(c.company_name->>$1, ''), NULLIF(c.company_name->>'en', ''), 'N/A') AS company_name_text,
     COALESCE(iss.descr->>$1, iss.descr->>'en', 'General Inquiry') AS type_name,
     TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
     TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
