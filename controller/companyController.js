@@ -107,7 +107,7 @@ export const createCompany = async (req, res) => {
 // 4. UPDATE
 export const updateCompany = async (req, res) => {
   const { id } = req.params;
-  const { company_name, website_url, is_active } = req.body;
+  const { company_name, website_url, is_active, ticketing, flight_tracker, company_form } = req.body;
   const business_unit = req.user.business_unit;
   const userId = req.user.id;
 
@@ -115,13 +115,17 @@ export const updateCompany = async (req, res) => {
     const query = `
       UPDATE v4.company_tbl
       SET company_name = $1, website_url = $2, is_active = $3,
-          last_updated_by = $4, updated_at = NOW()
-      WHERE company_id = $5 AND business_unit = $6 RETURNING *;
+          ticketing = $4, flight_tracker = $5, company_form = $6,
+          last_updated_by = $7, updated_at = NOW()
+      WHERE company_id = $8 AND business_unit = $9 RETURNING *;
     `;
     const { rows } = await getPool().query(query, [
       company_name,
       website_url,
       is_active,
+      ticketing ?? false,
+      flight_tracker ?? false,
+      company_form ?? false,
       userId,
       id,
       business_unit,

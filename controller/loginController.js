@@ -74,10 +74,13 @@ export const loginUser = async (req, res) => {
         p.state_province,
         -- Get translated company name
         COALESCE(
-          c.company_name ->> a.preferred_language, 
-          c.company_name ->> 'en', 
+          c.company_name ->> a.preferred_language,
+          c.company_name ->> 'en',
           (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
         ) AS company_name,
+        c.ticketing AS company_ticketing,
+        c.flight_tracker AS company_flight_tracker,
+        c.company_form AS company_form,
         v.visa_type, -- This is the code (e.g., 'V01')
         v.visa_expiry_date,
         -- Get translated visa description from visa_list_tbl
@@ -214,6 +217,9 @@ export const loginUser = async (req, res) => {
         position: user.position,
         company: user.company,
         company_name: user.company_name,
+        company_ticketing: user.company_ticketing ?? false,
+        company_flight_tracker: user.company_flight_tracker ?? false,
+        company_form: user.company_form ?? false,
         batch_no: user.batch_no,
         companyBranch: user.company_branch,
         visa_type_descr: user.visa_type_descr,
