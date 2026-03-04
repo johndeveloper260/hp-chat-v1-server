@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <style>
         .email-body { 
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            font-family: 'Helvetica Neue', Helvetica, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, Arial, sans-serif; 
             color: #333333; 
             line-height: 1.6; 
             padding: 20px; 
@@ -41,6 +41,18 @@
             color: #555;
             width: 40%;
         }
+        .footer-text {
+            margin-top: 25px; 
+            border-top: 1px solid #eeeeee; 
+            padding-top: 10px; 
+            font-size: 0.85rem; 
+            color: #777;
+        }
+        .no-reply-text {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: #999999;
+        }
     </style>
 </head>
 <body style="background-color: #f4f4f4; margin: 0; padding: 0;">
@@ -64,10 +76,14 @@
                         </tbody>
                     </table>
 
-                    <p style="margin-top: 25px; border-top: 1px solid #eeeeee; padding-top: 10px; font-size: 0.85rem; color: #777;">
-                        引き続き、よろしくお願いいたします。<br>
-                        {{buName}}
-                    </p>
+                    <div class="footer-text">
+                        <p style="margin: 0;">引き続き、よろしくお願いいたします。</p>
+                        <p style="margin: 5px 0 0 0;"><strong>{{buName}}</strong></p>
+                        
+                        <p class="no-reply-text">
+                            このメールは送信専用アドレスから自動送信されています。ご返信いただいてもお答えできませんのでご了承ください。
+                        </p>
+                    </div>
                 </div>
             </td>
         </tr>
