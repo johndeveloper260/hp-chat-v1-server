@@ -24,17 +24,25 @@ export const getCompanies = async (req, res) => {
 };
 
 // 2. GET DROPDOWN (Filtered by Business Unit)
+// Optional query param: ?feature=ticketing|flight_tracker|company_form
 export const getCompanyDropdown = async (req, res) => {
   try {
     const business_unit = req.user.business_unit;
     const preferredLanguage = await getUserLanguage(req.user.id);
+    const { feature } = req.query;
+
+    const ALLOWED_FEATURES = ["ticketing", "flight_tracker", "company_form"];
+    const featureFilter = ALLOWED_FEATURES.includes(feature)
+      ? `AND ${feature} = true`
+      : "";
 
     const query = `
-      SELECT company_id AS value, 
+      SELECT company_id AS value,
       COALESCE(company_name->>$2, company_name->>'en') AS label
       FROM v4.company_tbl
       WHERE is_active = true
       AND business_unit = $1
+      ${featureFilter}
       ORDER BY sort_order ASC, label ASC
     `;
 
