@@ -13,7 +13,7 @@ export const getCompanies = async (req, res) => {
     const query = `
       SELECT * FROM v4.company_tbl
       WHERE business_unit = $1
-      ORDER BY sort_order ASC, label ASC
+      ORDER BY sort_order ASC
     `;
 
     const { rows } = await getPool().query(query, [business_unit]);
@@ -49,7 +49,7 @@ export const getCompanyDropdown = async (req, res) => {
 
 // 3. CREATE
 export const createCompany = async (req, res) => {
-  const { company_name, website_url } = req.body;
+  const { company_name, website_url, is_active, ticketing, flight_tracker, company_form, sort_order } = req.body;
   const business_unit = req.user.business_unit;
   const userId = req.user.id;
 
@@ -60,14 +60,19 @@ export const createCompany = async (req, res) => {
 
     // 1. Insert the new company
     const companyQuery = `
-      INSERT INTO v4.company_tbl (company_name, business_unit, website_url, last_updated_by)
-      VALUES ($1, $2, $3, $4) 
+      INSERT INTO v4.company_tbl (company_name, business_unit, website_url, is_active, ticketing, flight_tracker, company_form, sort_order, last_updated_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *;
     `;
     const companyRes = await client.query(companyQuery, [
       company_name,
       business_unit,
       website_url,
+      is_active ?? true,
+      ticketing ?? false,
+      flight_tracker ?? false,
+      company_form ?? false,
+      sort_order ?? 0,
       userId,
     ]);
 
@@ -107,7 +112,15 @@ export const createCompany = async (req, res) => {
 // 4. UPDATE
 export const updateCompany = async (req, res) => {
   const { id } = req.params;
-  const { company_name, website_url, is_active, ticketing, flight_tracker, company_form } = req.body;
+  const {
+    company_name,
+    website_url,
+    is_active,
+    ticketing,
+    flight_tracker,
+    company_form,
+    sort_order,
+  } = req.body;
   const business_unit = req.user.business_unit;
   const userId = req.user.id;
 
@@ -116,8 +129,8 @@ export const updateCompany = async (req, res) => {
       UPDATE v4.company_tbl
       SET company_name = $1, website_url = $2, is_active = $3,
           ticketing = $4, flight_tracker = $5, company_form = $6,
-          last_updated_by = $7, updated_at = NOW()
-      WHERE company_id = $8 AND business_unit = $9 RETURNING *;
+          sort_order = $7, last_updated_by = $8, updated_at = NOW()
+      WHERE company_id = $9 AND business_unit = $10 RETURNING *;
     `;
     const { rows } = await getPool().query(query, [
       company_name,
@@ -126,6 +139,7 @@ export const updateCompany = async (req, res) => {
       ticketing ?? false,
       flight_tracker ?? false,
       company_form ?? false,
+      sort_order ?? 0,
       userId,
       id,
       business_unit,
@@ -141,6 +155,19 @@ export const deleteCompany = async (req, res) => {
   const { id } = req.params;
   const business_unit = req.user.business_unit;
   try {
+    // Block deletion if any users are registered under this company
+    const userCheck = await getPool().query(
+      `SELECT COUNT(*) AS count
+       FROM v4.user_profile_tbl p
+       JOIN v4.user_account_tbl a ON a.id = p.user_id
+       WHERE p.company::uuid = $1::uuid
+         AND a.business_unit = $2`,
+      [id, business_unit],
+    );
+    if (parseInt(userCheck.rows[0].count, 10) > 0) {
+      return res.status(409).json({ error: "company_has_users" });
+    }
+
     const { rowCount } = await getPool().query(
       "DELETE FROM v4.company_tbl WHERE company_id = $1 AND business_unit = $2",
       [id, business_unit],
