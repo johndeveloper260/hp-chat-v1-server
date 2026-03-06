@@ -1,17 +1,45 @@
 import express from "express";
+import auth from "../middleware/auth.js";
+import { requireOfficer } from "../middleware/requireRole.js";
+import {
+  getAllRoleDefinitions,
+  getUserRoles,
+  assignRole,
+  revokeRole,
+  replaceUserRoles,
+} from "../controller/accessController.js";
+
 const router = express.Router();
 
-// 1. Change require to import and add .js extension
-import { getAccess } from "../controller/accessController.js";
+/**
+ * GET /access/roles/definitions
+ * All 16 role definition entries — used to render the permission grid in the UI.
+ * Officer+ only (they manage other officers' roles).
+ */
+router.get("/roles/definitions", auth, requireOfficer, getAllRoleDefinitions);
 
-// @route   GET /access/getAccess
-// @desc    Get Access Details
-// @access  Private
-router.get("/getAccess", getAccess);
+/**
+ * GET /access/roles/:userId
+ * Fetch roles assigned to a specific user.
+ */
+router.get("/roles/:userId", auth, requireOfficer, getUserRoles);
 
-// router.post("/getRole", auth, getRole);
-// router.post("/addRole", auth, addRole);
-// router.post("/deleteRole", auth, deleteRole);
+/**
+ * POST /access/roles/:userId
+ * Grant a single role.  Body: { role_name }
+ */
+router.post("/roles/:userId", auth, requireOfficer, assignRole);
 
-// 2. Change module.exports to export default
+/**
+ * DELETE /access/roles/:userId/:roleName
+ * Revoke a single role.
+ */
+router.delete("/roles/:userId/:roleName", auth, requireOfficer, revokeRole);
+
+/**
+ * PUT /access/roles/:userId
+ * Atomic full replacement of all roles.  Body: { roles: [] }
+ */
+router.put("/roles/:userId", auth, requireOfficer, replaceUserRoles);
+
 export default router;

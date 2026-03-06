@@ -1,5 +1,6 @@
 import express from "express";
 import auth from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import {
   getAuditByRecord,
   getAuditByUser,
@@ -10,27 +11,19 @@ const router = express.Router();
 
 /**
  * @route   GET /audit/record/:sourceTable/:recordId
- * @desc    Get full audit history for a specific record
- * @access  Authenticated — non-elevated users limited to their own records
- * @example GET /audit/record/return_home_tbl/42
- * @example GET /audit/record/inquiry_tbl/15
+ * @desc    Audit history for a specific record.
+ *          Non-elevated users are limited to their own records in the controller.
+ *          Officers need at least read access to the relevant module.
  */
 router.get("/record/:sourceTable/:recordId", auth, getAuditByRecord);
 
 /**
  * @route   GET /audit/user/:userId
- * @desc    Get all changes made BY a specific user (who changed what)
- * @access  OFFICER / ADMIN only
- * @query   source_table?, limit?, offset?
- */
-router.get("/user/:userId", auth, getAuditByUser);
-
-/**
  * @route   GET /audit/search
- * @desc    Filtered audit trail for the audit log page
- * @access  OFFICER / ADMIN only
- * @query   source_table?, field_name?, changed_by?, user_id?, date_from?, date_to?, limit?, offset?
+ * @desc    Broader audit views — require at least one read-level role.
+ *          Full-access officers (no roles) bypass via requireRole Strategy A.
  */
-router.get("/search", auth, searchAuditLog);
+router.get("/user/:userId", auth, requireRole("inquiries_read"), getAuditByUser);
+router.get("/search",       auth, requireRole("inquiries_read"), searchAuditLog);
 
 export default router;

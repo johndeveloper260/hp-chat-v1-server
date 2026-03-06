@@ -1,5 +1,6 @@
 import express from "express";
 import auth from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import {
   getAnnouncements,
   createAnnouncement,
@@ -17,21 +18,22 @@ import {
 
 const router = express.Router();
 
-router.get("/getAnnouncements", auth, getAnnouncements);
-router.post("/createAnnouncement", auth, createAnnouncement);
-router.put("/updateAnnouncement/:rowId", auth, updateAnnouncement);
-router.post("/:rowId/react", auth, toggleReaction);
-
-// New routes
-router.get("/companies-with-users", auth, getCompaniesWithUsers);
-router.get("/batches/:companyId", auth, getBatchesByCompany);
-router.post("/preview-audience", auth, previewAudience);
-router.get("/reactions/:rowId", auth, getReactions);
-router.get("/posters", auth, getPosters);
+// ── All authenticated users ───────────────────────────────────────────────────
+router.get("/getAnnouncements",  auth, getAnnouncements);
+router.post("/:rowId/react",     auth, toggleReaction);
+router.get("/reactions/:rowId",  auth, getReactions);
 router.post("/:rowId/mark-seen", auth, markAsSeen);
-router.get("/:rowId/viewers", auth, getViewers);
 
-//Delete
-router.delete("/deleteAnnouncement/:rowId", auth, deleteAnnouncement);
+// ── announcements_read (or announcements_write) ───────────────────────────────
+router.get("/:rowId/viewers",       auth, requireRole("announcements_read"), getViewers);
+router.get("/companies-with-users", auth, requireRole("announcements_read"), getCompaniesWithUsers);
+router.get("/batches/:companyId",   auth, requireRole("announcements_read"), getBatchesByCompany);
+router.post("/preview-audience",    auth, requireRole("announcements_read"), previewAudience);
+router.get("/posters",              auth, requireRole("announcements_read"), getPosters);
+
+// ── announcements_write ───────────────────────────────────────────────────────
+router.post("/createAnnouncement",          auth, requireRole("announcements_write"), createAnnouncement);
+router.put("/updateAnnouncement/:rowId",    auth, requireRole("announcements_write"), updateAnnouncement);
+router.delete("/deleteAnnouncement/:rowId", auth, requireRole("announcements_write"), deleteAnnouncement);
 
 export default router;

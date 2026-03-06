@@ -141,6 +141,13 @@ export const loginUser = async (req, res) => {
       ? `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
       : null;
 
+    // Fetch module roles for this user (only populated for restricted officers)
+    const { rows: roleRows } = await getPool().query(
+      `SELECT role_name FROM v4.user_roles WHERE user_id = $1::uuid ORDER BY role_name`,
+      [user.id],
+    );
+    const userRoles = roleRows.map((r) => r.role_name);
+
     // Prepare JWT Payload (keep this lightweight)
     const payload = {
       id: String(user.id).trim(),
@@ -151,6 +158,7 @@ export const loginUser = async (req, res) => {
       visa_type_descr: user.visa_type_descr,
       batch_no: user.batch_no,
       preferred_language: user.preferred_language || "en",
+      roles: userRoles,
     };
 
     const token = jwt.sign(payload, process.env.SECRET_TOKEN.trim(), {
@@ -204,6 +212,7 @@ export const loginUser = async (req, res) => {
         profilePicS3Bucket: user.profile_pic_s3_bucket,
       },
       streamToken,
+      roles: userRoles,
     });
   } catch (err) {
     console.error("Login Error:", err);

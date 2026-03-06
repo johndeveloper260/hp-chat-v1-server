@@ -30,6 +30,7 @@ const auth = (req, res, next) => {
         userType: decoded.user_type,
         company: decoded.company,
         preferred_language: decoded.preferred_language || "en",
+        roles: decoded.roles ?? [],
       };
 
       // Check is_active and update last_seen in a single query.

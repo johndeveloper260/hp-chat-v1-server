@@ -1,8 +1,6 @@
 import express from "express";
 import auth from "../middleware/auth.js";
-const router = express.Router();
-
-// 1. Changed require to a named import and added .js
+import { requireRole } from "../middleware/requireRole.js";
 import {
   searchInquiries,
   createInquiry,
@@ -12,35 +10,17 @@ import {
   getOfficersByBU,
 } from "../controller/inquiryController.js";
 
-/**
- * @route   GET /api/inquiry/search
- */
-router.get("/search", auth, searchInquiries);
+const router = express.Router();
 
-/**
- * @route   POST /api/inquiry/create
- */
-router.post("/create", auth, createInquiry);
-
-/**
- * @route   PUT /api/inquiry/update/:ticketId
- */
-router.put("/update/:ticketId", auth, updateInquiry);
-
-/**
- * @route   DELETE /api/inquiry/delete/:ticketId
- */
-router.delete("/delete/:ticketId", auth, deleteInquiry);
-
-/**
- * @route   get /api/inquiry/issues
- */
-router.get("/issues", auth, getIssues);
-
-/**
- * @route   get /api/inquiry/issues
- */
+// ── All authenticated users ───────────────────────────────────────────────────
+// Controllers filter to own records for non-officers internally
+router.post("/create",         auth, createInquiry);
+router.get("/issues",          auth, getIssues);
 router.get("/getOfficersByBU", auth, getOfficersByBU);
+router.get("/search",          auth, searchInquiries);   // controller scopes by role
 
-// 2. Changed module.exports to export default
+// ── inquiries_write ───────────────────────────────────────────────────────────
+router.put("/update/:ticketId",    auth, requireRole("inquiries_write"), updateInquiry);
+router.delete("/delete/:ticketId", auth, requireRole("inquiries_write"), deleteInquiry);
+
 export default router;

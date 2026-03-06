@@ -1,8 +1,6 @@
 import express from "express";
 import auth from "../middleware/auth.js";
-const router = express.Router();
-
-// 1. Convert require to a named import and add the .js extension
+import { requireRole } from "../middleware/requireRole.js";
 import {
   searchUsers,
   updateWorkVisa,
@@ -14,28 +12,23 @@ import {
   getUserAvatar,
 } from "../controller/profileController.js";
 
-// Public //
+const router = express.Router();
 
+// ── Public ────────────────────────────────────────────────────────────────────
 // Avatar proxy — no auth, permanent URL safe to store in Stream Chat
 router.get("/avatar/:userId", getUserAvatar);
 
-// Private //
+// ── All authenticated users (own profile) ─────────────────────────────────────
+router.get("/personal-info/:userId",  auth, getUserProfile);
+router.put("/personal-info/:userId",  auth, updateUserProfile);
+router.get("/user-legal-info/:userId", auth, getUserLegalProfile);
+router.put("/visa-info/:userId",      auth, updateWorkVisa);
+router.patch("/update-language",      auth, updateUserLanguage);
 
-// Visa
-router.get(`/user-legal-info/:userId`, auth, getUserLegalProfile);
-router.put(`/visa-info/:userId`, auth, updateWorkVisa);
+// ── profile_read (or profile_write) ──────────────────────────────────────────
+router.get("/search-users", auth, requireRole("profile_read"), searchUsers);
 
-// Profile
-router.get("/search-users", auth, searchUsers);
+// ── profile_write ─────────────────────────────────────────────────────────────
+router.patch("/toggle-active/:userId", auth, requireRole("profile_write"), toggleUserActive);
 
-router.get("/personal-info/:userId", auth, getUserProfile);
-router.put("/personal-info/:userId", auth, updateUserProfile);
-
-// Account
-router.patch("/update-language", auth, updateUserLanguage);
-
-// User Management (Officer/Admin only)
-router.patch("/toggle-active/:userId", auth, toggleUserActive);
-
-// 2. Change module.exports to export default
 export default router;

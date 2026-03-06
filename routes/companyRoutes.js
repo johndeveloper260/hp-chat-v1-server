@@ -1,8 +1,6 @@
 import express from "express";
 import auth from "../middleware/auth.js";
-const router = express.Router();
-
-// 1. Convert require to a named import and add the .js extension
+import { requireRole } from "../middleware/requireRole.js";
 import {
   getCompanies,
   getCompanyDropdown,
@@ -12,36 +10,16 @@ import {
   getEmployeesByCompany,
 } from "../controller/companyController.js";
 
-/**
- * @route   GET /api/company/list
- */
-router.get("/list", auth, getCompanies);
+const router = express.Router();
 
-/**
- * @route   GET /api/company/dropdown
- */
-router.get("/dropdown", auth, getCompanyDropdown);
+// ── company_read (or company_write) ──────────────────────────────────────────
+router.get("/list",                   auth, requireRole("company_read"), getCompanies);
+router.get("/dropdown",               auth, requireRole("company_read"), getCompanyDropdown);
+router.get("/:companyId/employees",   auth, requireRole("company_read"), getEmployeesByCompany);
 
-/**
- * @route   POST /api/company/create
- */
-router.post("/create", auth, createCompany);
+// ── company_write ─────────────────────────────────────────────────────────────
+router.post("/create",        auth, requireRole("company_write"), createCompany);
+router.put("/update/:id",     auth, requireRole("company_write"), updateCompany);
+router.delete("/delete/:id",  auth, requireRole("company_write"), deleteCompany);
 
-/**
- * @route   PUT /api/company/update/:id
- */
-router.put("/update/:id", auth, updateCompany);
-
-/**
- * @route   DELETE /api/company/delete/:id
- */
-router.delete("/delete/:id", auth, deleteCompany);
-
-/**
- * @route   GET /api/company/:companyId/employees
- * @desc    Get employees for a specific company within the officer's business unit
- */
-router.get("/:companyId/employees", auth, getEmployeesByCompany);
-
-// 2. Change module.exports to export default
 export default router;
