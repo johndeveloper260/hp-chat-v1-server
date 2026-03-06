@@ -188,7 +188,14 @@ export const replaceUserRoles = async (req, res) => {
     res.json({ success: true, message: "Roles updated successfully." });
   } catch (err) {
     await client.query("ROLLBACK");
+    // Custom { status, message } thrown by assertTargetIsOfficer
     if (err.status) return res.status(err.status).json({ error: err.message });
+    // FK violation: role_name not present in v4.role_definitions
+    if (err.code === "23503" && err.constraint === "user_roles_role_name_fkey") {
+      return res.status(400).json({
+        error: `Unknown role name: '${err.detail?.match(/\(role_name\)=\((.+?)\)/)?.[1] ?? "unknown"}'. Add it to v4.role_definitions first.`,
+      });
+    }
     console.error("replaceUserRoles error:", err);
     res.status(500).json({ error: "Internal server error" });
   } finally {
