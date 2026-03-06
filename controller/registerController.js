@@ -158,7 +158,22 @@ export const registerUser = async (req, res) => {
 
     await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry, business_unit]);
 
-    // 5. Stream Chat Integration - sync full profile to GetStream
+    // 5. Grant default module roles — OFFICER only.
+    //    ADMIN gets full access via middleware regardless of roles.
+    //    USER/EMPLOYEE roles have no effect on canRead/canWrite.
+    //    Single multi-row INSERT — idempotent via ON CONFLICT DO NOTHING.
+    if (userRole === "OFFICER") {
+      await client.query(
+        `INSERT INTO v4.user_roles (user_id, role_name) VALUES
+           ($1::uuid, 'announcements_write'),
+           ($1::uuid, 'inquiries_write'),
+           ($1::uuid, 'sharepoint_write')
+         ON CONFLICT (user_id, role_name) DO NOTHING`,
+        [userId],
+      );
+    }
+
+    // 6. Stream Chat Integration - sync full profile to GetStream
     await syncUserToStream(userId, client);
 
     // Use @stream-io/node-sdk for token generation — produces a unified

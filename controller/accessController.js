@@ -1,6 +1,35 @@
 import { getPool } from "../config/getPool.js";
 
 /**
+ * GET /access/users?search=
+ * Returns a list of active users for the Role Management UI.
+ * Requires role_management_write.
+ */
+export const getUsers = async (req, res) => {
+  const { search = "" } = req.query;
+  try {
+    const { rows } = await getPool().query(
+      `SELECT p.user_id::text AS id,
+              p.first_name, p.last_name, p.user_type, p.business_unit,
+              a.email
+       FROM v4.user_profile_tbl p
+       JOIN v4.user_account_tbl a ON a.id = p.user_id
+       WHERE a.is_active = true
+         AND ($1 = ''
+              OR LOWER(p.first_name || ' ' || p.last_name) LIKE '%' || LOWER($1) || '%'
+              OR LOWER(a.email) LIKE '%' || LOWER($1) || '%')
+       ORDER BY p.last_name, p.first_name
+       LIMIT 50`,
+      [search],
+    );
+    res.json({ users: rows });
+  } catch (err) {
+    console.error("getUsers error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/**
  * GET /access/roles/definitions
  * Returns all 16 available role definitions.
  * Used by the UI to render the permission management grid.
