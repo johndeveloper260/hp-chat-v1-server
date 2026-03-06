@@ -31,7 +31,10 @@ export const validateCode = async (req, res) => {
     const { rows } = await pool.query(query, [code]);
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Invalid Registration Code", error_code: "api_errors.register.invalid_code" });
+      return res.status(404).json({
+        error: "Invalid Registration Code",
+        error_code: "api_errors.register.invalid_code",
+      });
     }
 
     // Return the found details so frontend can confirm/debug if needed
@@ -70,7 +73,10 @@ export const registerUser = async (req, res) => {
   } = req.body;
 
   if (!email || !password || !firstName || !lastName || !registrationCode) {
-    return res.status(400).json({ error: "Missing required fields.", error_code: "api_errors.register.fields_required" });
+    return res.status(400).json({
+      error: "Missing required fields.",
+      error_code: "api_errors.register.fields_required",
+    });
   }
 
   const pool = getPool();
@@ -89,7 +95,10 @@ export const registerUser = async (req, res) => {
 
     if (xrefRes.rowCount === 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Invalid Registration Code", error_code: "api_errors.register.invalid_code" });
+      return res.status(400).json({
+        error: "Invalid Registration Code",
+        error_code: "api_errors.register.invalid_code",
+      });
     }
 
     const { business_unit, role_name, company, batch_no } = xrefRes.rows[0];
@@ -156,7 +165,12 @@ export const registerUser = async (req, res) => {
       visaExpiry ||
       new Date(new Date().setFullYear(new Date().getFullYear() + 1));
 
-    await client.query(visaQuery, [userId, defaultVisaType, defaultVisaExpiry, business_unit]);
+    await client.query(visaQuery, [
+      userId,
+      defaultVisaType,
+      defaultVisaExpiry,
+      business_unit,
+    ]);
 
     // 5. Grant default module roles — OFFICER only.
     //    ADMIN gets full access via middleware regardless of roles.
@@ -167,6 +181,9 @@ export const registerUser = async (req, res) => {
         `INSERT INTO v4.user_roles (user_id, role_name) VALUES
            ($1::uuid, 'announcements_write'),
            ($1::uuid, 'inquiries_write'),
+           ($1::uuid, 'company_read'),
+           ($1::uuid, 'profile_read'),
+           ($1::uuid, 'visa_read'),
            ($1::uuid, 'sharepoint_write')
          ON CONFLICT (user_id, role_name) DO NOTHING`,
         [userId],
@@ -178,7 +195,10 @@ export const registerUser = async (req, res) => {
 
     // Use @stream-io/node-sdk for token generation — produces a unified
     // token that grants both chat AND video permissions.
-    const nodeClient = new StreamClient(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
+    const nodeClient = new StreamClient(
+      process.env.STREAM_API_KEY,
+      process.env.STREAM_API_SECRET,
+    );
     const streamToken = nodeClient.generateUserToken({
       user_id: String(userId),
       validity_period_hs: 24,
@@ -217,7 +237,10 @@ export const registerUser = async (req, res) => {
     await client.query("ROLLBACK");
     if (err.code === "23505") {
       // Unique violation for email
-      return res.status(409).json({ error: "Email already exists", error_code: "api_errors.register.email_exists" });
+      return res.status(409).json({
+        error: "Email already exists",
+        error_code: "api_errors.register.email_exists",
+      });
     }
     console.error("Registration Error:", err);
     return res.status(500).json({ error: "Internal Server Error" });
