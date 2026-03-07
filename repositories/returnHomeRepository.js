@@ -38,6 +38,7 @@ export const searchReturnHome = async (
       p.company AS user_company_id,
       COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
       v.visa_type, v.joining_date, v.visa_expiry_date,
+      COALESCE(vl.descr->>$1, vl.descr->>'en', (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)) AS visa_type_descr,
       (
         SELECT COUNT(*)
         FROM v4.shared_comments
@@ -59,6 +60,7 @@ export const searchReturnHome = async (
     LEFT JOIN v4.user_profile_tbl     p ON r.user_id = p.user_id
     LEFT JOIN v4.company_tbl          c ON p.company = c.company_id::text
     LEFT JOIN v4.user_visa_info_tbl   v ON r.user_id = v.user_id
+    LEFT JOIN v4.visa_list_tbl       vl ON v.visa_type = vl.code AND r.business_unit = vl.business_unit
     WHERE r.business_unit = $2
   `;
 
@@ -161,11 +163,13 @@ export const findReturnHomeById = async (id, businessUnit, lang) => {
        TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS user_name,
        p.first_name, p.last_name, p.company AS user_company_id,
        COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
-       v.visa_type, v.joining_date, v.visa_expiry_date
+       v.visa_type, v.joining_date, v.visa_expiry_date,
+       COALESCE(vl.descr->>$1, vl.descr->>'en', (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)) AS visa_type_descr
      FROM v4.return_home_tbl r
      LEFT JOIN v4.user_profile_tbl   p ON r.user_id = p.user_id
      LEFT JOIN v4.company_tbl        c ON p.company = c.company_id::text
      LEFT JOIN v4.user_visa_info_tbl v ON r.user_id = v.user_id
+     LEFT JOIN v4.visa_list_tbl     vl ON v.visa_type = vl.code AND r.business_unit = vl.business_unit
      WHERE r.id = $2 AND r.business_unit = $3`,
     [lang, id, businessUnit],
   );
