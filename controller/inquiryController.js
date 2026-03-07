@@ -9,6 +9,21 @@
  *   deleteFromS3        → utils/s3Client        (via inquiryService)
  */
 import * as inquiryService from "../services/inquiryService.js";
+import { findOldInquiry } from "../repositories/inquiryRepository.js";
+
+/**
+ * Returns true when the requesting user may write to ANY inquiry
+ * (ADMIN, full-access OFFICER, or OFFICER with inquiries_write role).
+ * Returns false for employees — they may only touch records they own.
+ */
+const hasWriteAccess = (req) => {
+  const type  = (req.user.userType || "").toUpperCase();
+  const roles = req.user.roles ?? [];
+  if (type === "ADMIN")   return true;
+  if (type !== "OFFICER") return false;    // employee / unknown
+  if (roles.length === 0) return true;     // full-access backward compat
+  return roles.includes("inquiries_write");
+};
 
 // ─── 1. Search ────────────────────────────────────────────────────────────────
 
@@ -47,6 +62,18 @@ export const updateInquiry = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
     const { id: userId, business_unit: userBU } = req.user;
+
+    if (hasWriteAccess(req)) {
+      // Officer / admin — may update any inquiry in their BU
+    } else {
+      // Employee — may only update their own inquiry
+      const existing = await findOldInquiry(ticketId, userBU);
+      if (!existing) return res.status(404).json({ error: "Inquiry not found" });
+      if (String(existing.owner_id) !== String(userId)) {
+        return res.status(403).json({ error: "Forbidden: you can only update your own inquiries" });
+      }
+    }
+
     const updated = await inquiryService.updateInquiry({ ticketId, body: req.body, userId, userBU });
     res.json(updated);
   } catch (err) {
@@ -58,10 +85,21 @@ export const updateInquiry = async (req, res, next) => {
 
 export const deleteInquiry = async (req, res, next) => {
   try {
-    await inquiryService.deleteInquiry({
-      ticketId: req.params.ticketId,
-      userBU:   req.user.business_unit,
-    });
+    const { ticketId } = req.params;
+    const { id: userId, business_unit: userBU } = req.user;
+
+    if (hasWriteAccess(req)) {
+      // Officer / admin — may delete any inquiry in their BU
+    } else {
+      // Employee — may only delete their own inquiry
+      const existing = await findOldInquiry(ticketId, userBU);
+      if (!existing) return res.status(404).json({ error: "Inquiry not found" });
+      if (String(existing.owner_id) !== String(userId)) {
+        return res.status(403).json({ error: "Forbidden: you can only delete your own inquiries" });
+      }
+    }
+
+    await inquiryService.deleteInquiry({ ticketId, userBU });
     res.json({ success: true, message: "Inquiry and all related data deleted successfully" });
   } catch (err) {
     next(err);
