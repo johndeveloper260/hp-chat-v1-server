@@ -251,6 +251,11 @@ export const findOfficersByBU = async (businessUnit) => {
      WHERE a.business_unit = $1
        AND p.user_type = 'OFFICER'
        AND a.is_active = true
+       AND EXISTS (
+         SELECT 1 FROM v4.user_roles r
+         WHERE r.user_id = a.id
+           AND r.role_name IN ('inquiries_read', 'inquiries_write')
+       )
      ORDER BY p.first_name ASC`,
     [businessUnit],
   );
