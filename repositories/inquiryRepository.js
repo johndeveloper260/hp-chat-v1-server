@@ -72,7 +72,7 @@ export const searchInquiries = async ({ lang, businessUnit, userId, userRole, fi
       values.push(statuses);
       query += ` AND i.status = ANY($${values.length}::text[])`;
     } else {
-      query += ` AND i.status NOT IN ('CLOSED', 'Completed', 'Hold')`;
+      query += ` AND i.status NOT IN ('CLOSED')`;
     }
 
     if (type && type !== "All") {
@@ -118,7 +118,7 @@ export const insertInquiry = async (fields) => {
      ) VALUES (
        $1, $2, $3, $4, $5, $6, $7, $8::uuid[],
        $9::uuid, $10::uuid, $11::uuid,
-       'New', CURRENT_DATE, $9::uuid, NOW()
+       'NEW', CURRENT_DATE, $9::uuid, NOW()
      ) RETURNING *`,
     [
       userBU,
