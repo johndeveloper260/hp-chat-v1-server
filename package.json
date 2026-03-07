@@ -29,7 +29,8 @@
     "pg": "^8.16.3",
     "socket.io": "^4.8.1",
     "stream-chat": "^9.27.2",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
