@@ -1,688 +1,161 @@
-import dotenv from "dotenv";
-import { getPool } from "../config/getPool.js";
-import { sendNotificationToMultipleUsers } from "./notificationController.js";
-import { getUserLanguage } from "../utils/getUserLanguage.js";
-import { deleteFromS3 } from "./attachmentController.js";
+/**
+ * Feed (Announcement) Controller
+ *
+ * Thin HTTP adapters — parse req → call service → send res → next(err).
+ * All business logic lives in services/feedService.js.
+ *
+ * Cross-controller dependencies resolved:
+ *   sendNotificationToMultipleUsers → notificationService  (via feedService)
+ *   deleteFromS3                    → utils/s3Client        (via feedService)
+ */
+import * as feedService from "../services/feedService.js";
 
-dotenv.config();
+// ─── Posters ──────────────────────────────────────────────────────────────────
 
-export const getPosters = async (req, res) => {
-  const { business_unit } = req.user;
-
+export const getPosters = async (req, res, next) => {
   try {
-    const query = `
-      SELECT DISTINCT 
-        a.created_by AS value,
-        p.first_name || ' ' || p.last_name AS label
-      FROM v4.announcement_tbl a
-      JOIN v4.user_profile_tbl p ON a.created_by = p.user_id
-      WHERE a.business_unit = $1
-      ORDER BY label ASC
-    `;
-    const { rows } = await getPool().query(query, [business_unit]);
+    const rows = await feedService.getPosters({ businessUnit: req.user.business_unit });
     res.json(rows);
   } catch (err) {
-    console.error("Get Posters Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * GET /announcements
- * Fetch all active announcements with attachments
- */
-export const getAnnouncements = async (req, res) => {
-  const { company_filter } = req.query;
-  const { id: userId, business_unit: userBU, userType: userType } = req.user;
-  const userRole = (userType || "").toUpperCase();
+// ─── Announcements ────────────────────────────────────────────────────────────
 
-  // Ensure preferredLanguage is passed in your values array (e.g., 'en', 'es')
-  const preferredLanguage = await getUserLanguage(req.user.id);
-
-  const isOfficer = userRole === "ADMIN" || userRole === "OFFICER";
-
-  let query = `
-    SELECT
-      a.row_id,
-      a.business_unit,
-      a.company as company_ids,
-      a.batch_no,
-      ARRAY(
-        SELECT COALESCE(c.company_name->>$1, c.company_name->>'en')
-        FROM v4.company_tbl c
-        WHERE c.company_id = ANY(a.company::uuid[])
-        ORDER BY c.sort_order ASC
-      ) as target_companies,
-      a.title,
-      a.content_text,
-      a.reactions,
-      a.date_from,
-      a.date_to,
-      a.active,
-      (SELECT COUNT(*) FROM v4.shared_comments WHERE relation_id = a.row_id AND relation_type = 'announcements') as comment_count,
-      (SELECT COUNT(*) FROM v4.announcement_views WHERE announcement_id = a.row_id::integer) as view_count,
-      EXISTS(SELECT 1 FROM v4.announcement_views WHERE announcement_id = a.row_id::integer AND user_id = $2::uuid) as has_viewed,
-       a.comments_on,
-      a.created_by,
-      to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as created_at,
-      u.first_name || ' ' || u.last_name as created_by_name,
-      COALESCE(
-        (
-          SELECT json_agg(att)
-          FROM (
-            SELECT attachment_id, s3_key, s3_bucket, display_name as name, file_type as type
-            FROM v4.shared_attachments
-            WHERE relation_type = 'announcements' AND relation_id = a.row_id::text
-          ) att
-        ), '[]'
-      ) as attachments
-    FROM v4.announcement_tbl a
-    LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
-    WHERE (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
-  `;
-
-  // Regular users only see active (publicly visible) announcements
-  if (!isOfficer) {
-    query += ` AND a.active = true`;
-  }
-
-  const values = [preferredLanguage || "en", userId];
-
-  if (isOfficer) {
-    // ADMIN/OFFICER sees everything in the BU (active and inactive)
-  } else if (company_filter) {
-    values.push(company_filter);
-    query += ` AND ($${values.length} = ANY(a.company::uuid[]) OR a.company IS NULL OR cardinality(a.company) = 0)`;
-  } else {
-    query += ` AND (a.company IS NULL OR cardinality(a.company) = 0)`;
-  }
-
-  if (userBU) {
-    values.push(userBU);
-    query += ` AND a.business_unit = $${values.length}`;
-  }
-
-  query += ` ORDER BY a.created_at DESC`;
-
+export const getAnnouncements = async (req, res, next) => {
   try {
-    const { rows } = await getPool().query(query, values);
+    const { company_filter } = req.query;
+    const { id: userId, business_unit: userBU, userType } = req.user;
+    const rows = await feedService.getAnnouncements({ company_filter, userId, userBU, userType });
     res.json(rows);
   } catch (err) {
-    console.error("Database Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * POST /announcements
- * Create a new announcement - WITH PUSH NOTIFICATIONS
- */
-export const createAnnouncement = async (req, res) => {
-  const { id: userId, business_unit: userBU } = req.user;
-
-  const {
-    company,
-    batch_no,
-    title,
-    content_text,
-    date_from,
-    date_to,
-    active,
-    comments_on,
-  } = req.body;
-
-  const query = `
-    INSERT INTO v4.announcement_tbl (
-      business_unit, company, batch_no, title, content_text, 
-      date_from, date_to, active, comments_on, 
-      created_by, created_at, last_updated_by, last_updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid, NOW(), $10::uuid, NOW())
-    RETURNING *;
-  `;
-
+export const createAnnouncement = async (req, res, next) => {
   try {
-    const values = [
-      userBU,
-      company,
-      batch_no || null,
-      title,
-      content_text,
-      date_from,
-      date_to,
-      active,
-      comments_on,
-      userId,
-    ];
-
-    const { rows } = await getPool().query(query, values);
-    const newAnnouncement = rows[0];
-
-    // Get creator's name - ADDED ::uuid
-    const creatorQuery = await getPool().query(
-      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
-      [userId],
-    );
-    const creatorName = creatorQuery.rows[0]
-      ? `${creatorQuery.rows[0].first_name} ${creatorQuery.rows[0].last_name}`
-      : "Someone";
-
-    // UPDATED: Recipient Query with explicit casts
-    let recipientQuery = `
-      SELECT DISTINCT a.id::text as user_id
-      FROM v4.user_account_tbl a
-      JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      WHERE a.business_unit = $1::text 
-        AND a.is_active = true
-        AND a.id != $2::uuid
-    `;
-
-    const queryValues = [userBU, userId];
-
-    if (company && Array.isArray(company) && company.length > 0) {
-      queryValues.push(company);
-      recipientQuery += ` AND (p.company::uuid = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
-    }
-
-    const recipientResult = await getPool().query(recipientQuery, queryValues);
-    const recipientIds = recipientResult.rows.map((row) => row.user_id);
-
-    if (recipientIds.length > 0 && active) {
-      await sendNotificationToMultipleUsers(
-        recipientIds,
-        `New Announcement: ${title}`,
-        `${creatorName} posted a new announcement`,
-        {
-          type: "announcement",
-          announcementId: newAnnouncement.row_id,
-          screen: "HomeScreen",
-          params: { rowId: newAnnouncement.row_id },
-        },
-      );
-    }
-
-    res.status(201).json(newAnnouncement);
+    const { id: userId, business_unit: userBU } = req.user;
+    const announcement = await feedService.createAnnouncement({ body: req.body, userId, userBU });
+    res.status(201).json(announcement);
   } catch (err) {
-    console.error("Create Announcement Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * PUT /announcements/:id
- * Update an existing announcement - WITH PUSH NOTIFICATIONS
- */
-export const updateAnnouncement = async (req, res) => {
-  const { rowId } = req.params;
-  const userId = req.user.id;
-  const userBU = req.user.business_unit;
-  const {
-    company,
-    batch_no,
-    title,
-    content_text,
-    date_from,
-    date_to,
-    active,
-    comments_on,
-  } = req.body;
-
-  // Ensure row_id cast matches your schema (integer vs uuid)
-  const query = `
-    UPDATE v4.announcement_tbl
-    SET
-      company = $1, batch_no = $2, title = $3,
-      content_text = $4, date_from = $5, date_to = $6,
-      active = $7, comments_on = $8,
-      last_updated_by = $9::uuid,
-      last_updated_at = NOW()
-    WHERE row_id = $10::integer AND business_unit = $11
-    RETURNING *;
-  `;
-
+export const updateAnnouncement = async (req, res, next) => {
   try {
-    const oldData = await getPool().query(
-      "SELECT * FROM v4.announcement_tbl WHERE row_id = $1::integer AND business_unit = $2",
-      [rowId, userBU],
-    );
-
-    const values = [
-      company,
-      batch_no || null,
-      title,
-      content_text,
-      date_from,
-      date_to,
-      active,
-      comments_on,
-      userId,
-      rowId,
-      userBU,
-    ];
-
-    const { rows } = await getPool().query(query, values);
-
-    if (rows.length === 0) return res.status(404).json({ error: "Not found" });
-
-    const updatedAnnouncement = rows[0];
-    const wasActivated = !oldData.rows[0].active && active;
-    const titleChanged = oldData.rows[0].title !== title;
-    const contentChanged = oldData.rows[0].content_text !== content_text;
-
-    if (wasActivated || (active && (titleChanged || contentChanged))) {
-      const updaterQuery = await getPool().query(
-        `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
-        [userId],
-      );
-      const updaterName = updaterQuery.rows[0]
-        ? `${updaterQuery.rows[0].first_name} ${updaterQuery.rows[0].last_name}`
-        : "Someone";
-
-      // UPDATED: Recipient Query with explicit casts
-      let recipientQuery = `
-        SELECT DISTINCT a.id::text as user_id
-        FROM v4.user_account_tbl a
-        JOIN v4.user_profile_tbl p ON a.id = p.user_id
-        WHERE a.business_unit = $1::text 
-          AND a.is_active = true
-          AND a.id != $2::uuid
-      `;
-
-      const queryValues = [updatedAnnouncement.business_unit, userId];
-
-      if (company && Array.isArray(company) && company.length > 0) {
-        queryValues.push(company);
-        recipientQuery += ` AND (p.company::uuid = ANY($${queryValues.length}::uuid[]) OR p.company IS NULL)`;
-      }
-
-      const recipientResult = await getPool().query(
-        recipientQuery,
-        queryValues,
-      );
-      const recipientIds = recipientResult.rows.map((row) => row.user_id);
-
-      if (recipientIds.length > 0) {
-        await sendNotificationToMultipleUsers(
-          recipientIds,
-          wasActivated
-            ? `New Announcement: ${title}`
-            : `Announcement Updated: ${title}`,
-          wasActivated
-            ? `${updaterName} posted an announcement`
-            : `${updaterName} updated an announcement`,
-          {
-            type: "announcement",
-            announcementId: rowId,
-            screen: "HomeScreen",
-            params: { rowId: rowId },
-          },
-        );
-      }
-    }
-
-    res.json(updatedAnnouncement);
+    const { rowId } = req.params;
+    const { id: userId, business_unit: userBU } = req.user;
+    const updated = await feedService.updateAnnouncement({ rowId, body: req.body, userId, userBU });
+    res.json(updated);
   } catch (err) {
-    console.error("Update Announcement Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * Toggle Reaction
- */
-export const toggleReaction = async (req, res) => {
-  const { rowId } = req.params;
-  const { emoji } = req.body;
-  const userId = String(req.user.id);
-  const userBU = req.user.business_unit;
-
+export const deleteAnnouncement = async (req, res, next) => {
   try {
-    const result = await getPool().query(
-      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
-      [rowId, userBU],
-    );
-
-    if (result.rowCount === 0)
-      return res.status(404).json({ error: "Post not found" });
-
-    let reactions = result.rows[0].reactions || {};
-    const isSameEmoji = reactions[emoji]?.includes(userId);
-
-    Object.keys(reactions).forEach((key) => {
-      if (Array.isArray(reactions[key])) {
-        reactions[key] = reactions[key].filter((id) => id !== userId);
-      }
-      if (reactions[key].length === 0) delete reactions[key];
+    await feedService.deleteAnnouncement({
+      rowId: req.params.rowId,
+      userBU: req.user.business_unit,
     });
-
-    if (!isSameEmoji) {
-      if (!reactions[emoji]) reactions[emoji] = [];
-      reactions[emoji].push(userId);
-    }
-
-    const finalUpdate = await getPool().query(
-      "UPDATE v4.announcement_tbl SET reactions = $1 WHERE row_id = $2 AND business_unit = $3 RETURNING reactions",
-      [JSON.stringify(reactions), rowId, userBU],
-    );
-
-    res.json(finalUpdate.rows[0]);
+    res.json({ success: true, message: "Announcement and all related data deleted successfully" });
   } catch (err) {
-    console.error("Toggle Error:", err.message);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * GET /feed/companies-with-users
- * Returns only companies that have active users
- */
-export const getCompaniesWithUsers = async (req, res) => {
-  const { business_unit } = req.user;
-  const lang = await getUserLanguage(req.user.id);
+// ─── Reactions ────────────────────────────────────────────────────────────────
 
+export const toggleReaction = async (req, res, next) => {
   try {
-    const query = `
-      SELECT DISTINCT 
-        c.company_id AS value,
-        COALESCE(c.company_name->>$1, c.company_name->>'en') AS label
-      FROM v4.company_tbl c
-      INNER JOIN v4.user_profile_tbl p ON p.company::uuid = c.company_id
-      INNER JOIN v4.user_account_tbl a ON a.id = p.user_id
-      WHERE c.business_unit = $2 
-        AND c.is_active = true
-        AND a.is_active = true
-      ORDER BY label ASC
-    `;
-    const { rows } = await getPool().query(query, [lang, business_unit]);
-    res.json(rows);
+    const { rowId } = req.params;
+    const { emoji } = req.body;
+    const { id: userId, business_unit: userBU } = req.user;
+    const result = await feedService.toggleReaction({ rowId, emoji, userId, userBU });
+    res.json(result);
   } catch (err) {
-    console.error("Get Companies Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * GET /feed/batches/:companyId
- * Returns only batches that have active users in the company
- */
-export const getBatchesByCompany = async (req, res) => {
-  const { companyId } = req.params;
-  const userBU = req.user.business_unit;
-
+export const getReactions = async (req, res, next) => {
   try {
-    const query = `
-      SELECT DISTINCT
-        p.batch_no AS value,
-        p.batch_no AS label
-      FROM v4.user_profile_tbl p
-      INNER JOIN v4.user_account_tbl a ON a.id = p.user_id
-      WHERE p.company::uuid = $1::uuid
-        AND p.batch_no IS NOT NULL
-        AND a.is_active = true
-        AND a.business_unit = $2
-      ORDER BY p.batch_no ASC
-    `;
-    const { rows } = await getPool().query(query, [companyId, userBU]);
-    res.json(rows);
-  } catch (err) {
-    console.error("Get Batches Error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * POST /feed/preview-audience
- * Count users who will receive the announcement
- */
-export const previewAudience = async (req, res) => {
-  const { company, batch_no } = req.body;
-  const { business_unit } = req.user;
-
-  try {
-    let query = `
-      SELECT COUNT(DISTINCT a.id) as count
-      FROM v4.user_account_tbl a
-      INNER JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      WHERE a.business_unit = $1
-        AND a.is_active = true
-    `;
-
-    const values = [business_unit];
-
-    // Filter by company
-    if (company && Array.isArray(company) && company.length > 0) {
-      values.push(company);
-      query += ` AND p.company::uuid = ANY($${values.length}::uuid[])`;
-    }
-
-    // Filter by batch_no (only if single company)
-    if (batch_no && company && company.length === 1) {
-      values.push(batch_no);
-      query += ` AND p.batch_no = $${values.length}`;
-    }
-
-    const { rows } = await getPool().query(query, values);
-    res.json({ count: parseInt(rows[0].count) || 0 });
-  } catch (err) {
-    console.error("Preview Audience Error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * GET /feed/reactions/:rowId
- * Get users who reacted to an announcement
- */
-export const getReactions = async (req, res) => {
-  const { rowId } = req.params;
-  const userBU = req.user.business_unit;
-
-  try {
-    const result = await getPool().query(
-      "SELECT reactions FROM v4.announcement_tbl WHERE row_id = $1 AND business_unit = $2",
-      [rowId, userBU],
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Announcement not found" });
-    }
-
-    const reactions = result.rows[0].reactions || {};
-
-    // Flatten reactions and get user details
-    const userIds = Object.values(reactions).flat();
-
-    if (userIds.length === 0) {
-      return res.json([]);
-    }
-
-    const userQuery = `
-      SELECT 
-        a.id,
-        p.first_name || ' ' || p.last_name AS name,
-        p.company
-      FROM v4.user_account_tbl a
-      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      WHERE a.id = ANY($1::uuid[])
-    `;
-
-    const userResult = await getPool().query(userQuery, [userIds]);
-    const userMap = {};
-    userResult.rows.forEach((u) => {
-      userMap[u.id] = { name: u.name, company: u.company };
+    const list = await feedService.getReactions({
+      rowId: req.params.rowId,
+      userBU: req.user.business_unit,
     });
-
-    // Build response with emoji groups
-    const reactionList = Object.entries(reactions).map(([emoji, ids]) => ({
-      emoji,
-      users: ids.map((id) => ({
-        id,
-        ...userMap[id],
-      })),
-    }));
-
-    res.json(reactionList);
+    res.json(list);
   } catch (err) {
-    console.error("Get Reactions Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-// ✅ New endpoint: Mark announcement as seen
-export const markAsSeen = async (req, res) => {
-  const { rowId } = req.params;
-  const userId = req.user.id;
-  const userBU = req.user.business_unit; // Extract from JWT
+// ─── Companies / Batches / Audience ──────────────────────────────────────────
 
+export const getCompaniesWithUsers = async (req, res, next) => {
   try {
-    // Verify announcement belongs to requestor's business_unit
-    const check = await getPool().query(
-      "SELECT row_id FROM v4.announcement_tbl WHERE row_id = $1::integer AND business_unit = $2",
-      [rowId, userBU],
-    );
+    const rows = await feedService.getCompaniesWithUsers({
+      userId: req.user.id,
+      businessUnit: req.user.business_unit,
+    });
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
 
-    if (check.rowCount === 0) {
-      return res.status(404).json({ error: "Announcement not found" });
-    }
+export const getBatchesByCompany = async (req, res, next) => {
+  try {
+    const rows = await feedService.getBatchesByCompany({
+      companyId: req.params.companyId,
+      userBU:    req.user.business_unit,
+    });
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
 
-    const query = `
-      INSERT INTO v4.announcement_views (announcement_id, user_id, business_unit)
-      VALUES ($1::integer, $2::uuid, $3)
-      ON CONFLICT (announcement_id, user_id) 
-      DO UPDATE SET viewed_at = NOW() -- Optional: Update timestamp if they view again
-      RETURNING *;
-    `;
+export const previewAudience = async (req, res, next) => {
+  try {
+    const result = await feedService.previewAudience({
+      company:      req.body.company,
+      batch_no:     req.body.batch_no,
+      businessUnit: req.user.business_unit,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
 
-    await getPool().query(query, [rowId, userId, userBU]);
+// ─── Views ────────────────────────────────────────────────────────────────────
+
+export const markAsSeen = async (req, res, next) => {
+  try {
+    await feedService.markAsSeen({
+      rowId:  req.params.rowId,
+      userId: req.user.id,
+      userBU: req.user.business_unit,
+    });
     res.json({ success: true });
   } catch (err) {
-    console.error("Mark as seen error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-// ✅ New endpoint: Get viewers list
-export const getViewers = async (req, res) => {
-  const { rowId } = req.params;
-  const lang = await getUserLanguage(req.user.id);
-  const userBU = req.user.business_unit;
-
+export const getViewers = async (req, res, next) => {
   try {
-    const query = `
-      SELECT
-      v.user_id as id,
-      p.first_name || ' ' || p.last_name as name,
-      COALESCE(c.company_name->>$2, c.company_name->>'en') as company,
-      v.viewed_at
-      FROM v4.announcement_views v
-      JOIN v4.user_profile_tbl p ON v.user_id = p.user_id
-      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-      JOIN v4.announcement_tbl a ON v.announcement_id = a.row_id
-      WHERE v.announcement_id = $1::integer
-        AND a.business_unit = $3
-      ORDER BY v.viewed_at DESC
-    `;
-
-    const { rows } = await getPool().query(query, [rowId, lang, userBU]);
+    const rows = await feedService.getViewers({
+      rowId:  req.params.rowId,
+      userId: req.user.id,
+      userBU: req.user.business_unit,
+    });
     res.json(rows);
   } catch (err) {
-    console.error("Get viewers error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * DELETE /announcements/:rowId
- * Atomic cascading deletion with S3 cleanup and multi-tenant isolation
- */
-export const deleteAnnouncement = async (req, res) => {
-  const { rowId } = req.params;
-  const { business_unit: userBU } = req.user;
-
-  const client = await getPool().connect();
-
-  try {
-    await client.query("BEGIN");
-
-    // 1. Verify the announcement exists within the caller's business_unit
-    const checkRes = await client.query(
-      `SELECT row_id FROM v4.announcement_tbl
-       WHERE row_id = $1::integer AND business_unit = $2`,
-      [rowId, userBU],
-    );
-
-    if (checkRes.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({
-        error:
-          "Announcement not found or you do not have permission to delete it.",
-      });
-    }
-
-    // 2. Fetch S3 keys from shared_attachments BEFORE deleting rows
-    const attachRows = await client.query(
-      `SELECT s3_key FROM v4.shared_attachments
-       WHERE relation_id = $1::text
-         AND relation_type = 'announcements'
-         AND business_unit = $2`,
-      [rowId, userBU],
-    );
-
-    // 3. Delete physical files from S3
-    for (const row of attachRows.rows) {
-      await deleteFromS3(row.s3_key);
-    }
-
-    // 4. Cascading purge — all child tables scoped to business_unit
-    await client.query(
-      `DELETE FROM v4.announcement_views
-       WHERE announcement_id = $1::integer
-         AND business_unit = $2`,
-      [rowId, userBU],
-    );
-
-    await client.query(
-      `DELETE FROM v4.shared_attachments
-       WHERE relation_id = $1::text
-         AND relation_type = 'announcements'
-         AND business_unit = $2`,
-      [rowId, userBU],
-    );
-
-    await client.query(
-      `DELETE FROM v4.shared_comments
-       WHERE relation_id = $1::integer
-         AND relation_type = 'announcements'
-         AND business_unit = $2`,
-      [rowId, userBU],
-    );
-
-    await client.query(
-      `DELETE FROM v4.notification_history_tbl
-       WHERE relation_id = $1::text
-         AND relation_type = 'announcements'
-         AND business_unit = $2`,
-      [rowId, userBU],
-    );
-
-    // 5. Delete the parent announcement
-    await client.query(
-      `DELETE FROM v4.announcement_tbl
-       WHERE row_id = $1::integer AND business_unit = $2
-       RETURNING row_id`,
-      [rowId, userBU],
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      success: true,
-      message: "Announcement and all related data deleted successfully",
-    });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Delete Announcement Error:", err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+    next(err);
   }
 };

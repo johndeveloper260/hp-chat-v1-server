@@ -1,593 +1,180 @@
-import { StreamChat } from "stream-chat";
-import { StreamClient } from "@stream-io/node-sdk";
-import express from "express";
-import bcrypt from "bcrypt";
-import crypto from "crypto";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
+/**
+ * Login Controller
+ *
+ * Responsibilities:
+ *  - Parse request data
+ *  - Call the service layer
+ *  - Send the HTTP response
+ *
+ * No business logic, no SQL, no try/catch soup.
+ * All errors propagate to the global errorHandler via next(err).
+ */
 
-// 1. Load environment variables
-dotenv.config();
-
-// 2. Import your modernized services
-// IMPORTANT: You must include the .js extension in the import path
-import { getPool } from "../config/getPool.js";
-import * as emailService from "../config/systemMailer.js";
-import { deleteFromS3 } from "./attachmentController.js";
-
-const streamClient = StreamChat.getInstance(
-  process.env.STREAM_API_KEY,
-  process.env.STREAM_API_SECRET,
-);
+import * as loginService from "../services/loginService.js";
+import { getApiMessage } from "../utils/notificationTranslations.js";
+// ─────────────────────────────────────────────────────────────────────────────
+// Login
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Login User - Updated to include full profile & visa details
+ * POST /login
  */
-export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required", error_code: "api_errors.login.fields_required" });
-  }
-
+export const loginUser = async (req, res, next) => {
   try {
-    const loginQuery = `
-      SELECT 
-        a.id, 
-        a.email, 
-        a.password_hash, 
-        a.business_unit, 
-        a.is_active,
-        a.preferred_language, 
-        p.user_id, 
-        p.first_name, 
-        p.middle_name,
-        p.last_name, 
-        p.user_type, 
-        p.position,
-        p.company, 
-        p.batch_no, 
-        p.company_branch,
-        p.phone_number,
-        p.postal_code,
-        p.street_address,
-        p.city,
-        p.state_province,
-        -- Get translated company name
-        COALESCE(
-          c.company_name ->> a.preferred_language,
-          c.company_name ->> 'en',
-          (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
-        ) AS company_name,
-        c.ticketing AS company_ticketing,
-        c.flight_tracker AS company_flight_tracker,
-        c.company_form AS company_form,
-        v.visa_type, -- This is the code (e.g., 'V01')
-        v.visa_expiry_date,
-        -- Get translated visa description from visa_list_tbl
-        COALESCE(
-          vl.descr ->> 'ja', -- a.preferred_language,
-          vl.descr ->> 'en',
-          (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
-        ) AS visa_type_descr,
-        sa.attachment_id as profile_pic_id,
-        sa.s3_key as profile_pic_s3_key,
-        sa.s3_bucket as profile_pic_s3_bucket,
-        sa.display_name as profile_pic_name,
-        sa.file_type as profile_pic_type
-      FROM v4.user_account_tbl a
-      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-      LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
-      -- New Join for Visa List
-      LEFT JOIN v4.visa_list_tbl vl ON (
-        v.visa_type = vl.code 
-        AND a.business_unit = vl.business_unit
-      )
-      LEFT JOIN LATERAL (
-        SELECT 
-          attachment_id,
-          s3_key,
-          s3_bucket,
-          display_name,
-          file_type
-        FROM v4.shared_attachments
-        WHERE relation_type = 'profile'
-          AND relation_id = a.id::text
-        ORDER BY created_at DESC
-        LIMIT 1
-      ) sa ON true
-      WHERE a.email = $1;
-    `;
-
-    const result = await getPool().query(loginQuery, [
-      email.toLowerCase().trim(),
-    ]);
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid email or password", error_code: "api_errors.login.invalid_credentials" });
-    }
-
-    const user = result.rows[0];
-
-    // Verify password
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
-      return res.status(401).json({ error: "Invalid email or password", error_code: "api_errors.login.invalid_credentials" });
-    }
-
-    // Block deactivated accounts
-    if (user.is_active === false) {
-      return res.status(403).json({ error: "Your account has been deactivated. Please contact your administrator.", error_code: "api_errors.login.account_deactivated" });
-    }
-
-    // Record last login timestamp
-    await getPool().query(
-      "UPDATE v4.user_account_tbl SET last_login = NOW() WHERE id = $1",
-      [user.id],
-    );
-
-    // Log access history
-    const ipAddress = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+    const { email, password } = req.body;
+    const ipAddress =
+      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress ||
+      null;
     const userAgent = req.headers["user-agent"] || null;
-    await getPool().query(
-      `INSERT INTO v4.access_log_tbl (user_id, business_unit, ip_address, user_agent)
-       VALUES ($1, $2, $3, $4)`,
-      [user.id, user.business_unit, ipAddress, userAgent],
-    );
 
-    // Use permanent avatar proxy URL instead of a pre-signed S3 URL.
-    const profilePictureUrl = user.profile_pic_s3_key
-      ? `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
-      : null;
+    const result = await loginService.loginUser({ email, password, ipAddress, userAgent });
+    const lang = result.user.preferredLanguage || "en";
 
-    // Fetch module roles for this user (only populated for restricted officers)
-    const { rows: roleRows } = await getPool().query(
-      `SELECT role_name FROM v4.user_roles WHERE user_id = $1::uuid ORDER BY role_name`,
-      [user.id],
-    );
-    const userRoles = roleRows.map((r) => r.role_name);
-
-    // Prepare JWT Payload (keep this lightweight)
-    const payload = {
-      id: String(user.id).trim(),
-      user_type: user.user_type,
-      business_unit: user.business_unit,
-      company: user.company,
-      company_name: user.company_name,
-      visa_type_descr: user.visa_type_descr,
-      batch_no: user.batch_no,
-      preferred_language: user.preferred_language || "en",
-      roles: userRoles,
-    };
-
-    const token = jwt.sign(payload, process.env.SECRET_TOKEN.trim(), {
-      expiresIn: "30d",
-    });
-
-    // Use @stream-io/node-sdk for token generation — produces a unified
-    // token that grants both chat AND video permissions (unlike StreamChat.createToken
-    // which only grants chat scope).
-    const nodeClient = new StreamClient(process.env.STREAM_API_KEY, process.env.STREAM_API_SECRET);
-    const streamToken = nodeClient.generateUserToken({
-      user_id: String(user.id),
-      validity_period_hs: 24,
-    });
-
-    // Return the COMPLETE user object for AuthContext
-    return res.status(200).json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        businessUnit: user.business_unit,
-        isActive: user.is_active,
-        preferredLanguage: user.preferred_language || "en",
-        userId: user.user_id,
-        firstName: user.first_name,
-        middleName: user.middle_name,
-        lastName: user.last_name,
-        userType: user.user_type,
-        position: user.position,
-        company: user.company,
-        company_name: user.company_name,
-        company_ticketing: user.company_ticketing ?? false,
-        company_flight_tracker: user.company_flight_tracker ?? false,
-        company_form: user.company_form ?? false,
-        batch_no: user.batch_no,
-        companyBranch: user.company_branch,
-        visa_type_descr: user.visa_type_descr,
-        phoneNumber: user.phone_number,
-        postalCode: user.postal_code,
-        streetAddress: user.street_address,
-        city: user.city,
-        stateProvince: user.state_province,
-        visaType: user.visa_type,
-        visaExpiry: user.visa_expiry_date,
-        // Profile picture fields
-        profilePicId: user.profile_pic_id,
-        profilePictureUrl: profilePictureUrl,
-        profilePicS3Key: user.profile_pic_s3_key,
-        profilePicS3Bucket: user.profile_pic_s3_bucket,
-      },
-      streamToken,
-      roles: userRoles,
+    res.status(200).json({
+      message: getApiMessage("login_success", lang),
+      ...result,
     });
   } catch (err) {
-    console.error("Login Error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Forgot Password
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Handle Forgot Password
+ * POST /forgot-password
  */
-export const handleForgotPassword = async (req, res) => {
+export const handleForgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    const lowerEmail = email.toLowerCase().trim();
-
-    const userResult = await getPool().query(
-      "SELECT id FROM v4.user_account_tbl WHERE email = $1",
-      [lowerEmail],
-    );
-
-    if (userResult.rows.length === 0) {
-      return res
-        .status(200)
-        .json({ message: "Check your email for a reset code." });
-    }
-
-    const resetCode = crypto.randomBytes(4).toString("hex");
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(resetCode, salt);
-
-    await getPool().query(
-      "UPDATE v4.user_account_tbl SET password_hash = $1 WHERE email = $2",
-      [hashedPassword, lowerEmail],
-    );
-
-    const emailTitle = "Your Temporary Password";
-    await emailService.passwordResetCode(lowerEmail, emailTitle, resetCode);
-
-    return res
-      .status(200)
-      .json({ success: true, message: "Temporary password sent." });
-  } catch (error) {
-    console.error("Postgres Forgot Password Error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    await loginService.handleForgotPassword(email);
+    // Always return 200 to prevent email enumeration
+    res.status(200).json({
+      success: true,
+      message: getApiMessage("forgot_password_sent", "en"),
+    });
+  } catch (err) {
+    next(err);
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Update Password
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Update Password (without current password verification)
+ * PUT /update-password  (requires JWT)
  */
-export const updatePassword = async (req, res) => {
+export const updatePassword = async (req, res, next) => {
   try {
     const { newPassword } = req.body;
     const userId = req.user.id;
+    const lang = req.user.preferred_language || "en";
 
-    // 1. Basic Validation
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({
-        message: "New password must be at least 6 characters long.",
-        error_code: "api_errors.login.password_too_short",
-      });
-    }
-
-    // 2. Hash the new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
-
-    // 3. Update the database directly
-    const updateResult = await getPool().query(
-      "UPDATE v4.user_account_tbl SET password_hash = $1, updated_at = NOW() WHERE id = $2 RETURNING id",
-      [hashedNewPassword, userId],
-    );
-
-    if (updateResult.rowCount === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    await loginService.updatePassword(userId, newPassword);
 
     res.status(200).json({
       success: true,
-      message: "Password updated successfully!",
+      message: getApiMessage("password_updated", lang),
     });
-  } catch (error) {
-    console.error("Update Password Error:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-/**
- * Cleanup: Delete all profile attachments from S3 and DB for a given user.
- * Handles batch deletion (multiple profile history entries) and tolerates
- * files that are already missing from S3.
- */
-const cleanupUserProfileAttachments = async (userId) => {
-  const { rows } = await getPool().query(
-    `SELECT attachment_id, s3_key, s3_bucket
-     FROM v4.shared_attachments
-     WHERE relation_type = 'profile' AND relation_id = $1`,
-    [String(userId)],
-  );
-
-  if (rows.length === 0) {
-    console.log(`No profile attachments found for user ${userId}`);
-    return;
-  }
-
-  console.log(
-    `Found ${rows.length} profile attachment(s) for user ${userId}. Cleaning up...`,
-  );
-
-  for (const row of rows) {
-    try {
-      await deleteFromS3(row.s3_key);
-      console.log(`S3 deleted: ${row.s3_key} from bucket ${row.s3_bucket}`);
-    } catch (s3Err) {
-      // File may already be missing from S3 — log and continue
-      console.warn(
-        `S3 deletion skipped for ${row.s3_key} (may already be removed):`,
-        s3Err.message,
-      );
-    }
-  }
-
-  // Bulk delete all profile rows from the DB after S3 cleanup
-  await getPool().query(
-    `DELETE FROM v4.shared_attachments
-     WHERE relation_type = 'profile' AND relation_id = $1`,
-    [String(userId)],
-  );
-
-  console.log(
-    `DB cleanup complete: removed ${rows.length} profile attachment row(s) for user ${userId}`,
-  );
-};
-
-/**
- * Delete User Account
- */
-export const deleteUserAccount = async (req, res) => {
-  const userId = req.user.id;
-
-  try {
-    // 0. ARCHIVE FIRST (Before data is gone)
-    await archiveUserBeforeDelete(userId, "SELF", "In-App Deletion");
-
-    // 1. Delete from GetStream
-    await streamClient.deleteUser(userId, {
-      mark_messages_deleted: false,
-      hard: false,
-    });
-
-    // 2. Cleanup profile attachments (S3 + DB) before removing the user row
-    await cleanupUserProfileAttachments(userId);
-
-    // 3. Delete user row from PostgreSQL
-    const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
-    const result = await getPool().query(deleteQuery, [userId]);
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "User not found in database" });
-    }
-
-    res
-      .status(200)
-      .json({ success: true, message: "Account deleted permanently" });
   } catch (err) {
-    console.error("Deletion Error:", err);
-    res.status(500).json({ error: "Server error during account deletion." });
+    next(err);
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete Own Account  (in-app, authenticated)
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Request Account Deletion (Public Web Flow)
- * This sends an OTP to the email to verify the user owns the account.
+ * DELETE /delete-account  (requires JWT)
  */
-export const requestWebDeletion = async (req, res) => {
-  const { email } = req.body;
-  const lowerEmail = email.toLowerCase().trim();
-
+export const deleteUserAccount = async (req, res, next) => {
   try {
-    const userResult = await getPool().query(
-      "SELECT id FROM v4.user_account_tbl WHERE email = $1",
-      [lowerEmail],
-    );
+    const userId = req.user.id;
+    const lang = req.user.preferred_language || "en";
 
-    if (userResult.rows.length === 0) {
-      // Security: Don't reveal if email exists, return same success message
-      return res.status(200).json({
-        message: "If an account exists, a verification code has been sent.",
-      });
-    }
-
-    // Reuse your existing OTP logic
-    const otpCode = crypto.randomInt(100000, 999999).toString();
-    const otpExpiry = new Date(Date.now() + 15 * 60000); // 15 mins
-
-    await getPool().query(
-      "UPDATE v4.user_account_tbl SET otp_code = $1, otp_expiry = $2 WHERE email = $3",
-      [otpCode, otpExpiry, lowerEmail],
-    );
-
-    await emailService.sendDeletionCode(
-      lowerEmail,
-      "Account Deletion Request",
-      otpCode,
-    );
+    await loginService.deleteOwnAccount(userId);
 
     res.status(200).json({
       success: true,
-      message: "Verification code sent to your email.",
+      message: getApiMessage("account_deleted", lang),
     });
   } catch (err) {
-    console.error("Web Deletion Request Error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Request Web Deletion  (public — sends OTP)
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Finalize Account Deletion
+ * POST /request-deletion
  */
-export const finalizeDeletion = async (req, res) => {
-  const { email, otpCode } = req.body;
-  // If req.user exists, they are logged in (In-App Path)
-  const authenticatedUserId = req.user?.id;
-
+export const requestWebDeletion = async (req, res, next) => {
   try {
-    let targetId;
-
-    if (authenticatedUserId) {
-      // PATH A: In-App (Already have the ID from JWT)
-      targetId = authenticatedUserId;
-    } else {
-      // PATH B: Web/Public (Must get ID from DB using Email + OTP)
-      if (!email || !otpCode) {
-        return res
-          .status(400)
-          .json({ error: "Email and verification code are required." });
-      }
-
-      const userResult = await getPool().query(
-        "SELECT id, otp_code, otp_expiry FROM v4.user_account_tbl WHERE email = $1",
-        [email.toLowerCase().trim()],
-      );
-
-      const user = userResult.rows[0];
-
-      // Security check: Verify user exists, OTP matches, and hasn't expired
-      if (!user || user.otp_code !== otpCode || new Date() > user.otp_expiry) {
-        return res
-          .status(401)
-          .json({ error: "Invalid or expired verification code.", error_code: "api_errors.login.invalid_otp" });
-      }
-
-      // TAKE TARGET ID FROM userResult here
-      targetId = user.id;
-    }
-
-    // 0. ARCHIVE FIRST (Before data is gone)
-    await archiveUserBeforeDelete(targetId, "SELF", "In-App Deletion");
-
-    // 1. Delete from GetStream
-    // Wrap targetId in an array and convert to string to be safe
-    await streamClient.deleteUsers([String(targetId)], {
-      user: "hard",
-      messages: "hard",
-      conversations: "hard",
+    const { email } = req.body;
+    await loginService.requestWebDeletion(email);
+    // Always return 200 to prevent email enumeration
+    res.status(200).json({
+      success: true,
+      message: getApiMessage("deletion_code_sent", "en"),
     });
+  } catch (err) {
+    next(err);
+  }
+};
 
-    // 2. Cleanup profile attachments (S3 + DB) before removing the user row
-    await cleanupUserProfileAttachments(targetId);
+// ─────────────────────────────────────────────────────────────────────────────
+// Finalize Deletion  (verifies OTP or uses JWT id)
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // 3. Delete from your PostgreSQL DB
-    const deleteQuery = `DELETE FROM v4.user_account_tbl WHERE id = $1`;
-    const dbResult = await getPool().query(deleteQuery, [targetId]);
+/**
+ * POST /finalize-deletion
+ * Supports both the public web flow (email + OTP) and the in-app flow (JWT).
+ */
+export const finalizeDeletion = async (req, res, next) => {
+  try {
+    const { email, otpCode } = req.body;
+    const authenticatedUserId = req.user?.id || null;
+    const lang = req.user?.preferred_language || "en";
 
-    if (dbResult.rowCount === 0) {
-      return res
-        .status(404)
-        .json({ error: "User found in Stream but not in database." });
-    }
+    await loginService.finalizeDeletion({ email, otpCode, authenticatedUserId });
 
     res.status(200).json({
       success: true,
-      message:
-        "Your account and all associated data have been permanently deleted.",
+      message: getApiMessage("account_deleted", lang),
     });
   } catch (err) {
-    console.error("Final Deletion Error:", err);
-    res.status(500).json({ error: "Server error during account deletion." });
+    next(err);
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin / Officer Delete User
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Officer/Admin Delete User
- * Deletes another user within the same business_unit from both DB and GetStream.
+ * DELETE /admin/delete/:userId  (requires JWT + officer role)
  */
-export const adminDeleteUser = async (req, res) => {
-  const { userId } = req.params;
-  const officerBU = req.user.business_unit;
-  const officerId = req.user.id;
-
-  // Prevent self-deletion via this route
-  if (String(userId) === String(officerId)) {
-    return res.status(400).json({ error: "Cannot delete your own account via this route", error_code: "api_errors.login.cannot_delete_self" });
-  }
-
+export const adminDeleteUser = async (req, res, next) => {
   try {
-    // Verify target user belongs to the same business_unit
-    const check = await getPool().query(
-      "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
-      [userId, officerBU],
-    );
+    const { userId } = req.params;
+    const officerId = req.user.id;
+    const officerBU = req.user.business_unit;
+    const lang = req.user.preferred_language || "en";
 
-    if (check.rowCount === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    await loginService.adminDeleteUser({ userId, officerId, officerBU });
 
-    // 0. Archive first (before data is gone)
-    await archiveUserBeforeDelete(userId, officerId, "Officer-initiated deletion");
-
-    // 1. Delete from GetStream (hard delete)
-    await streamClient.deleteUsers([String(userId)], {
-      user: "hard",
-      messages: "hard",
-      conversations: "hard",
+    res.status(200).json({
+      success: true,
+      message: getApiMessage("user_deleted", lang),
     });
-
-    // 2. Cleanup profile attachments (S3 + DB)
-    await cleanupUserProfileAttachments(userId);
-
-    // 3. Delete from PostgreSQL
-    await getPool().query("DELETE FROM v4.user_account_tbl WHERE id = $1", [userId]);
-
-    res.json({ success: true, message: "User deleted successfully" });
   } catch (err) {
-    console.error("Admin Delete User Error:", err);
-    res.status(500).json({ error: "Server error during deletion" });
-  }
-};
-
-/**
- * Archive user data to the deleted_users_log table
- */
-const archiveUserBeforeDelete = async (
-  userId,
-  deletedBy = "SELF",
-  reason = "User Request",
-) => {
-  try {
-    const query = `
-      INSERT INTO v4.deleted_users_log
-      (original_user_id, email, full_name, company_name, user_type, business_unit, deleted_by, deletion_reason)
-      SELECT
-        a.id,
-        a.email,
-        TRIM(CONCAT(p.first_name, ' ', p.middle_name, ' ', p.last_name)),
-        COALESCE(
-          c.company_name ->> a.preferred_language,
-          c.company_name ->> 'ja',
-          'Unknown'
-        ),
-        p.user_type,
-        a.business_unit,
-        $2,
-        $3
-      FROM v4.user_account_tbl a
-      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-      WHERE a.id = $1;
-    `;
-
-    const result = await getPool().query(query, [userId, deletedBy, reason]);
-    console.log(`User ${userId} archived to log_id: ${result.rows[0]?.log_id}`);
-  } catch (err) {
-    console.error(`Failed to archive user ${userId}:`, err);
-    // Decide: Do you want to throw error and stop deletion?
-    // Usually better to log error and proceed with deletion to not block the user.
+    next(err);
   }
 };

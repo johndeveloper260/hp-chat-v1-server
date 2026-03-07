@@ -1,9 +1,18 @@
 /**
- * Notification Translations
- * Keep these synchronized with frontend i18n files
+ * Notification & API Message Translations
+ *
+ * Two sections:
+ *  1. pushMessages  — titles/bodies sent via Expo push notifications
+ *  2. apiMessages   — error / success strings returned in HTTP responses
+ *
+ * Supported languages: en · ja · id · vi · my · km · bn · th
+ * Keep these synchronised with the frontend i18n files.
  */
-const translations = {
-  // Comment Notifications
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. PUSH NOTIFICATION MESSAGES
+// ─────────────────────────────────────────────────────────────────────────────
+const pushMessages = {
   comment_on_inquiry: {
     en: "New comment on Inquiry",
     ja: "報告に新しいコメント",
@@ -24,8 +33,6 @@ const translations = {
     bn: "ঘোষণায় নতুন মন্তব্য",
     th: "ความคิดเห็นใหม่เกี่ยวกับประกาศ",
   },
-
-  // Inquiry Notifications
   new_inquiry: {
     en: "New Inquiry",
     ja: "新しい報告",
@@ -46,15 +53,15 @@ const translations = {
     bn: "(উচ্চ অগ্রাধিকার)",
     th: "(ความสำคัญสูง)",
   },
-  created_inquiry: {
-    en: "created a new inquiry",
-    ja: "が新しい報告を作成しました",
-    id: "membuat pertanyaan baru",
-    vi: "đã tạo yêu cầu mới",
-    my: "စုံစမ်းချက်အသစ် ဖန်တီးခဲ့သည်",
-    km: "បានបង្កើតការសាកសួរថ្មី",
-    bn: "নতুন অনুসন্ধান তৈরি করেছেন",
-    th: "สร้างการสอบถามใหม่",
+  new_inquiry_high_priority: {
+    en: "New Inquiry (High Priority)",
+    ja: "新しい報告（高優先度）",
+    id: "Pertanyaan Baru (Prioritas Tinggi)",
+    vi: "Yêu cầu mới (Ưu tiên cao)",
+    my: "စုံစမ်းချက်အသစ် (ဦးစားပေးမြင့်မား)",
+    km: "ការសាកសួរថ្មី (អាទិភាពខ្ពស់)",
+    bn: "নতুন অনুসন্ধান (উচ্চ অগ্রাধিকার)",
+    th: "การสอบถามใหม่ (ความสำคัญสูง)",
   },
   inquiry_updated: {
     en: "Inquiry Updated",
@@ -65,16 +72,6 @@ const translations = {
     km: "ការសាកសួរត្រូវបានអាប់ដេត",
     bn: "অনুসন্ধান আপডেট হয়েছে",
     th: "การสอบถามได้รับการอัปเดต",
-  },
-  new_inquiry_high_priority: {
-    en: "New Inquiry (High Priority)",
-    ja: "新しい報告（高優先度）",
-    id: "Pertanyaan Baru (Prioritas Tinggi)",
-    vi: "Yêu cầu mới (Ưu tiên cao)",
-    my: "စုံစမ်းချက်အသစ် (ဦးစားပေးမြင့်မား)",
-    km: "ការសាកសួរថ្មី (អាទិភាពខ្ពស់)",
-    bn: "নতুন অনুসন্ধান (উচ্চ অগ্রাধিকার)",
-    th: "การสอบถามใหม่ (ความสำคัญสูง)",
   },
   created_inquiry: {
     en: "{{name}} created a new inquiry: {{title}}",
@@ -116,8 +113,6 @@ const translations = {
     bn: "এই অনুসন্ধানটি আপনাকে বরাদ্দ করা হয়েছে",
     th: "ได้มอบหมายการสอบถามนี้ให้คุณ",
   },
-
-  // Call Notifications
   incoming_call: {
     en: "Incoming Video Call 📞",
     ja: "着信ビデオ通話 📞",
@@ -150,28 +145,1006 @@ const translations = {
   },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. API RESPONSE MESSAGES  (errors & successes returned by HTTP endpoints)
+//
+//    Key naming convention: {domain}_{action}
+//    Keys map 1-to-1 with the AppError messageKey passed from services.
+//    The frontend can use the companion error_code for its own i18n lookup.
+// ─────────────────────────────────────────────────────────────────────────────
+const apiMessages = {
+
+  // ── Register ─────────────────────────────────────────────────────────────
+  register_success: {
+    en: "Registration successful",
+    ja: "登録が完了しました",
+    id: "Pendaftaran berhasil",
+    vi: "Đăng ký thành công",
+    my: "မှတ်ပုံတင်မှု အောင်မြင်သည်",
+    km: "ការចុះឈ្មោះបានជោគជ័យ",
+    bn: "নিবন্ধন সফল হয়েছে",
+    th: "ลงทะเบียนสำเร็จ",
+  },
+  register_code_required: {
+    en: "Code is required",
+    ja: "コードは必須です",
+    id: "Kode diperlukan",
+    vi: "Mã là bắt buộc",
+    my: "ကုဒ်လိုအပ်သည်",
+    km: "លេខកូដត្រូវការ",
+    bn: "কোড প্রয়োজন",
+    th: "ต้องระบุรหัส",
+  },
+  register_invalid_code: {
+    en: "Invalid Registration Code",
+    ja: "無効な登録コードです",
+    id: "Kode pendaftaran tidak valid",
+    vi: "Mã đăng ký không hợp lệ",
+    my: "မှတ်ပုံတင်ကုဒ် မှားယွင်းသည်",
+    km: "លេខកូដចុះឈ្មោះមិនត្រឹមត្រូវ",
+    bn: "নিবন্ধন কোড অবৈধ",
+    th: "รหัสลงทะเบียนไม่ถูกต้อง",
+  },
+  register_fields_required: {
+    en: "Missing required fields",
+    ja: "必須項目が入力されていません",
+    id: "Kolom wajib belum diisi",
+    vi: "Thiếu các trường bắt buộc",
+    my: "လိုအပ်သောကွက်လပ်များ မဖြည့်ရသေးပါ",
+    km: "វាលដែលត្រូវការមិនទាន់បញ្ចូល",
+    bn: "প্রয়োজনীয় তথ্য পূরণ করা হয়নি",
+    th: "ข้อมูลที่จำเป็นยังไม่ครบ",
+  },
+  register_email_exists: {
+    en: "Email already exists",
+    ja: "このメールアドレスはすでに登録されています",
+    id: "Email sudah terdaftar",
+    vi: "Email đã tồn tại",
+    my: "ဤအီးမေးလ်လိပ်စာ မှတ်ပုံတင်ပြီးဖြစ်သည်",
+    km: "អ៊ីម៉ែលនេះមានរួចហើយ",
+    bn: "এই ইমেইলটি ইতিমধ্যে নিবন্ধিত",
+    th: "อีเมลนี้มีอยู่แล้ว",
+  },
+  register_validation_failed: {
+    en: "Validation failed",
+    ja: "入力内容の検証に失敗しました",
+    id: "Validasi gagal",
+    vi: "Xác thực thất bại",
+    my: "စစ်ဆေးမှု မအောင်မြင်ပါ",
+    km: "ការផ្ទៀងផ្ទាត់បរាជ័យ",
+    bn: "যাচাইকরণ ব্যর্থ হয়েছে",
+    th: "การตรวจสอบล้มเหลว",
+  },
+
+  // ── Login ─────────────────────────────────────────────────────────────────
+  login_success: {
+    en: "Login successful",
+    ja: "ログインしました",
+    id: "Login berhasil",
+    vi: "Đăng nhập thành công",
+    my: "အကောင့်ဝင်ရောက်မှု အောင်မြင်သည်",
+    km: "ចូលប្រព័ន្ធបានជោគជ័យ",
+    bn: "লগইন সফল হয়েছে",
+    th: "เข้าสู่ระบบสำเร็จ",
+  },
+  login_fields_required: {
+    en: "Email and password are required",
+    ja: "メールアドレスとパスワードを入力してください",
+    id: "Email dan kata sandi diperlukan",
+    vi: "Email và mật khẩu là bắt buộc",
+    my: "အီးမေးလ်နှင့် စကားဝှက် လိုအပ်သည်",
+    km: "អ៊ីម៉ែល និងពាក្យសម្ងាត់ត្រូវការ",
+    bn: "ইমেইল এবং পাসওয়ার্ড প্রয়োজন",
+    th: "ต้องระบุอีเมลและรหัสผ่าน",
+  },
+  login_invalid_credentials: {
+    en: "Invalid email or password",
+    ja: "メールアドレスまたはパスワードが正しくありません",
+    id: "Email atau kata sandi tidak valid",
+    vi: "Email hoặc mật khẩu không đúng",
+    my: "အီးမေးလ် သို့မဟုတ် စကားဝှက် မှားသည်",
+    km: "អ៊ីម៉ែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ",
+    bn: "ইমেইল বা পাসওয়ার্ড সঠিক নয়",
+    th: "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+  },
+  login_account_deactivated: {
+    en: "Your account has been deactivated. Please contact your administrator.",
+    ja: "アカウントが無効化されています。管理者にお問い合わせください。",
+    id: "Akun Anda telah dinonaktifkan. Silakan hubungi administrator Anda.",
+    vi: "Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
+    my: "သင့်အကောင့်ကို ပိတ်ထားသည်။ စီမံခန့်ခွဲသူထံ ဆက်သွယ်ပါ။",
+    km: "គណនីរបស់អ្នកត្រូវបានបិទ។ សូមទាក់ទងអ្នកគ្រប់គ្រង។",
+    bn: "আপনার অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে। অনুগ্রহ করে আপনার প্রশাসকের সাথে যোগাযোগ করুন।",
+    th: "บัญชีของคุณถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+  },
+  login_password_too_short: {
+    en: "New password must be at least 6 characters long.",
+    ja: "新しいパスワードは6文字以上で入力してください。",
+    id: "Kata sandi baru harus minimal 6 karakter.",
+    vi: "Mật khẩu mới phải có ít nhất 6 ký tự.",
+    my: "စကားဝှက်အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရမည်။",
+    km: "ពាក្យសម្ងាត់ថ្មីត្រូវតែមានយ៉ាងហោចណាស់ 6 តួអក្សរ។",
+    bn: "নতুন পাসওয়ার্ড অবশ্যই কমপক্ষে ৬ অক্ষরের হতে হবে।",
+    th: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร",
+  },
+  login_check_email_reset: {
+    en: "Check your email for a reset code.",
+    ja: "リセットコードをメールに送信しました。",
+    id: "Periksa email Anda untuk kode reset.",
+    vi: "Kiểm tra email của bạn để lấy mã đặt lại.",
+    my: "ပြန်လည်သတ်မှတ်ရန် ကုဒ်အတွက် အီးမေးလ် စစ်ဆေးပါ။",
+    km: "ពិនិត្យអ៊ីម៉ែលរបស់អ្នកសម្រាប់លេខកូដកំណត់ឡើងវិញ។",
+    bn: "রিসেট কোডের জন্য আপনার ইমেইল চেক করুন।",
+    th: "ตรวจสอบอีเมลของคุณเพื่อรับรหัสรีเซ็ต",
+  },
+  login_temp_password_sent: {
+    en: "Temporary password sent.",
+    ja: "仮パスワードを送信しました。",
+    id: "Kata sandi sementara telah dikirim.",
+    vi: "Mật khẩu tạm thời đã được gửi.",
+    my: "ယာယီ စကားဝှက် ပေးပို့ပြီးပါပြီ။",
+    km: "ពាក្យសម្ងាត់បណ្ដោះអាសន្នត្រូវបានផ្ញើ។",
+    bn: "অস্থায়ী পাসওয়ার্ড পাঠানো হয়েছে।",
+    th: "รหัสผ่านชั่วคราวถูกส่งแล้ว",
+  },
+  login_password_updated: {
+    en: "Password updated successfully.",
+    ja: "パスワードを更新しました。",
+    id: "Kata sandi berhasil diperbarui.",
+    vi: "Cập nhật mật khẩu thành công.",
+    my: "စကားဝှက် အောင်မြင်စွာ ပြောင်းပြီးပါပြီ။",
+    km: "ពាក်យសម្ងាត់ត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ។",
+    bn: "পাসওয়ার্ড সফলভাবে আপডেট হয়েছে।",
+    th: "อัปเดตรหัสผ่านสำเร็จ",
+  },
+  login_account_deleted: {
+    en: "Account deleted permanently.",
+    ja: "アカウントを完全に削除しました。",
+    id: "Akun berhasil dihapus secara permanen.",
+    vi: "Tài khoản đã bị xóa vĩnh viễn.",
+    my: "အကောင့်ကို ဒေတာပစ်ပယ်ဖျက်ပြီးပါပြီ။",
+    km: "គណនីត្រូវបានលុបចោលជាអចិន្ត្រៃ។",
+    bn: "অ্যাকাউন্ট স্থায়ীভাবে মুছে ফেলা হয়েছে।",
+    th: "ลบบัญชีอย่างถาวรแล้ว",
+  },
+  login_account_data_deleted: {
+    en: "Your account and all associated data have been permanently deleted.",
+    ja: "アカウントとすべての関連データを完全に削除しました。",
+    id: "Akun dan semua data terkait telah dihapus secara permanen.",
+    vi: "Tài khoản và tất cả dữ liệu liên quan đã được xóa vĩnh viễn.",
+    my: "သင့်အကောင့်နှင့် ဆက်စပ်ဒေတာများ အားလုံး ဒေတာပစ်ပယ်ဖျက်ပြီးပါပြီ။",
+    km: "គណនីរបស់អ្នក និងទិន្នន័យដែលទាក់ទងទាំងអស់ត្រូវបានលុបចោលជាអចិន្ត្រៃ។",
+    bn: "আপনার অ্যাকাউন্ট এবং সমস্ত সম্পর্কিত ডেটা স্থায়ীভাবে মুছে ফেলা হয়েছে।",
+    th: "บัญชีของคุณและข้อมูลที่เกี่ยวข้องทั้งหมดถูกลบอย่างถาวรแล้ว",
+  },
+  login_user_deleted: {
+    en: "User deleted successfully.",
+    ja: "ユーザーを削除しました。",
+    id: "Pengguna berhasil dihapus.",
+    vi: "Người dùng đã được xóa thành công.",
+    my: "အသုံးပြုသူ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ။",
+    km: "អ្នកប្រើប្រាស់ត្រូវបានលុបដោយជោគជ័យ។",
+    bn: "ব্যবহারকারী সফলভাবে মুছে ফেলা হয়েছে।",
+    th: "ลบผู้ใช้งานสำเร็จ",
+  },
+  login_verification_sent: {
+    en: "Verification code sent to your email.",
+    ja: "確認コードをメールに送信しました。",
+    id: "Kode verifikasi telah dikirim ke email Anda.",
+    vi: "Mã xác minh đã được gửi đến email của bạn.",
+    my: "အတည်ပြုကုဒ်ကို သင့်အီးမေးလ်သို့ ပေးပို့ပြီးပါပြီ။",
+    km: "លេខកូដផ្ទៀងផ្ទាត់ត្រូវបានផ្ញើទៅអ៊ីម៉ែលរបស់អ្នក។",
+    bn: "যাচাই কোড আপনার ইমেইলে পাঠানো হয়েছে।",
+    th: "ส่งรหัสยืนยันไปยังอีเมลของคุณแล้ว",
+  },
+  login_verification_sent_safe: {
+    en: "If an account exists, a verification code has been sent.",
+    ja: "アカウントが存在する場合は確認コードを送信しました。",
+    id: "Jika akun ada, kode verifikasi telah dikirim.",
+    vi: "Nếu tài khoản tồn tại, mã xác minh đã được gửi.",
+    my: "အကောင့်ရှိပါက အတည်ပြုကုဒ် ပေးပို့ပြီးပါပြီ။",
+    km: "ប្រសិនបើគណនីមាន លេខកូដផ្ទៀងផ្ទាត់ត្រូវបានផ្ញើ។",
+    bn: "যদি অ্যাকাউন্ট থাকে তবে একটি যাচাই কোড পাঠানো হয়েছে।",
+    th: "หากมีบัญชีอยู่ รหัสยืนยันจะถูกส่ง",
+  },
+  login_invalid_otp: {
+    en: "Invalid or expired verification code.",
+    ja: "確認コードが無効または期限切れです。",
+    id: "Kode verifikasi tidak valid atau kedaluwarsa.",
+    vi: "Mã xác minh không hợp lệ hoặc đã hết hạn.",
+    my: "အတည်ပြုကုဒ် မမှန်ကန် သို့မဟုတ် သက်တမ်းကုန်ဆုံးပြီ။",
+    km: "លេខកូដផ្ទៀងផ្ទាត់មិនត្រឹមត្រូវ ឬផុតកំណត់។",
+    bn: "যাচাই কোড অবৈধ বা মেয়াদ শেষ।",
+    th: "รหัสยืนยันไม่ถูกต้องหรือหมดอายุ",
+  },
+  login_cannot_delete_self: {
+    en: "Cannot delete your own account via this route.",
+    ja: "このルートから自身のアカウントを削除することはできません。",
+    id: "Tidak dapat menghapus akun sendiri melalui rute ini.",
+    vi: "Không thể xóa tài khoản của chính bạn qua tuyến đường này.",
+    my: "ဤလမ်းကြောင်းမှ သင့်ကိုယ်ပိုင်အကောင့်ကို ဖျက်၍ မရပါ။",
+    km: "មិនអាចលុបគណនីផ្ទាល់ខ្លួនតាមផ្លូវនេះបានទេ។",
+    bn: "এই রুটের মাধ্যমে নিজের অ্যাকাউন্ট মুছতে পারবেন না।",
+    th: "ไม่สามารถลบบัญชีของตัวเองผ่านเส้นทางนี้ได้",
+  },
+  login_server_deletion_error: {
+    en: "Server error during account deletion.",
+    ja: "アカウント削除中にサーバーエラーが発生しました。",
+    id: "Terjadi kesalahan server saat menghapus akun.",
+    vi: "Lỗi máy chủ khi xóa tài khoản.",
+    my: "အကောင့်ဖျက်ဆီးနေစဉ် ဆာဗာ အမှားအယွင်း ဖြစ်ပွားသည်",
+    km: "កំហុសម៉ាស៊ីនមេក្នុងពេលលុបគណនី",
+    bn: "অ্যাকাউন্ট মুছে ফেলার সময় সার্ভার ত্রুটি।",
+    th: "ข้อผิดพลาดเซิร์ฟเวอร์ขณะลบบัญชี",
+  },
+
+  // ── User / Profile ────────────────────────────────────────────────────────
+  user_not_found: {
+    en: "User not found",
+    ja: "ユーザーが見つかりません",
+    id: "Pengguna tidak ditemukan",
+    vi: "Không tìm thấy người dùng",
+    my: "အသုံးပြုသူ မတွေ့ပါ",
+    km: "រកមិនឃើញអ្នកប្រើប្រាស់",
+    bn: "ব্যবহারকারী পাওয়া যায়নি",
+    th: "ไม่พบผู้ใช้งาน",
+  },
+  profile_not_found: {
+    en: "Profile not found",
+    ja: "プロフィールが見つかりません",
+    id: "Profil tidak ditemukan",
+    vi: "Không tìm thấy hồ sơ",
+    my: "ပရိုဖိုင် မတွေ့ပါ",
+    km: "រកមិនឃើញប្រវត្តិរូប",
+    bn: "প্রোফাইল পাওয়া যায়নি",
+    th: "ไม่พบโปรไฟล์",
+  },
+  profile_updated: {
+    en: "Profile updated successfully",
+    ja: "プロフィールを更新しました",
+    id: "Profil berhasil diperbarui",
+    vi: "Cập nhật hồ sơ thành công",
+    my: "ပရိုဖိုင် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ",
+    km: "ប្រវត្តិរូបត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ",
+    bn: "প্রোফাইল সফলভাবে আপডেট হয়েছে",
+    th: "อัปเดตโปรไฟล์สำเร็จ",
+  },
+  visa_updated: {
+    en: "Visa information updated successfully",
+    ja: "ビザ情報を更新しました",
+    id: "Informasi visa berhasil diperbarui",
+    vi: "Cập nhật thông tin visa thành công",
+    my: "ဗီဇာ သတင်းအချက်အလက် အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ",
+    km: "ព័ត៌មានទិដ្ឋាការត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ",
+    bn: "ভিসার তথ্য সফলভাবে আপডেট হয়েছে",
+    th: "อัปเดตข้อมูลวีซ่าสำเร็จ",
+  },
+  language_updated: {
+    en: "Language preference updated",
+    ja: "言語設定を更新しました",
+    id: "Preferensi bahasa diperbarui",
+    vi: "Đã cập nhật ngôn ngữ ưa thích",
+    my: "ဘာသာစကား ဦးစားပေးမှု ပြောင်းလဲပြီးပါပြီ",
+    km: "ចំណូលចិត្តភាសាត្រូវបានធ្វើបច្ចុប្បន្នភាព",
+    bn: "ভাষার পছন্দ আপডেট হয়েছে",
+    th: "อัปเดตการตั้งค่าภาษาแล้ว",
+  },
+  invalid_language_code: {
+    en: "Invalid language code",
+    ja: "無効な言語コードです",
+    id: "Kode bahasa tidak valid",
+    vi: "Mã ngôn ngữ không hợp lệ",
+    my: "ဘာသာစကားကုဒ် မမှန်ကန်ပါ",
+    km: "លេខកូដភាសាមិនត្រឹមត្រូវ",
+    bn: "অবৈধ ভাষার কোড",
+    th: "รหัสภาษาไม่ถูกต้อง",
+  },
+  language_update_failed: {
+    en: "Failed to update language preference",
+    ja: "言語設定の更新に失敗しました",
+    id: "Gagal memperbarui preferensi bahasa",
+    vi: "Không thể cập nhật ngôn ngữ",
+    my: "ဘာသာစကား ဦးစားပေးမှု ပြောင်းလဲ၍ မရပါ",
+    km: "បរាជ័យក្នុងការធ្វើបច្ចុប្បន្នភាពភាសា",
+    bn: "ভাষার পছন্দ আপডেট করতে ব্যর্থ হয়েছে",
+    th: "ไม่สามารถอัปเดตการตั้งค่าภาษาได้",
+  },
+  cannot_change_own_status: {
+    en: "Cannot change your own status",
+    ja: "自身のステータスを変更することはできません",
+    id: "Tidak dapat mengubah status Anda sendiri",
+    vi: "Không thể thay đổi trạng thái của chính bạn",
+    my: "မိမိ၏ status ကို ပြောင်းလဲ၍ မရပါ",
+    km: "មិនអាចផ្លាស់ប្តូរស្ថានភាពផ្ទាល់ខ្លួនរបស់អ្នកបានទេ",
+    bn: "নিজের স্ট্যাটাস পরিবর্তন করা যাবে না",
+    th: "ไม่สามารถเปลี่ยนสถานะของตัวเองได้",
+  },
+  no_profile_picture: {
+    en: "No profile picture found",
+    ja: "プロフィール写真が見つかりません",
+    id: "Foto profil tidak ditemukan",
+    vi: "Không tìm thấy ảnh đại diện",
+    my: "ပရိုဖိုင်ဓာတ်ပုံ မတွေ့ပါ",
+    km: "រកមិនឃើញរូបភាពប្រវត្តិរូប",
+    bn: "প্রোফাইল ছবি পাওয়া যায়নি",
+    th: "ไม่พบรูปโปรไฟล์",
+  },
+
+  // ── Comments ──────────────────────────────────────────────────────────────
+  comment_not_found: {
+    en: "Comment not found",
+    ja: "コメントが見つかりません",
+    id: "Komentar tidak ditemukan",
+    vi: "Không tìm thấy bình luận",
+    my: "မှတ်ချက် မတွေ့ပါ",
+    km: "រកមិនឃើញមតិយោបល់",
+    bn: "মন্তব্য পাওয়া যায়নি",
+    th: "ไม่พบความคิดเห็น",
+  },
+  comment_deleted: {
+    en: "Comment deleted successfully",
+    ja: "コメントを削除しました",
+    id: "Komentar berhasil dihapus",
+    vi: "Đã xóa bình luận thành công",
+    my: "မှတ်ချက် အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "មតិយោបល់ត្រូវបានលុបដោយជោគជ័យ",
+    bn: "মন্তব্য সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบความคิดเห็นสำเร็จ",
+  },
+  fetch_comments_failed: {
+    en: "Failed to fetch comments",
+    ja: "コメントの取得に失敗しました",
+    id: "Gagal mengambil komentar",
+    vi: "Không thể tải bình luận",
+    my: "မှတ်ချက်များ ရယူ၍ မရပါ",
+    km: "បរាជ័យក្នុងការទាញយកមតិយោបល់",
+    bn: "মন্তব্য আনতে ব্যর্থ হয়েছে",
+    th: "ไม่สามารถโหลดความคิดเห็นได้",
+  },
+
+  // ── Access / Roles ────────────────────────────────────────────────────────
+  role_name_required: {
+    en: "role_name is required",
+    ja: "role_nameは必須です",
+    id: "role_name diperlukan",
+    vi: "role_name là bắt buộc",
+    my: "role_name လိုအပ်သည်",
+    km: "role_name ត្រូវការ",
+    bn: "role_name প্রয়োজন",
+    th: "ต้องระบุ role_name",
+  },
+  roles_must_be_array: {
+    en: "roles must be an array",
+    ja: "rolesは配列で指定してください",
+    id: "roles harus berupa array",
+    vi: "roles phải là một mảng",
+    my: "roles သည် array ဖြစ်ရမည်",
+    km: "roles ត្រូវតែជាអារ៉េ",
+    bn: "roles অবশ্যই একটি অ্যারে হতে হবে",
+    th: "roles ต้องเป็น array",
+  },
+  role_assigned: {
+    en: "Role '{{role}}' assigned.",
+    ja: "ロール「{{role}}」を割り当てました。",
+    id: "Peran '{{role}}' telah ditetapkan.",
+    vi: "Đã phân quyền '{{role}}'.",
+    my: "ပါဝင်ခွင့် '{{role}}' တာဝန်ပေးပြီးပါပြီ",
+    km: "តួនាទី '{{role}}' ត្រូវបានចាត់ផ្តល់។",
+    bn: "ভূমিকা '{{role}}' বরাদ্দ করা হয়েছে।",
+    th: "มอบหมายบทบาท '{{role}}' แล้ว",
+  },
+  role_revoked: {
+    en: "Role '{{role}}' revoked.",
+    ja: "ロール「{{role}}」を取り消しました。",
+    id: "Peran '{{role}}' telah dicabut.",
+    vi: "Đã thu hồi quyền '{{role}}'.",
+    my: "ပါဝင်ခွင့် '{{role}}' ပယ်ဖျက်ပြီးပါပြီ",
+    km: "តួនាទី '{{role}}' ត្រូវបានដកហូត។",
+    bn: "ভূমিকা '{{role}}' প্রত্যাহার করা হয়েছে।",
+    th: "เพิกถอนบทบาท '{{role}}' แล้ว",
+  },
+  roles_updated: {
+    en: "Roles updated successfully.",
+    ja: "ロールを更新しました。",
+    id: "Peran berhasil diperbarui.",
+    vi: "Cập nhật quyền thành công.",
+    my: "ပါဝင်ခွင့်များ အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ",
+    km: "តួនាទីត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ",
+    bn: "ভূমিকাগুলি সফলভাবে আপডেট হয়েছে।",
+    th: "อัปเดตบทบาทสำเร็จ",
+  },
+  target_user_not_officer: {
+    en: "Roles can only be assigned to OFFICER users.",
+    ja: "ロールはOFFICERユーザーにのみ割り当てられます。",
+    id: "Peran hanya dapat ditetapkan untuk pengguna OFFICER.",
+    vi: "Quyền chỉ có thể được phân công cho người dùng OFFICER.",
+    my: "ပါဝင်ခွင့်ကို OFFICER အသုံးပြုသူများသာ ရရှိနိုင်သည်",
+    km: "តួនាទីអាចចាត់ផ្តល់ដល់អ្នកប្រើប្រាស់ OFFICER ប៉ុណ្ណោះ",
+    bn: "ভূমিকা শুধুমাত্র OFFICER ব্যবহারকারীদের বরাদ্দ করা যাবে।",
+    th: "สามารถมอบหมายบทบาทได้เฉพาะผู้ใช้ OFFICER เท่านั้น",
+  },
+
+  // ── Attachments ───────────────────────────────────────────────────────────
+  attachment_not_found: {
+    en: "Attachment not found",
+    ja: "添付ファイルが見つかりません",
+    id: "Lampiran tidak ditemukan",
+    vi: "Không tìm thấy tệp đính kèm",
+    my: "ပူးတွဲဖိုင် မတွေ့ပါ",
+    km: "រកមិនឃើញឯកសារភ្ជាប់",
+    bn: "সংযুক্তি পাওয়া যায়নি",
+    th: "ไม่พบไฟล์แนบ",
+  },
+  attachment_deleted: {
+    en: "Attachment deleted successfully",
+    ja: "添付ファイルを削除しました",
+    id: "Lampiran berhasil dihapus",
+    vi: "Đã xóa tệp đính kèm thành công",
+    my: "ပူးတွဲဖိုင် အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "ឯកសារភ្ជាប់ត្រូវបានលុបដោយជោគជ័យ",
+    bn: "সংযুক্তি সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบไฟล์แนบสำเร็จ",
+  },
+  attachment_renamed: {
+    en: "Attachment renamed successfully",
+    ja: "添付ファイル名を変更しました",
+    id: "Nama lampiran berhasil diubah",
+    vi: "Đã đổi tên tệp đính kèm thành công",
+    my: "ပူးတွဲဖိုင်၏ အမည်ကို အောင်မြင်စွာ ပြောင်းပြီးပါပြီ",
+    km: "ឯកសារភ្ជាប់ត្រូវបានដំឡើងឈ្មោះដោយជោគជ័យ",
+    bn: "সংযুক্তির নাম সফলভাবে পরিবর্তন হয়েছে",
+    th: "เปลี่ยนชื่อไฟล์แนบสำเร็จ",
+  },
+  profile_picture_deleted: {
+    en: "Profile picture deleted successfully",
+    ja: "プロフィール写真を削除しました",
+    id: "Foto profil berhasil dihapus",
+    vi: "Đã xóa ảnh đại diện thành công",
+    my: "ပရိုဖိုင်ဓာတ်ပုံ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "រូបភាពប្រវត្តិរូបត្រូវបានលុបដោយជោគជ័យ",
+    bn: "প্রোফাইল ছবি সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบรูปโปรไฟล์สำเร็จ",
+  },
+  missing_relation_id: {
+    en: "Missing relation_id",
+    ja: "relation_idが必要です",
+    id: "relation_id diperlukan",
+    vi: "Thiếu relation_id",
+    my: "relation_id မပါပါ",
+    km: "relation_id ខ្វះ",
+    bn: "relation_id অনুপস্থিত",
+    th: "ขาด relation_id",
+  },
+  record_not_found: {
+    en: "Record not found",
+    ja: "レコードが見つかりません",
+    id: "Data tidak ditemukan",
+    vi: "Không tìm thấy bản ghi",
+    my: "မှတ်တမ်း မတွေ့ပါ",
+    km: "រកមិនឃើញកំណត់ត្រា",
+    bn: "রেকর্ড পাওয়া যায়নি",
+    th: "ไม่พบข้อมูล",
+  },
+  no_attachments_found: {
+    en: "No attachments found",
+    ja: "添付ファイルがありません",
+    id: "Tidak ada lampiran ditemukan",
+    vi: "Không tìm thấy tệp đính kèm",
+    my: "ပူးတွဲဖိုင် မတွေ့ပါ",
+    km: "រកមិនឃើញឯកសារភ្ជាប់ណាមួយ",
+    bn: "কোনো সংযুক্তি পাওয়া যায়নি",
+    th: "ไม่พบไฟล์แนบ",
+  },
+
+  // ── Inquiries / Tickets ───────────────────────────────────────────────────
+  ticket_not_found: {
+    en: "Ticket not found",
+    ja: "チケットが見つかりません",
+    id: "Tiket tidak ditemukan",
+    vi: "Không tìm thấy phiếu",
+    my: "တိကက် မတွေ့ပါ",
+    km: "រកមិនឃើញសំបុត្រ",
+    bn: "টিকিট পাওয়া যায়নি",
+    th: "ไม่พบตั๋ว",
+  },
+  invalid_ticket_id: {
+    en: "Invalid Ticket ID format",
+    ja: "無効なチケットIDです",
+    id: "Format ID tiket tidak valid",
+    vi: "Định dạng ID phiếu không hợp lệ",
+    my: "တိကက် ID ပုံစံ မမှန်ကန်ပါ",
+    km: "ទម្រង់លេខសំបុត្រមិនត្រឹមត្រូវ",
+    bn: "টিকিট আইডির ফরম্যাট অবৈধ",
+    th: "รูปแบบ Ticket ID ไม่ถูกต้อง",
+  },
+  inquiry_deleted: {
+    en: "Inquiry and all related data deleted successfully",
+    ja: "報告と関連データをすべて削除しました",
+    id: "Pertanyaan dan semua data terkait berhasil dihapus",
+    vi: "Đã xóa yêu cầu và tất cả dữ liệu liên quan thành công",
+    my: "စုံစမ်းချက်နှင့် ဆက်စပ်ဒေတာများ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "ការសាកសួរ និងទិន្នន័យដែលពាក់ព័ន្ធទាំងអស់ត្រូវបានលុបដោយជោគជ័យ",
+    bn: "অনুসন্ধান এবং সমস্ত সম্পর্কিত ডেটা সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบคำถามและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ",
+  },
+  business_unit_missing: {
+    en: "Business Unit missing from user token",
+    ja: "ユーザートークンにビジネスユニットが含まれていません",
+    id: "Business Unit tidak ada di token pengguna",
+    vi: "Thiếu Business Unit trong token người dùng",
+    my: "လုပ်ငန်းယူနစ် အချက်အလက် မပါပါ",
+    km: "Business Unit ខ្វះក្នុង Token អ្នកប្រើប្រាស់",
+    bn: "ব্যবহারকারীর টোকেনে Business Unit নেই",
+    th: "ไม่มี Business Unit ใน token ของผู้ใช้",
+  },
+  search_failed: {
+    en: "Search failed",
+    ja: "検索に失敗しました",
+    id: "Pencarian gagal",
+    vi: "Tìm kiếm thất bại",
+    my: "ရှာဖွေမှု မအောင်မြင်ပါ",
+    km: "ការស្វែងរកបានបរាជ័យ",
+    bn: "অনুসন্ধান ব্যর্থ হয়েছে",
+    th: "การค้นหาล้มเหลว",
+  },
+
+  // ── Feed / Announcements ──────────────────────────────────────────────────
+  announcement_not_found: {
+    en: "Announcement not found",
+    ja: "お知らせが見つかりません",
+    id: "Pengumuman tidak ditemukan",
+    vi: "Không tìm thấy thông báo",
+    my: "ကြေညာချက် မတွေ့ပါ",
+    km: "រកមិនឃើញការប្រកាស",
+    bn: "ঘোষণা পাওয়া যায়নি",
+    th: "ไม่พบประกาศ",
+  },
+  announcement_deleted: {
+    en: "Announcement and all related data deleted successfully",
+    ja: "お知らせと関連データをすべて削除しました",
+    id: "Pengumuman dan semua data terkait berhasil dihapus",
+    vi: "Đã xóa thông báo và tất cả dữ liệu liên quan thành công",
+    my: "ကြေညာချက်နှင့် ဆက်စပ်ဒေတာများ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "ការប្រកាស និងទិន្នន័យដែលពាក់ព័ន្ធទាំងអស់ត្រូវបានលុបដោយជោគជ័យ",
+    bn: "ঘোষণা এবং সমস্ত সম্পর্কিত ডেটা সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบประกาศและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ",
+  },
+  announcement_permission_denied: {
+    en: "Announcement not found or you do not have permission to delete it.",
+    ja: "お知らせが見つからないか、削除する権限がありません。",
+    id: "Pengumuman tidak ditemukan atau Anda tidak memiliki izin untuk menghapusnya.",
+    vi: "Không tìm thấy thông báo hoặc bạn không có quyền xóa.",
+    my: "ကြေညာချက် မတွေ့ပါ သို့မဟုတ် ဖျက်ခွင့် မရှိပါ",
+    km: "រកមិនឃើញការប្រកាស ឬអ្នកមិនមានការអនុញ្ញាតលុប",
+    bn: "ঘোষণা পাওয়া যায়নি অথবা আপনার মুছে ফেলার অনুমতি নেই।",
+    th: "ไม่พบประกาศหรือคุณไม่มีสิทธิ์ลบ",
+  },
+
+  // ── Company ───────────────────────────────────────────────────────────────
+  company_not_found: {
+    en: "Company not found",
+    ja: "会社が見つかりません",
+    id: "Perusahaan tidak ditemukan",
+    vi: "Không tìm thấy công ty",
+    my: "ကုမ္ပဏီ မတွေ့ပါ",
+    km: "រកមិនឃើញក្រុមហ៊ុន",
+    bn: "কোম্পানি পাওয়া যায়নি",
+    th: "ไม่พบบริษัท",
+  },
+  company_has_users: {
+    en: "Cannot delete a company that has active users",
+    ja: "アクティブなユーザーが存在するため会社を削除できません",
+    id: "Tidak dapat menghapus perusahaan yang memiliki pengguna aktif",
+    vi: "Không thể xóa công ty có người dùng đang hoạt động",
+    my: "အသုံးပြုသူများ ရှိနေသောကြောင့် ကုမ္ပဏီကို ဖျက်၍ မရပါ",
+    km: "មិនអាចលុបក្រុមហ៊ុនដែលមានអ្នកប្រើប្រាស់សកម្ម",
+    bn: "সক্রিয় ব্যবহারকারী আছে এমন কোম্পানি মুছতে পারবেন না",
+    th: "ไม่สามารถลบบริษัทที่มีผู้ใช้งานอยู่",
+  },
+
+  // ── Notifications (push token) ────────────────────────────────────────────
+  invalid_expo_token: {
+    en: "Invalid Expo Push Token",
+    ja: "無効なExpoプッシュトークンです",
+    id: "Token push Expo tidak valid",
+    vi: "Token push Expo không hợp lệ",
+    my: "Expo Push Token မမှန်ကန်ပါ",
+    km: "Expo Push Token មិនត្រឹមត្រូវ",
+    bn: "অবৈধ Expo Push Token",
+    th: "Expo Push Token ไม่ถูกต้อง",
+  },
+  push_token_removed: {
+    en: "Push token removed successfully",
+    ja: "プッシュトークンを削除しました",
+    id: "Token push berhasil dihapus",
+    vi: "Đã xóa token push thành công",
+    my: "Push Token အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "Token Push ត្រូវបានលុបដោយជោគជ័យ",
+    bn: "Push token সফলভাবে সরানো হয়েছে",
+    th: "ลบ push token สำเร็จ",
+  },
+  push_token_not_found: {
+    en: "Token not found or already removed",
+    ja: "トークンが見つからないか、すでに削除されています",
+    id: "Token tidak ditemukan atau sudah dihapus",
+    vi: "Không tìm thấy token hoặc đã bị xóa",
+    my: "Token မတွေ့ပါ သို့မဟုတ် ဖျက်ပြီးဖြစ်သည်",
+    km: "រកមិនឃើញ Token ឬត្រូវបានលុបរួចហើយ",
+    bn: "Token পাওয়া যায়নি বা ইতিমধ্যে সরানো হয়েছে",
+    th: "ไม่พบ token หรือถูกลบแล้ว",
+  },
+  missing_required_fields: {
+    en: "Missing required fields",
+    ja: "必須項目が入力されていません",
+    id: "Kolom wajib belum diisi",
+    vi: "Thiếu các trường bắt buộc",
+    my: "လိုအပ်သောကွက်လပ်များ မဖြည့်ရသေးပါ",
+    km: "វាលដែលត្រូវការខ្វះ",
+    bn: "প্রয়োজনীয় তথ্য পূরণ করা হয়নি",
+    th: "ข้อมูลที่จำเป็นไม่ครบ",
+  },
+
+  // ── Stream Chat ───────────────────────────────────────────────────────────
+  stream_token_failed: {
+    en: "Failed to generate Stream token",
+    ja: "Streamトークンの生成に失敗しました",
+    id: "Gagal membuat token Stream",
+    vi: "Không thể tạo token Stream",
+    my: "Stream Token ထုတ်ယူ၍ မရပါ",
+    km: "បរាជ័យក្នុងការបង្កើត Stream Token",
+    bn: "Stream token তৈরি করতে ব্যর্থ হয়েছে",
+    th: "ไม่สามารถสร้าง Stream token ได้",
+  },
+  stream_signature_invalid: {
+    en: "Invalid webhook signature",
+    ja: "Webhookの署名が無効です",
+    id: "Tanda tangan webhook tidak valid",
+    vi: "Chữ ký webhook không hợp lệ",
+    my: "Webhook လက်မှတ် မမှန်ကန်ပါ",
+    km: "ហត្ថលេខា webhook មិនត្រឹមត្រូវ",
+    bn: "Webhook স্বাক্ষর অবৈধ",
+    th: "ลายเซ็น webhook ไม่ถูกต้อง",
+  },
+
+  // ── Return Home ───────────────────────────────────────────────────────────
+  return_home_deleted: {
+    en: "Return home record and all related data deleted successfully",
+    ja: "帰国申請と関連データをすべて削除しました",
+    id: "Data kepulangan dan semua data terkait berhasil dihapus",
+    vi: "Đã xóa hồ sơ về nhà và tất cả dữ liệu liên quan",
+    my: "အိမ်ပြန်မှတ်တမ်းနှင့် ဆက်စပ်ဒေတာများ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "កំណត់ត្រា귀환 និងទិន្នន័យដែលពាក់ព័ន្ធទាំងអស់ត្រូវបានលុបដោយជោគជ័យ",
+    bn: "বাড়ি ফেরার রেকর্ড এবং সম্পর্কিত সমস্ত ডেটা সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบบันทึกการกลับบ้านและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ",
+  },
+  application_status_updated: {
+    en: "Application {{status}} successfully",
+    ja: "申請を{{status}}しました",
+    id: "Permohonan berhasil {{status}}",
+    vi: "Đơn đăng ký {{status}} thành công",
+    my: "လျှောက်ထားမှုကို {{status}} ပြုလုပ်ပြီးပါပြီ",
+    km: "ពាក្យស្នើសុំ {{status}} ដោយជោគជ័យ",
+    bn: "আবেদন {{status}} সফলভাবে হয়েছে",
+    th: "การสมัคร {{status}} สำเร็จ",
+  },
+  officer_only_approve: {
+    en: "Permission denied. Only officers can approve.",
+    ja: "権限がありません。承認できるのはオフィサーのみです。",
+    id: "Izin ditolak. Hanya petugas yang dapat menyetujui.",
+    vi: "Quyền truy cập bị từ chối. Chỉ nhân viên mới có thể phê duyệt.",
+    my: "ခွင့်ပြုချက် ပယ်ချခံရသည်။ Officer များသာ အတည်ပြုနိုင်သည်။",
+    km: "ការអនុញ្ញាតត្រូវបានបដិសេធ។ មន្ត្រីប៉ុណ្ណោះអាចអនុម័តបាន",
+    bn: "অনুমতি অস্বীকার করা হয়েছে। শুধুমাত্র অফিসাররা অনুমোদন করতে পারে।",
+    th: "การอนุญาตถูกปฏิเสธ เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถอนุมัติได้",
+  },
+
+  // ── SharePoint / Files ────────────────────────────────────────────────────
+  folder_name_required: {
+    en: "Folder name is required",
+    ja: "フォルダー名は必須です",
+    id: "Nama folder diperlukan",
+    vi: "Tên thư mục là bắt buộc",
+    my: "ဖိုင်တွဲ အမည် လိုအပ်သည်",
+    km: "ឈ្មោះថតត្រូវការ",
+    bn: "ফোল্ডারের নাম প্রয়োজন",
+    th: "ต้องระบุชื่อโฟลเดอร์",
+  },
+  folder_not_found: {
+    en: "Folder not found",
+    ja: "フォルダーが見つかりません",
+    id: "Folder tidak ditemukan",
+    vi: "Không tìm thấy thư mục",
+    my: "ဖိုင်တွဲ မတွေ့ပါ",
+    km: "រកមិនឃើញថត",
+    bn: "ফোল্ডার পাওয়া যায়নি",
+    th: "ไม่พบโฟลเดอร์",
+  },
+  file_not_found: {
+    en: "File not found",
+    ja: "ファイルが見つかりません",
+    id: "File tidak ditemukan",
+    vi: "Không tìm thấy tệp",
+    my: "ဖိုင် မတွေ့ပါ",
+    km: "រកមិនឃើញឯកសារ",
+    bn: "ফাইল পাওয়া যায়নি",
+    th: "ไม่พบไฟล์",
+  },
+  folder_deleted: {
+    en: "Folder deleted successfully",
+    ja: "フォルダーを削除しました",
+    id: "Folder berhasil dihapus",
+    vi: "Đã xóa thư mục thành công",
+    my: "ဖိုင်တွဲ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "ថតត្រូវបានលុបដោយជោគជ័យ",
+    bn: "ফোল্ডার সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบโฟลเดอร์สำเร็จ",
+  },
+  file_deleted: {
+    en: "File deleted successfully",
+    ja: "ファイルを削除しました",
+    id: "File berhasil dihapus",
+    vi: "Đã xóa tệp thành công",
+    my: "ဖိုင် အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
+    km: "ឯកសារត្រូវបានលុបដោយជោគជ័យ",
+    bn: "ফাইল সফলভাবে মুছে ফেলা হয়েছে",
+    th: "ลบไฟล์สำเร็จ",
+  },
+  officer_only_create_folder: {
+    en: "Only officers can create top-level folders",
+    ja: "トップレベルフォルダーを作成できるのはオフィサーのみです",
+    id: "Hanya petugas yang dapat membuat folder tingkat atas",
+    vi: "Chỉ nhân viên mới có thể tạo thư mục cấp cao nhất",
+    my: "Officer များသာ အဆင့်မြင့်ဖိုင်တွဲများ ဖန်တီးနိုင်သည်",
+    km: "មន្ត្រីប៉ុណ្ណោះអាចបង្កើតថតថ្នាក់ខ្ពស់",
+    bn: "শুধুমাত্র অফিসাররা টপ-লেভেল ফোল্ডার তৈরি করতে পারে",
+    th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถสร้างโฟลเดอร์ระดับบนได้",
+  },
+  officer_only_update_folder: {
+    en: "Only officers can update folders",
+    ja: "フォルダーを更新できるのはオフィサーのみです",
+    id: "Hanya petugas yang dapat memperbarui folder",
+    vi: "Chỉ nhân viên mới có thể cập nhật thư mục",
+    my: "Officer များသာ ဖိုင်တွဲများ ပြောင်းလဲနိုင်သည်",
+    km: "មន្ត្រីប៉ុណ្ណោះអាចធ្វើបច្ចុប្បន្នភាពថត",
+    bn: "শুধুমাত্র অফিসাররা ফোল্ডার আপডেট করতে পারে",
+    th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถอัปเดตโฟลเดอร์ได้",
+  },
+  officer_only_delete_folder: {
+    en: "Only officers can delete folders",
+    ja: "フォルダーを削除できるのはオフィサーのみです",
+    id: "Hanya petugas yang dapat menghapus folder",
+    vi: "Chỉ nhân viên mới có thể xóa thư mục",
+    my: "Officer များသာ ဖိုင်တွဲများ ဖျက်နိုင်သည်",
+    km: "មន្ត្រីប៉ុណ្ណោះអាចលុបថត",
+    bn: "শুধুমাত্র অফিসাররা ফোল্ডার মুছতে পারে",
+    th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถลบโฟลเดอร์ได้",
+  },
+  officer_only_delete_file: {
+    en: "Only officers can delete files",
+    ja: "ファイルを削除できるのはオフィサーのみです",
+    id: "Hanya petugas yang dapat menghapus file",
+    vi: "Chỉ nhân viên mới có thể xóa tệp",
+    my: "Officer များသာ ဖိုင်များ ဖျက်နိုင်သည်",
+    km: "មន្ត្រីប៉ុណ្ណោះអាចលុបឯកសារ",
+    bn: "শুধুমাত্র অফিসাররা ফাইল মুছতে পারে",
+    th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถลบไฟล์ได้",
+  },
+  nothing_to_update: {
+    en: "Nothing to update",
+    ja: "更新する項目がありません",
+    id: "Tidak ada yang perlu diperbarui",
+    vi: "Không có gì để cập nhật",
+    my: "ပြောင်းလဲရန် အချက်အလက် မရှိပါ",
+    km: "គ្មានអ្វីត្រូវធ្វើបច្ចុប្បន្នភាព",
+    bn: "আপডেট করার কিছু নেই",
+    th: "ไม่มีอะไรต้องอัปเดต",
+  },
+
+  // ── Leave ─────────────────────────────────────────────────────────────────
+  leave_submitted: {
+    en: "Leave submitted successfully",
+    ja: "休暇申請を提出しました",
+    id: "Permohonan cuti berhasil diajukan",
+    vi: "Đã nộp đơn nghỉ phép thành công",
+    my: "ခွင့်လျှောက်ထားမှု အောင်မြင်စွာ တင်ပြပြီးပါပြီ",
+    km: "ពាក្យស្នើសុំការឈប់សម្រាកត្រូវបានដាក់ស្នើដោយជោគជ័យ",
+    bn: "ছুটির আবেদন সফলভাবে জমা দেওয়া হয়েছে",
+    th: "ยื่นคำขอลาสำเร็จ",
+  },
+  leave_template_not_found: {
+    en: "Leave template not found.",
+    ja: "休暇テンプレートが見つかりません。",
+    id: "Template cuti tidak ditemukan.",
+    vi: "Không tìm thấy mẫu đơn nghỉ phép.",
+    my: "ခွင့်ပုံစံ မတွေ့ပါ",
+    km: "រកមិនឃើញគំរូការឈប់សម្រាក",
+    bn: "ছুটির টেমপ্লেট পাওয়া যায়নি।",
+    th: "ไม่พบเทมเพลตการลา",
+  },
+  no_leave_template: {
+    en: "No leave template configured for this company.",
+    ja: "この会社の休暇テンプレートが設定されていません。",
+    id: "Tidak ada template cuti yang dikonfigurasi untuk perusahaan ini.",
+    vi: "Không có mẫu đơn nghỉ phép nào được cấu hình cho công ty này.",
+    my: "ဤကုမ္ပဏီအတွက် ခွင့်ပုံစံ မသတ်မှတ်ထားပါ",
+    km: "គ្មានគំរូការឈប់សម្រាកដែលបានកំណត់សម្រាប់ក្រុមហ៊ុននេះ",
+    bn: "এই কোম্পানির জন্য কোনো ছুটির টেমপ্লেট কনফিগার করা হয়নি।",
+    th: "ไม่มีเทมเพลตการลาสำหรับบริษัทนี้",
+  },
+  officer_only_behalf: {
+    en: "Only officers can submit on behalf of another user.",
+    ja: "他のユーザーの代わりに申請できるのはオフィサーのみです。",
+    id: "Hanya petugas yang dapat mengajukan atas nama pengguna lain.",
+    vi: "Chỉ nhân viên mới có thể nộp thay mặt người dùng khác.",
+    my: "Officer များသာ အခြားသူကိုယ်စား တင်ပြနိုင်သည်",
+    km: "មន្ត្រីប៉ុណ្ណោះអាចដាក់ស្នើក្នុងនាមអ្នកប្រើប្រាស់ផ្សេង",
+    bn: "শুধুমাত্র অফিসাররা অন্য ব্যবহারকারীর হয়ে আবেদন করতে পারে।",
+    th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถยื่นในนามผู้ใช้อื่นได้",
+  },
+  target_user_not_found: {
+    en: "Target user not found.",
+    ja: "対象ユーザーが見つかりません。",
+    id: "Pengguna target tidak ditemukan.",
+    vi: "Không tìm thấy người dùng mục tiêu.",
+    my: "ပစ်မှတ်အသုံးပြုသူ မတွေ့ပါ",
+    km: "រកមិនឃើញអ្នកប្រើប្រាស់គោលដៅ",
+    bn: "লক্ষ্য ব্যবহারকারী পাওয়া যায়নি।",
+    th: "ไม่พบผู้ใช้เป้าหมาย",
+  },
+
+  // ── Audit ─────────────────────────────────────────────────────────────────
+  invalid_source_table: {
+    en: "Invalid source table",
+    ja: "無効なソーステーブルです",
+    id: "Tabel sumber tidak valid",
+    vi: "Bảng nguồn không hợp lệ",
+    my: "ရင်းမြစ်ဇယား မမှန်ကန်ပါ",
+    km: "តារាងប្រភពមិនត្រឹមត្រូវ",
+    bn: "অবৈধ সোর্স টেবিল",
+    th: "ตารางต้นทางไม่ถูกต้อง",
+  },
+
+  // ── Translate ─────────────────────────────────────────────────────────────
+  translate_provide_text: {
+    en: "Please provide text and a valid target language.",
+    ja: "テキストと有効な対象言語を入力してください。",
+    id: "Berikan teks dan bahasa target yang valid.",
+    vi: "Vui lòng cung cấp văn bản và ngôn ngữ đích hợp lệ.",
+    my: "စာသားနှင့် တရားဝင်သော ပန်းတိုင်ဘာသာစကား ထည့်ပါ",
+    km: "សូមផ្តល់អត្ថបទ និងភាសាគោលដៅដែលត្រឹមត្រូវ",
+    bn: "অনুগ্রহ করে টেক্সট এবং একটি বৈধ টার্গেট ভাষা প্রদান করুন।",
+    th: "กรุณาระบุข้อความและภาษาปลายทางที่ถูกต้อง",
+  },
+  translate_invalid_lang: {
+    en: "Invalid language code.",
+    ja: "無効な言語コードです。",
+    id: "Kode bahasa tidak valid.",
+    vi: "Mã ngôn ngữ không hợp lệ.",
+    my: "ဘာသာစကားကုဒ် မမှန်ကန်ပါ",
+    km: "លេខកូដភាសាមិនត្រឹមត្រូវ",
+    bn: "অবৈধ ভাষার কোড।",
+    th: "รหัสภาษาไม่ถูกต้อง",
+  },
+  translate_failed: {
+    en: "Translation failed on server.",
+    ja: "サーバーで翻訳に失敗しました。",
+    id: "Terjemahan gagal di server.",
+    vi: "Dịch thuật thất bại trên máy chủ.",
+    my: "ဆာဗာပေါ်တွင် ဘာသာပြန်ဆိုမှု မအောင်မြင်ပါ",
+    km: "ការបកប្រែបានបរាជ័យនៅលើម៉ាស៊ីនមេ",
+    bn: "সার্ভারে অনুবাদ ব্যর্থ হয়েছে।",
+    th: "การแปลล้มเหลวบนเซิร์ฟเวอร์",
+  },
+
+  // ── Generic ───────────────────────────────────────────────────────────────
+  internal_server_error: {
+    en: "Internal Server Error",
+    ja: "内部サーバーエラーが発生しました",
+    id: "Terjadi kesalahan server internal",
+    vi: "Lỗi máy chủ nội bộ",
+    my: "ဆာဗာ အတွင်းပိုင်း အမှားအယွင်း ဖြစ်ပွားသည်",
+    km: "កំហុសម៉ាស៊ីនមេផ្ទៃក្នុង",
+    bn: "অভ্যন্তরীণ সার্ভার ত্রুটি",
+    th: "ข้อผิดพลาดเซิร์ฟเวอร์ภายใน",
+  },
+  unauthorized: {
+    en: "Unauthorized",
+    ja: "権限がありません",
+    id: "Tidak berwenang",
+    vi: "Không có quyền truy cập",
+    my: "ခွင့်ပြုချက် မရှိပါ",
+    km: "គ្មានការអនុញ្ញាត",
+    bn: "অননুমোদিত",
+    th: "ไม่ได้รับอนุญาต",
+  },
+  forbidden: {
+    en: "Forbidden",
+    ja: "アクセスが禁止されています",
+    id: "Dilarang",
+    vi: "Bị cấm",
+    my: "ခွင့်မပြုပါ",
+    km: "ហាមឃាត់",
+    bn: "নিষিদ্ধ",
+    th: "ต้องห้าม",
+  },
+  access_denied: {
+    en: "Access denied",
+    ja: "アクセスが拒否されました",
+    id: "Akses ditolak",
+    vi: "Truy cập bị từ chối",
+    my: "ဝင်ရောက်ခွင့် ငြင်းဆိုသည်",
+    km: "ការចូលប្រើត្រូវបានបដិសេធ",
+    bn: "প্রবেশাধিকার অস্বীকার করা হয়েছে",
+    th: "การเข้าถึงถูกปฏิเสธ",
+  },
+  permission_denied: {
+    en: "Permission denied",
+    ja: "権限がありません",
+    id: "Izin ditolak",
+    vi: "Quyền truy cập bị từ chối",
+    my: "ခွင့်ပြုချက် ငြင်းဆိုသည်",
+    km: "ការអនុញ្ញាតត្រូវបានបដិសេធ",
+    bn: "অনুমতি অস্বীকার করা হয়েছে",
+    th: "การอนุญาตถูกปฏิเสธ",
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VALID_LANGUAGES = ["en", "ja", "id", "vi", "my", "km", "bn", "th"];
+
+const resolveLang = (language) =>
+  VALID_LANGUAGES.includes(language) ? language : "en";
+
 /**
- * Get translated text for a key in the user's language
+ * Get a push notification string for a given key + language.
+ * Falls back to English, then to the raw key.
  */
 export const getTranslation = (key, language = "en") => {
-  const validLanguages = ["en", "ja", "id", "vi", "my", "km", "bn", "th"];
-  const lang = validLanguages.includes(language) ? language : "en";
-
-  return translations[key]?.[lang] || translations[key]?.["en"] || key;
+  const lang = resolveLang(language);
+  return pushMessages[key]?.[lang] ?? pushMessages[key]?.["en"] ?? key;
 };
 
 /**
- * Format notification with user's language
+ * Get a push notification string with {{placeholder}} substitution.
  */
 export const formatNotification = (key, language, replacements = {}) => {
   let text = getTranslation(key, language);
-
-  // Replace placeholders like {{name}}, {{status}}
-  Object.keys(replacements).forEach((placeholder) => {
-    text = text.replace(`{{${placeholder}}}`, replacements[placeholder]);
-  });
-
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    text = text.replaceAll(`{{${placeholder}}}`, value);
+  }
   return text;
 };
 
-export default { getTranslation, formatNotification };
+/**
+ * Get an API response message for a given key + language.
+ * Falls back to English, then to the raw key.
+ *
+ * @param {string}  key       - Key from apiMessages (e.g. "register_invalid_code")
+ * @param {string}  [language="en"] - ISO language code
+ * @returns {string}
+ */
+export const getApiMessage = (key, language = "en") => {
+  const lang = resolveLang(language);
+  return apiMessages[key]?.[lang] ?? apiMessages[key]?.["en"] ?? key;
+};
+
+/**
+ * Get an API response message with {{placeholder}} substitution.
+ *
+ * @param {string}  key          - Key from apiMessages
+ * @param {string}  language     - ISO language code
+ * @param {object}  replacements - e.g. { role: "announcements_write" }
+ * @returns {string}
+ */
+export const formatApiMessage = (key, language, replacements = {}) => {
+  let text = getApiMessage(key, language);
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    text = text.replaceAll(`{{${placeholder}}}`, value);
+  }
+  return text;
+};
+
+export default { getTranslation, formatNotification, getApiMessage, formatApiMessage };

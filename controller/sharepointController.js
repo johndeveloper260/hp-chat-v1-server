@@ -1,487 +1,127 @@
-import { getPool } from "../config/getPool.js";
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
-
-// ── S3 client (same config as attachmentController) ──────────────────
-const s3Client = new S3Client({
-  region: process.env.REACT_APP_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-  },
-  requestHandler: new NodeHttpHandler({ connectionTimeout: 5000 }),
-  responseChecksumValidation: "WHEN_REQUIRED",
-  requestChecksumCalculation: "WHEN_REQUIRED",
-});
-
-const BUCKET = process.env.REACT_APP_AWS_BUCKET;
-
-// ── Helpers ──────────────────────────────────────────────────────────
-const OFFICER_TYPES = ["officer", "admin"];
-const isOfficer = (userType) => OFFICER_TYPES.includes(userType?.toLowerCase());
-
-// =====================================================================
-// FOLDERS
-// =====================================================================
-
 /**
- * GET /sharepoint/folders?parent_id=...
- * Returns { folders, files } for the given parent.
- * Officers see everything; trainees see only company-scoped folders.
+ * Sharepoint Controller
+ *
+ * Thin HTTP adapters — parse req → call service → send res → next(err).
+ * All business logic lives in services/sharepointService.js.
+ *
+ * The old controller constructed its own S3Client — replaced by the
+ * shared singleton in utils/s3Client.js via the service layer.
  */
-export const getFolders = async (req, res) => {
-  const { userType, company: userCompany, business_unit } = req.user;
-  const { parent_id } = req.query; // undefined / null = root
+import * as spService from "../services/sharepointService.js";
 
+// ─── Folders ──────────────────────────────────────────────────────────────────
+
+export const getFolders = async (req, res, next) => {
   try {
-    let folderQuery;
-    let folderParams;
-
-    if (isOfficer(userType)) {
-      if (parent_id) {
-        folderQuery = `SELECT * FROM v4.sharepoint_folders
-                       WHERE parent_id = $1 AND business_unit = $2
-                       ORDER BY name ASC`;
-        folderParams = [parent_id, business_unit];
-      } else {
-        folderQuery = `SELECT * FROM v4.sharepoint_folders
-                       WHERE parent_id IS NULL AND business_unit = $1
-                       ORDER BY name ASC`;
-        folderParams = [business_unit];
-      }
-    } else {
-      // Trainees
-      if (!parent_id) {
-        folderQuery = `SELECT * FROM v4.sharepoint_folders
-                       WHERE parent_id IS NULL
-                         AND business_unit = $1
-                         AND company_ids @> $2::jsonb
-                       ORDER BY name ASC`;
-        folderParams = [business_unit, JSON.stringify([userCompany])];
-      } else {
-        // Sub-folders: if trainee can see the parent, they see its children
-        folderQuery = `SELECT * FROM v4.sharepoint_folders
-                       WHERE parent_id = $1 AND business_unit = $2
-                       ORDER BY name ASC`;
-        folderParams = [parent_id, business_unit];
-      }
-    }
-
-    const { rows: folders } = await getPool().query(folderQuery, folderParams);
-
-    // Fetch files only when inside a folder
-    let files = [];
-    if (parent_id) {
-      const { rows } = await getPool().query(
-        `SELECT * FROM v4.sharepoint_files
-         WHERE folder_id = $1 ORDER BY created_at DESC`,
-        [parent_id],
-      );
-      files = rows;
-    }
-
-    res.json({ folders, files });
+    const { userType, company: userCompany, business_unit: businessUnit } = req.user;
+    const { parent_id } = req.query;
+    const result = await spService.getFolders({ userType, userCompany, businessUnit, parent_id });
+    res.json(result);
   } catch (err) {
-    console.error("getFolders error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * POST /sharepoint/folders
- * Body: { name, parent_id?, company_ids? }
- * Only officers can create root-level folders.
- */
-export const createFolder = async (req, res) => {
-  const { name, parent_id, company_ids } = req.body;
-  const { id: userId, userType, business_unit } = req.user;
-
-  if (!isOfficer(userType) && !parent_id) {
-    return res
-      .status(403)
-      .json({ error: "Only officers can create top-level folders", error_code: "api_errors.files.officer_only_create" });
-  }
-
-  if (!name || !name.trim()) {
-    return res.status(400).json({ error: "Folder name is required", error_code: "api_errors.files.folder_name_required" });
-  }
-
+export const createFolder = async (req, res, next) => {
   try {
-    const { rows } = await getPool().query(
-      `INSERT INTO v4.sharepoint_folders
-         (name, parent_id, created_by, company_ids, business_unit)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [
-        name.trim(),
-        parent_id || null,
-        userId,
-        JSON.stringify(company_ids || []),
-        business_unit,
-      ],
-    );
-    res.status(201).json(rows[0]);
+    const { name, parent_id, company_ids } = req.body;
+    const { id: userId, userType, business_unit: businessUnit } = req.user;
+    const folder = await spService.createFolder({ name, parent_id, company_ids, userId, userType, businessUnit });
+    res.status(201).json(folder);
   } catch (err) {
-    console.error("createFolder error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * PATCH /sharepoint/folders/:id
- * Body: { name?, company_ids? }
- * Updates a top-level folder's name and/or company access list.
- */
-export const updateFolder = async (req, res) => {
-  const { id } = req.params;
-  const { name, company_ids } = req.body;
-  const { userType, business_unit } = req.user;
-
-  if (!isOfficer(userType)) {
-    return res.status(403).json({ error: "Only officers can update folders", error_code: "api_errors.files.officer_only_update" });
-  }
-
-  if (!name?.trim() && !company_ids) {
-    return res.status(400).json({ error: "Nothing to update" });
-  }
-
+export const updateFolder = async (req, res, next) => {
   try {
-    // Verify folder exists, belongs to this BU, and is top-level
-    const { rows: existing } = await getPool().query(
-      `SELECT id, parent_id FROM v4.sharepoint_folders
-       WHERE id = $1 AND business_unit = $2`,
-      [id, business_unit],
-    );
-
-    if (existing.length === 0) {
-      return res.status(404).json({ error: "Folder not found" });
-    }
-
-    // Build dynamic SET clause
-    const sets = [];
-    const params = [];
-    let idx = 1;
-
-    if (name?.trim()) {
-      sets.push(`name = $${idx++}`);
-      params.push(name.trim());
-    }
-    if (company_ids) {
-      sets.push(`company_ids = $${idx++}`);
-      params.push(JSON.stringify(company_ids));
-    }
-
-    sets.push(`updated_at = NOW()`);
-    params.push(id, business_unit);
-
-    const { rows } = await getPool().query(
-      `UPDATE v4.sharepoint_folders
-       SET ${sets.join(", ")}
-       WHERE id = $${idx++} AND business_unit = $${idx}
-       RETURNING *`,
-      params,
-    );
-
-    res.json(rows[0]);
+    const { id } = req.params;
+    const { name, company_ids } = req.body;
+    const { userType, business_unit: businessUnit } = req.user;
+    const folder = await spService.updateFolder({ id, name, company_ids, userType, businessUnit });
+    res.json(folder);
   } catch (err) {
-    console.error("updateFolder error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * DELETE /sharepoint/folders/:id
- * Recursively deletes a folder, its sub-folders, files in DB, and S3 objects.
- */
-export const deleteFolder = async (req, res) => {
-  const { id } = req.params;
-  const { userType, business_unit } = req.user;
-
-  if (!isOfficer(userType)) {
-    return res.status(403).json({ error: "Only officers can delete folders", error_code: "api_errors.files.officer_only_delete" });
-  }
-
-  const client = await getPool().connect();
+export const deleteFolder = async (req, res, next) => {
   try {
-    await client.query("BEGIN");
-
-    // Collect all descendant folder IDs via recursive CTE
-    const { rows: descendantRows } = await client.query(
-      `WITH RECURSIVE tree AS (
-         SELECT id FROM v4.sharepoint_folders
-         WHERE id = $1 AND business_unit = $2
-         UNION ALL
-         SELECT f.id FROM v4.sharepoint_folders f
-         JOIN tree t ON f.parent_id = t.id
-       )
-       SELECT id FROM tree`,
-      [id, business_unit],
-    );
-
-    if (descendantRows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Folder not found" });
-    }
-
-    const folderIds = descendantRows.map((r) => r.id);
-
-    // Get all S3 keys for files in those folders
-    const { rows: fileRows } = await client.query(
-      `SELECT s3_key FROM v4.sharepoint_files
-       WHERE folder_id = ANY($1::uuid[])`,
-      [folderIds],
-    );
-
-    // Delete files from S3
-    const s3Promises = fileRows.map((f) =>
-      s3Client
-        .send(new DeleteObjectCommand({ Bucket: BUCKET, Key: f.s3_key }))
-        .catch((err) => console.error("S3 delete error:", f.s3_key, err)),
-    );
-    await Promise.all(s3Promises);
-
-    // Delete files from DB
-    await client.query(
-      `DELETE FROM v4.sharepoint_files WHERE folder_id = ANY($1::uuid[])`,
-      [folderIds],
-    );
-
-    // Delete folders from DB
-    await client.query(
-      `DELETE FROM v4.sharepoint_folders WHERE id = ANY($1::uuid[])`,
-      [folderIds],
-    );
-
-    await client.query("COMMIT");
-    res.json({
-      message: "Folder deleted successfully",
-      deletedCount: folderIds.length,
+    const result = await spService.deleteFolder({
+      id:           req.params.id,
+      userType:     req.user.userType,
+      businessUnit: req.user.business_unit,
     });
+    res.json({ message: "Folder deleted successfully", ...result });
   } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("deleteFolder error:", err);
-    res.status(500).json({ error: err.message });
-  } finally {
-    client.release();
+    next(err);
   }
 };
 
-// =====================================================================
-// FILES — Presigned URL approach (matches existing attachments pattern)
-// =====================================================================
+// ─── Files ────────────────────────────────────────────────────────────────────
 
-/**
- * POST /sharepoint/files/generate-url
- * Body: { fileName, fileType, folderId }
- * Returns: { uploadUrl, s3Key, bucketName }
- */
-export const generateUploadUrl = async (req, res) => {
-  const { fileName, fileType, folderId } = req.body;
-  const { business_unit } = req.user;
-
-  if (!fileName || !fileType || !folderId) {
-    return res
-      .status(400)
-      .json({ error: "fileName, fileType, and folderId are required" });
-  }
-
+export const generateUploadUrl = async (req, res, next) => {
   try {
-    // Verify folder exists and belongs to this BU
-    const { rowCount } = await getPool().query(
-      `SELECT 1 FROM v4.sharepoint_folders
-       WHERE id = $1 AND business_unit = $2`,
-      [folderId, business_unit],
-    );
-    if (rowCount === 0) {
-      return res.status(404).json({ error: "Folder not found" });
-    }
-
-    // Build S3 key: sharepoint/{folderId}/{timestamp}-{sanitized}
-    const sanitized = fileName
-      .replace(/\s+/g, "_")
-      .replace(/[^a-zA-Z0-9._-]/g, "");
-    const s3Key = `sharepoint/${folderId}/${Date.now()}-${sanitized}`;
-
-    const command = new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: s3Key,
-      ContentType: fileType,
+    const { fileName, fileType, folderId } = req.body;
+    const result = await spService.generateUploadUrl({
+      fileName, fileType, folderId,
+      businessUnit: req.user.business_unit,
     });
-
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
-
-    res.json({ uploadUrl, s3Key, bucketName: BUCKET });
+    res.json(result);
   } catch (err) {
-    console.error("generateUploadUrl error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * POST /sharepoint/files/confirm
- * Body: { folder_id, display_name, s3_key, s3_bucket, file_type, file_size }
- * Saves the file record to DB after S3 upload completes.
- */
-export const confirmFileUpload = async (req, res) => {
-  const { folder_id, display_name, s3_key, s3_bucket, file_type, file_size } =
-    req.body;
-  const { id: userId, business_unit } = req.user;
-
-  if (!folder_id || !s3_key) {
-    return res.status(400).json({ error: "folder_id and s3_key are required" });
-  }
-
+export const confirmFileUpload = async (req, res, next) => {
   try {
-    // Verify folder belongs to this BU
-    const { rowCount } = await getPool().query(
-      `SELECT 1 FROM v4.sharepoint_folders
-       WHERE id = $1 AND business_unit = $2`,
-      [folder_id, business_unit],
-    );
-    if (rowCount === 0) {
-      return res.status(404).json({ error: "Folder not found" });
-    }
-
-    const { rows } = await getPool().query(
-      `INSERT INTO v4.sharepoint_files
-         (folder_id, display_name, s3_key, s3_bucket, file_type, file_size, uploaded_by, business_unit)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
-        folder_id,
-        display_name,
-        s3_key,
-        s3_bucket,
-        file_type,
-        file_size,
-        userId,
-        business_unit,
-      ],
-    );
-
-    res.status(201).json(rows[0]);
+    const { folder_id, display_name, s3_key, s3_bucket, file_type, file_size } = req.body;
+    const { id: userId, business_unit: businessUnit } = req.user;
+    const file = await spService.confirmFileUpload({
+      folder_id, display_name, s3_key, s3_bucket,
+      file_type, file_size, userId, businessUnit,
+    });
+    res.status(201).json(file);
   } catch (err) {
-    console.error("confirmFileUpload error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * GET /sharepoint/files/view/:id
- * Returns a 1-hour presigned viewing URL for a file.
- */
-export const getFileViewUrl = async (req, res) => {
-  const { id } = req.params;
-  const { business_unit } = req.user;
-
+export const getFileViewUrl = async (req, res, next) => {
   try {
-    const { rows } = await getPool().query(
-      `SELECT f.s3_key, f.s3_bucket
-       FROM v4.sharepoint_files f
-       JOIN v4.sharepoint_folders fld ON f.folder_id = fld.id
-       WHERE f.id = $1 AND fld.business_unit = $2`,
-      [id, business_unit],
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "File not found" });
-    }
-
-    const command = new GetObjectCommand({
-      Bucket: rows[0].s3_bucket,
-      Key: rows[0].s3_key,
+    const url = await spService.getFileViewUrl({
+      id:           req.params.id,
+      businessUnit: req.user.business_unit,
     });
-
-    const url = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600,
-      signableHeaders: new Set(["host"]),
-    });
-
     res.json({ url });
   } catch (err) {
-    console.error("getFileViewUrl error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-/**
- * DELETE /sharepoint/files/:id
- * Deletes a single file from S3 and DB.
- */
-export const deleteFile = async (req, res) => {
-  const { id } = req.params;
-  const { userType, business_unit } = req.user;
-
-  if (!isOfficer(userType)) {
-    return res.status(403).json({ error: "Only officers can delete files", error_code: "api_errors.files.officer_only_delete_file" });
-  }
-
+export const deleteFile = async (req, res, next) => {
   try {
-    const { rows } = await getPool().query(
-      `SELECT f.s3_key
-       FROM v4.sharepoint_files f
-       JOIN v4.sharepoint_folders fld ON f.folder_id = fld.id
-       WHERE f.id = $1 AND fld.business_unit = $2`,
-      [id, business_unit],
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "File not found" });
-    }
-
-    // Delete from S3
-    await s3Client.send(
-      new DeleteObjectCommand({ Bucket: BUCKET, Key: rows[0].s3_key }),
-    );
-
-    // Delete from DB
-    await getPool().query(`DELETE FROM v4.sharepoint_files WHERE id = $1`, [
-      id,
-    ]);
-
+    await spService.deleteFile({
+      id:           req.params.id,
+      userType:     req.user.userType,
+      businessUnit: req.user.business_unit,
+    });
     res.json({ message: "File deleted successfully" });
   } catch (err) {
-    console.error("deleteFile error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-// =====================================================================
-// BREADCRUMB
-// =====================================================================
+// ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
-/**
- * GET /sharepoint/breadcrumb/:folderId
- * Returns the ancestor chain from root to the given folder.
- */
-export const getBreadcrumb = async (req, res) => {
-  const { folderId } = req.params;
-  const { business_unit } = req.user;
-
+export const getBreadcrumb = async (req, res, next) => {
   try {
-    const { rows } = await getPool().query(
-      `WITH RECURSIVE chain AS (
-         SELECT id, name, parent_id, 0 AS depth
-         FROM v4.sharepoint_folders
-         WHERE id = $1 AND business_unit = $2
-         UNION ALL
-         SELECT f.id, f.name, f.parent_id, c.depth + 1
-         FROM v4.sharepoint_folders f
-         JOIN chain c ON f.id = c.parent_id
-       )
-       SELECT id, name FROM chain ORDER BY depth DESC`,
-      [folderId, business_unit],
-    );
-
-    res.json({ breadcrumb: rows });
+    const result = await spService.getBreadcrumb({
+      folderId:     req.params.folderId,
+      businessUnit: req.user.business_unit,
+    });
+    res.json(result);
   } catch (err) {
-    console.error("getBreadcrumb error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };

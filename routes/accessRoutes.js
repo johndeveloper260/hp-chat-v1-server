@@ -1,6 +1,14 @@
+/**
+ * Access Routes
+ *
+ * All mutation endpoints are guarded by Zod validate() middleware.
+ * Every endpoint requires the role_management_write permission.
+ */
 import express from "express";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/requireRole.js";
+import { validate } from "../middleware/validate.js";
+import { assignRoleSchema, replaceRolesSchema } from "../validators/accessValidator.js";
 import {
   getUsers,
   getAllRoleDefinitions,
@@ -11,47 +19,16 @@ import {
 } from "../controller/accessController.js";
 
 const router = express.Router();
+const RM = requireRole("role_management_write");
 
-/**
- * GET /access/users?search=
- * List active users for the Role Management UI.
- * Requires: role_management_write
- */
-router.get("/users", auth, requireRole("role_management_write"), getUsers);
+// ── Reads ─────────────────────────────────────────────────────────────────────
+router.get("/users",             auth, RM, getUsers);
+router.get("/roles/definitions", auth, RM, getAllRoleDefinitions);
+router.get("/roles/:userId",     auth, RM, getUserRoles);
 
-/**
- * GET /access/roles/definitions
- * All available role definition entries — used to render the permission grid.
- * Requires: role_management_write
- */
-router.get("/roles/definitions", auth, requireRole("role_management_write"), getAllRoleDefinitions);
-
-/**
- * GET /access/roles/:userId
- * Fetch roles assigned to a specific user.
- * Requires: role_management_write
- */
-router.get("/roles/:userId", auth, requireRole("role_management_write"), getUserRoles);
-
-/**
- * POST /access/roles/:userId
- * Grant a single role.  Body: { role_name }
- * Requires: role_management_write
- */
-router.post("/roles/:userId", auth, requireRole("role_management_write"), assignRole);
-
-/**
- * DELETE /access/roles/:userId/:roleName
- * Revoke a single role.
- * Requires: role_management_write
- */
-router.delete("/roles/:userId/:roleName", auth, requireRole("role_management_write"), revokeRole);
-
-/**
- * PUT /access/roles/:userId
- * Atomic full replacement of all roles.  Body: { roles: [] }
- * Requires: role_management_write
- */
-router.put("/roles/:userId", auth, requireRole("role_management_write"), replaceUserRoles);
+// ── Mutations ─────────────────────────────────────────────────────────────────
+router.post(  "/roles/:userId",           auth, RM, validate(assignRoleSchema),  assignRole);
+router.delete("/roles/:userId/:roleName", auth, RM,                              revokeRole);
+router.put(   "/roles/:userId",           auth, RM, validate(replaceRolesSchema), replaceUserRoles);
 
 export default router;

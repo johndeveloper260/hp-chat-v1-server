@@ -1,8 +1,19 @@
+/**
+ * Login Routes
+ *
+ * Every body-bearing route is guarded by the Zod validate() middleware.
+ * Validation failures are forwarded to the global errorHandler as ZodErrors.
+ */
 import express from "express";
 import auth from "../middleware/auth.js";
-const router = express.Router();
-
-// 1. Change require to a named import and add the .js extension
+import { validate } from "../middleware/validate.js";
+import {
+  loginSchema,
+  forgotPasswordSchema,
+  updatePasswordSchema,
+  requestDeletionSchema,
+  verifyDeletionSchema,
+} from "../validators/loginValidator.js";
 import {
   loginUser,
   handleForgotPassword,
@@ -13,21 +24,21 @@ import {
   adminDeleteUser,
 } from "../controller/loginController.js";
 
-// Public
-router.post(`/loginUser`, loginUser);
-router.post(`/forgot-password`, handleForgotPassword);
+const router = express.Router();
 
-// Private
-router.post(`/updatePassword`, auth, updatePassword);
+// ── Public ────────────────────────────────────────────────────────────────────
+router.post("/loginUser",       validate(loginSchema),           loginUser);
+router.post("/forgot-password", validate(forgotPasswordSchema),  handleForgotPassword);
 
-// Private Route (For In-App Settings)
-router.delete(`/deleteAccount`, auth, deleteUserAccount);
+// ── Authenticated ─────────────────────────────────────────────────────────────
+router.post("/updatePassword",  auth, validate(updatePasswordSchema), updatePassword);
+router.delete("/deleteAccount", auth,                                  deleteUserAccount);
 
-// Officer/Admin: Delete another user
-router.delete(`/admin-delete-user/:userId`, auth, adminDeleteUser);
+// ── Officer / Admin ───────────────────────────────────────────────────────────
+router.delete("/admin-delete-user/:userId", auth, adminDeleteUser);
 
-// Public Routes (For Web Deletion Page)
-router.post(`/requestWebDeletion`, requestWebDeletion);
-router.post(`/verifyAndExcludeAccount`, finalizeDeletion);
+// ── Public Web Deletion Flow ──────────────────────────────────────────────────
+router.post("/requestWebDeletion",     validate(requestDeletionSchema), requestWebDeletion);
+router.post("/verifyAndExcludeAccount", validate(verifyDeletionSchema), finalizeDeletion);
 
 export default router;

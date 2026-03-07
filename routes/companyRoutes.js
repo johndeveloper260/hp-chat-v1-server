@@ -1,6 +1,13 @@
+/**
+ * Company Routes
+ *
+ * Mutation endpoints are guarded by Zod validate() middleware.
+ */
 import express from "express";
 import auth from "../middleware/auth.js";
 import { requireOfficer, requireRole } from "../middleware/requireRole.js";
+import { validate } from "../middleware/validate.js";
+import { createCompanySchema, updateCompanySchema } from "../validators/companyValidator.js";
 import {
   getCompanies,
   getCompanyDropdown,
@@ -13,15 +20,15 @@ import {
 const router = express.Router();
 
 // ── any officer — used widely (dropdowns, audience targeting, etc.) ───────────
-router.get("/dropdown",               auth, requireOfficer, getCompanyDropdown);
-router.get("/:companyId/employees",   auth, requireOfficer, getEmployeesByCompany);
+router.get("/dropdown",             auth, requireOfficer,            getCompanyDropdown);
+router.get("/:companyId/employees", auth, requireOfficer,            getEmployeesByCompany);
 
-// ── company_read — guards the Company management page only ────────────────────
-router.get("/list",                   auth, requireRole("company_read"), getCompanies);
+// ── company_read ──────────────────────────────────────────────────────────────
+router.get("/list",                 auth, requireRole("company_read"), getCompanies);
 
 // ── company_write ─────────────────────────────────────────────────────────────
-router.post("/create",        auth, requireRole("company_write"), createCompany);
-router.put("/update/:id",     auth, requireRole("company_write"), updateCompany);
-router.delete("/delete/:id",  auth, requireRole("company_write"), deleteCompany);
+router.post(  "/create",      auth, requireRole("company_write"), validate(createCompanySchema), createCompany);
+router.put(   "/update/:id",  auth, requireRole("company_write"), validate(updateCompanySchema), updateCompany);
+router.delete("/delete/:id",  auth, requireRole("company_write"),                                deleteCompany);
 
 export default router;

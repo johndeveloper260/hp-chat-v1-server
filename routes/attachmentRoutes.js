@@ -1,67 +1,49 @@
+/**
+ * Attachment Routes
+ */
 import express from "express";
+import auth               from "../middleware/auth.js";
+import { validate }       from "../middleware/validate.js";
+import {
+  generateUrlSchema,
+  createAttachmentSchema,
+  renameAttachmentSchema,
+} from "../validators/attachmentValidator.js";
+import {
+  generateUploadUrl,
+  createAttachment,
+  getViewingUrl,
+  getAttachmentsByRelation,
+  deleteAttachment,
+  deleteProfilePicture,
+  deleteAttachmentsByRelation,
+  renameAttachment,
+} from "../controller/attachmentController.js";
+
 const router = express.Router();
 
-import * as attachmentController from "../controller/attachmentController.js";
-import auth from "../middleware/auth.js";
+// ── 1. Generate presigned PUT URL for direct S3 upload ────────────────────────
+router.post("/generate-url", auth, validate(generateUrlSchema), generateUploadUrl);
 
-// 1. Get the Signed URL for Upload
-// Expects: { fileName, fileType, relationType, relationId }
-// business_unit is pulled from the authenticated user's JWT
-router.post("/generate-url", auth, async (req, res) => {
-  try {
-    const { fileName, fileType, relationType, relationId } = req.body;
-    const businessUnit = req.user.business_unit;
+// ── 2. Confirm upload (save DB record, sync profile pics to Stream) ────────────
+router.post("/confirm", auth, validate(createAttachmentSchema), createAttachment);
 
-    if (!relationType || !relationId) {
-      return res
-        .status(400)
-        .json({ error: "relationType and relationId are required" });
-    }
+// ── 3. View single attachment (returns 1-hour signed GET URL) ─────────────────
+router.get("/view/:id", auth, getViewingUrl);
 
-    const data = await attachmentController.getPresignedUrl(
-      fileName,
-      fileType,
-      businessUnit,
-      relationType,
-      relationId,
-    );
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ── 4. Get all attachments for a relation ─────────────────────────────────────
+router.get("/:relationType/:relationId", auth, getAttachmentsByRelation);
 
-// 2. Confirm the upload (saves to DB, syncs profile pics to Stream)
-router.post("/confirm", auth, attachmentController.createAttachment);
+// ── 5. Delete single attachment (removes from S3 + Stream for profile pics) ───
+router.delete("/:id", auth, deleteAttachment);
 
-// 3. View single attachment (generates signed viewing URL)
-router.get("/view/:id", auth, attachmentController.getViewingUrl);
+// ── 6. Delete profile picture by user ID (specialized endpoint) ───────────────
+router.delete("/profile/:userId", auth, deleteProfilePicture);
 
-// 4. Get all attachments for a specific relation (e.g., all attachments on a feed post)
-router.get(
-  "/:relationType/:relationId",
-  auth,
-  attachmentController.getAttachmentsByRelation,
-);
+// ── 7. Batch delete all attachments for a relation ────────────────────────────
+router.delete("/relation/:relationType/:relationId", auth, deleteAttachmentsByRelation);
 
-// 5. Delete single attachment (also removes from Stream if profile pic)
-router.delete("/:id", auth, attachmentController.deleteAttachment);
-
-// 6. Delete profile picture by user ID (specialized endpoint)
-router.delete(
-  "/profile/:userId",
-  auth,
-  attachmentController.deleteProfilePicture,
-);
-
-// 7. Batch delete all attachments for a relation (e.g., delete all attachments when deleting a post)
-router.delete(
-  "/relation/:relationType/:relationId",
-  auth,
-  attachmentController.deleteAttachmentsByRelation,
-);
-
-// PUT /attachments/{id}/rename
-router.put("/:id/rename", auth, attachmentController.renameAttachment);
+// ── 8. Rename attachment ──────────────────────────────────────────────────────
+router.put("/:id/rename", auth, validate(renameAttachmentSchema), renameAttachment);
 
 export default router;

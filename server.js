@@ -1,5 +1,6 @@
 // 01-May 2025 | HoRenSo Plus v3
 import "dotenv/config";
+import "./config/env.js"; // Validates all required env vars at startup — throws if any are missing
 import express from "express";
 import cors from "cors";
 import { createServer } from "http";
@@ -7,6 +8,7 @@ import { createServer } from "http";
 // --- Import Logic ---
 import connectDB from "./config/db.js";
 import slidingExpiration from "./middleware/slidingExpiration.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 import register from "./routes/registerRoute.js";
 import login from "./routes/loginRoute.js";
@@ -108,6 +110,10 @@ app.use("/return-home", returnHomeRoutes);
 app.use("/leave", leaveRoutes);
 
 app.use("/audit", auditRoutes);
+
+// ── Global Error Handler ──────────────────────────────────────────────────────
+// MUST be mounted AFTER all routes so Express recognises it as a 4-arg handler
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 8010;
 httpServer.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

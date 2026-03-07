@@ -1,12 +1,14 @@
+/**
+ * Translate Routes
+ */
 import express from "express";
+import auth from "../middleware/auth.js";
+import { validate } from "../middleware/validate.js";
+import { translateSchema } from "../validators/translateValidator.js";
+import { translateText } from "../controller/translateController.js";
+
 const router = express.Router();
 
-// 1. Use import instead of require
-import { translateText } from "../controller/translateController.js";
-import auth from "../middleware/auth.js";
+router.post("/", auth, validate(translateSchema), translateText);
 
-// 2. Define the route
-router.post("/", auth, translateText);
-
-// 3. Keep the export default
 export default router;

@@ -1,30 +1,22 @@
+/**
+ * Stream Routes
+ *
+ * IMPORTANT: This router is mounted BEFORE express.json() in server.js so that
+ * the webhook route can use express.raw() to preserve the raw Buffer for HMAC
+ * signature verification.
+ */
 import express from "express";
 import auth from "../middleware/auth.js";
-
-const router = express.Router();
-
-// 1. Change require to a named import and add the .js extension
 import { getStreamToken } from "../controller/streamController.js";
 import { handleChatWebhook } from "../controller/streamChatWebhookController.js";
 
-// @route   GET /stream/token
-// @desc    Generate a Stream token for the authenticated user (ID taken from JWT).
-//          The mobile app uses this paramless variant.
-router.get("/token", auth, getStreamToken);
+const router = express.Router();
 
-// @route   GET /stream/token/:userId  (kept for web frontend backward compatibility)
-// @desc    Same handler — the :userId param is accepted but the controller
-//          derives the user ID from the verified JWT (req.user.id), not the URL.
-router.get("/token/:userId", auth, getStreamToken);
+// Token endpoint — user ID always derived from JWT, never from the URL param
+router.get("/token",         auth, getStreamToken);
+router.get("/token/:userId", auth, getStreamToken); // backward-compat for web frontend
 
-// @route   POST /stream/webhook/chat
-// @desc    Handle Stream Chat webhooks (no auth - verified by signature)
-// IMPORTANT: Uses raw body middleware to preserve original bytes for HMAC verification
-router.post(
-  "/webhook/chat",
-  express.raw({ type: "application/json" }),
-  handleChatWebhook
-);
+// Webhook — raw body required for HMAC signature verification (no auth middleware)
+router.post("/webhook/chat", express.raw({ type: "application/json" }), handleChatWebhook);
 
-// 2. Change module.exports to export default
 export default router;

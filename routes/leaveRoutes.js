@@ -1,6 +1,14 @@
+/**
+ * Leave Routes
+ */
 import express from "express";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/requireRole.js";
+import { validate }    from "../middleware/validate.js";
+import {
+  saveLeaveTemplateSchema,
+  submitLeaveSchema,
+} from "../validators/leaveValidator.js";
 import {
   saveLeaveTemplate,
   getLeaveTemplate,
@@ -12,16 +20,16 @@ import {
 
 const router = express.Router();
 
-// ── All authenticated users ───────────────────────────────────────────────────
-router.get("/template",      auth, getLeaveTemplate);   // read the form to fill it in
-router.post("/submit",       auth, submitLeave);
+// ── All authenticated users ────────────────────────────────────────────────────
+router.get("/template",       auth, getLeaveTemplate);
+router.post("/submit",        auth, validate(submitLeaveSchema), submitLeave);
 router.get("/my-submissions", auth, getMySubmissions);
 
 // ── leave_read (or leave_write) ───────────────────────────────────────────────
-router.get("/templates",    auth, requireRole("leave_read"), getCompanyTemplates);
-router.get("/submissions",  auth, requireRole("leave_read"), getCompanySubmissions);
+router.get("/templates",   auth, requireRole("leave_read"), getCompanyTemplates);
+router.get("/submissions", auth, requireRole("leave_read"), getCompanySubmissions);
 
 // ── leave_write ───────────────────────────────────────────────────────────────
-router.post("/template", auth, requireRole("leave_write"), saveLeaveTemplate);
+router.post("/template", auth, requireRole("leave_write"), validate(saveLeaveTemplateSchema), saveLeaveTemplate);
 
 export default router;

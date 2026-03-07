@@ -1,461 +1,49 @@
-import dotenv from "dotenv";
-import { getPool } from "../config/getPool.js";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
+/**
+ * Leave Controller — thin HTTP adapter
+ *
+ * S3 presigned-URL resolution, email dispatch, and on-behalf logic
+ * all live in leaveService. This controller only wires req/res.
+ */
+import * as leaveService from "../services/leaveService.js";
 
-import { getUserLanguage } from "../utils/getUserLanguage.js";
-import { leaveApplicationAlert } from "../config/systemMailer.js";
-
-const s3Client = new S3Client({
-  region: process.env.REACT_APP_AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-  },
-  requestHandler: new NodeHttpHandler({ connectionTimeout: 5000 }),
-});
-
-dotenv.config();
-
-// ==========================================
-// ADMIN: SAVE OR UPDATE TEMPLATE
-// ==========================================
-export const saveLeaveTemplate = async (req, res) => {
-  const { config, fields, company_id, title, description, template_id, category, is_published } = req.body;
-  const business_unit = req.user.business_unit;
-  // Allow admin/officer to specify a target company, fallback to own company
-  const company = company_id || req.user.company;
-  const userId = req.user.id;
-
+export const saveLeaveTemplate = async (req, res, next) => {
   try {
-    // Ensure config and fields are stored as proper JSON strings for pg
-    const configJSON =
-      typeof config === "string" ? config : JSON.stringify(config);
-    const fieldsJSON =
-      typeof fields === "string" ? fields : JSON.stringify(fields);
-
-    let result;
-    if (template_id) {
-      // Update a specific existing template by ID
-      const updateQuery = `
-        UPDATE v4.leave_template_tbl
-        SET config = $1, fields = $2, version = version + 0.1, last_updated_by = $3, updated_at = NOW(),
-            title = $5, description = $6, category = $7, is_published = $8
-        WHERE template_id = $4
-        RETURNING *;
-      `;
-      result = await getPool().query(updateQuery, [
-        configJSON,
-        fieldsJSON,
-        userId,
-        template_id,
-        title || "",
-        description || null,
-        category || null,
-        is_published ?? false,
-      ]);
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: "Template not found." });
-      }
-    } else {
-      // Insert new template
-      const insertQuery = `
-        INSERT INTO v4.leave_template_tbl (company_id, business_unit, config, fields, last_updated_by, title, description, category, is_published)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING *;
-      `;
-      result = await getPool().query(insertQuery, [
-        company,
-        business_unit,
-        configJSON,
-        fieldsJSON,
-        userId,
-        title || "",
-        description || null,
-        category || null,
-        is_published ?? false,
-      ]);
-    }
-
-    res.status(200).json(result.rows[0]);
-  } catch (err) {
-    console.error("Save Template Error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+    const data = await leaveService.saveLeaveTemplate(req.user.id, req.user, req.body);
+    res.status(200).json(data);
+  } catch (err) { next(err); }
 };
 
-// ==========================================
-// ADMIN: GET ALL TEMPLATES FOR A COMPANY
-// ==========================================
-export const getCompanyTemplates = async (req, res) => {
-  const business_unit = req.user.business_unit;
-  const company = req.query.company_id || req.user.company;
-
+export const getCompanyTemplates = async (req, res, next) => {
   try {
-    const query = `
-      SELECT template_id, title, description, category, is_published, version, updated_at
-      FROM v4.leave_template_tbl
-      WHERE company_id = $1 AND business_unit = $2 AND is_active = true
-      ORDER BY updated_at DESC;
-    `;
-    const { rows } = await getPool().query(query, [company, business_unit]);
+    const rows = await leaveService.getCompanyTemplates(req.user, req.query);
     res.status(200).json(rows);
-  } catch (err) {
-    console.error("Get Company Templates Error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 };
 
-// ==========================================
-// USER: GET A SPECIFIC TEMPLATE
-// ==========================================
-export const getLeaveTemplate = async (req, res) => {
-  const business_unit = req.user.business_unit;
-  const template_id = req.query.template_id;
-  // Allow admin/officer to query a specific company's template via query param
-  const company = req.query.company_id || req.user.company;
-
+export const getLeaveTemplate = async (req, res, next) => {
   try {
-    let rows;
-
-    if (template_id) {
-      // Fetch a specific template by its ID
-      const result = await getPool().query(
-        `SELECT template_id, version, config, fields, title, description, category, is_published
-         FROM v4.leave_template_tbl
-         WHERE template_id = $1 AND is_active = true`,
-        [template_id]
-      );
-      rows = result.rows;
-    } else {
-      // Fallback: fetch the most recent template for this company (backward compat)
-      const result = await getPool().query(
-        `SELECT template_id, version, config, fields, title, description, category, is_published
-         FROM v4.leave_template_tbl
-         WHERE company_id = $1 AND business_unit = $2 AND is_active = true
-         ORDER BY updated_at DESC LIMIT 1`,
-        [company, business_unit]
-      );
-      rows = result.rows;
-    }
-
-    if (rows.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No leave template configured for this company.", error_code: "api_errors.leave.no_template" });
-    }
-
-    res.status(200).json(rows[0]);
-  } catch (err) {
-    console.error("Get Template Error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+    const template = await leaveService.getLeaveTemplate(req.user, req.query);
+    res.status(200).json(template);
+  } catch (err) { next(err); }
 };
 
-// ==========================================
-// USER: SUBMIT LEAVE APPLICATION
-// ==========================================
-export const submitLeave = async (req, res) => {
-  const { templateId, answers, targetUserId } = req.body;
-  const OFFICER_TYPES = ["officer", "admin"];
-  const isOfficer = OFFICER_TYPES.includes(
-    (req.user.userType || "").toLowerCase(),
-  );
-
-  // On-behalf: officer submits for another user
-  let userId = req.user.id;
-  let business_unit = req.user.business_unit;
-  let company = req.user.company;
-
-  if (targetUserId) {
-    if (!isOfficer) {
-      return res
-        .status(403)
-        .json({ error: "Only officers can submit on behalf of another user.", error_code: "api_errors.leave.officer_only_behalf" });
-    }
-    // Look up the target user's company & business_unit
-    try {
-      const targetRes = await getPool().query(
-        `SELECT a.id AS user_id, p.company, a.business_unit
-         FROM v4.user_account_tbl a
-         JOIN v4.user_profile_tbl p ON a.id = p.user_id
-         WHERE a.id = $1`,
-        [targetUserId],
-      );
-      if (targetRes.rows.length === 0) {
-        return res.status(404).json({ error: "Target user not found.", error_code: "api_errors.leave.target_user_not_found" });
-      }
-      userId = targetRes.rows[0].user_id;
-      company = targetRes.rows[0].company;
-      business_unit = targetRes.rows[0].business_unit;
-    } catch (lookupErr) {
-      console.error("Target user lookup error:", lookupErr.message);
-      return res.status(500).json({ error: "Failed to look up target user." });
-    }
-  }
-
+export const submitLeave = async (req, res, next) => {
   try {
-    // Ensure answers is stored as a proper JSON string for pg
-    const answersJSON =
-      typeof answers === "string" ? answers : JSON.stringify(answers);
-
-    // 1. Save the submission
-    const insertQuery = `
-      INSERT INTO v4.leave_submission_tbl (template_id, user_id, company_id, business_unit, answers, status)
-      VALUES ($1, $2, $3, $4, $5, 'sent')
-      RETURNING *;
-    `;
-    const { rows } = await getPool().query(insertQuery, [
-      templateId,
-      userId,
-      company,
-      business_unit,
-      answersJSON,
-    ]);
-
-    const submission = rows[0];
-
-    // 2. Fetch template config to get email recipients
-    const templateQuery = `SELECT config, fields, title FROM v4.leave_template_tbl WHERE template_id = $1`;
-    const templateRes = await getPool().query(templateQuery, [templateId]);
-
-    if (templateRes.rows.length > 0) {
-      const { config, fields } = templateRes.rows[0];
-      const emails = config?.notificationEmails || [];
-
-      if (emails.length > 0) {
-        if (templateRes.rows.length > 0) {
-          const { config, fields, title: templateTitle } = templateRes.rows[0];
-          const emails = config?.notificationEmails || [];
-
-          if (emails.length > 0) {
-            // 1. Fetch Company Name from JSONB column
-            const companyQuery = `SELECT company_name->>'en' as name_en, company_name->>'ja' as name_jp FROM v4.company_tbl WHERE company_id = $1`;
-            const companyRes = await getPool().query(companyQuery, [company]);
-
-            // Fallback logic: Use Japanese name if available, otherwise English, otherwise a default string
-            const company_name =
-              companyRes.rows.length > 0
-                ? companyRes.rows[0].name_jp || companyRes.rows[0].name_en
-                : "Our Company";
-
-            // 1.1. NEW: Fetch Business Unit Name
-            const buQuery = `SELECT bu_name->>'ja' as bu_jp, bu_name->>'en' as bu_en FROM v4.business_unit_tbl WHERE bu_code = $1`;
-            const buRes = await getPool().query(buQuery, [business_unit]); // business_unit comes from req.user
-            const buName =
-              buRes.rows.length > 0
-                ? buRes.rows[0].bu_jp || buRes.rows[0].bu_en
-                : "General Dept";
-
-            // 2. Fetch Applicant's Name
-            const userQuery = `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`;
-            const userRes = await getPool().query(userQuery, [userId]);
-            const applicantName =
-              userRes.rows.length > 0
-                ? `${userRes.rows[0].first_name} ${userRes.rows[0].last_name}`
-                : "An Employee";
-
-            // 3. Create a dictionary to quickly look up field definitions by ID
-            const fieldMap = fields.reduce((acc, field) => {
-              acc[field.id] = field;
-              return acc;
-            }, {});
-
-            // 4. Map the raw answers JSON into an array for Handlebars,
-            //    resolving file-type fields to presigned S3 links
-            const answersData = await Promise.all(
-              Object.keys(answers).map(async (key) => {
-                const field = fieldMap[key];
-                const label = field?.label || key;
-                const rawValue = answers[key];
-
-                if (
-                  field?.type === "file" &&
-                  rawValue &&
-                  rawValue !== "__pending__"
-                ) {
-                  try {
-                    // Fetch s3_key and bucket from attachments table
-                    const attRes = await getPool().query(
-                      `SELECT s3_key, s3_bucket, display_name FROM v4.attachments_tbl WHERE attachment_id = $1`,
-                      [rawValue],
-                    );
-                    if (attRes.rows.length > 0) {
-                      const { s3_key, s3_bucket, display_name } =
-                        attRes.rows[0];
-                      const command = new GetObjectCommand({
-                        Bucket: s3_bucket,
-                        Key: s3_key,
-                      });
-                      const signedUrl = await getSignedUrl(s3Client, command, {
-                        expiresIn: 604800, // 7 days — long enough to be useful in an email
-                        signableHeaders: new Set(["host"]),
-                      });
-                      const fileName =
-                        display_name || s3_key.split("/").pop() || "attachment";
-                      return {
-                        question: label,
-                        answer: `<a href="${signedUrl}" target="_blank" style="color:#0275d8;">${fileName}</a>`,
-                        isHtml: true,
-                      };
-                    }
-                  } catch (fileErr) {
-                    console.error(
-                      "Failed to resolve file attachment for email:",
-                      fileErr.message,
-                    );
-                  }
-                  // Fallback if lookup fails
-                  return {
-                    question: label,
-                    answer: "File attached (view in portal)",
-                    isHtml: false,
-                  };
-                }
-
-                return {
-                  question: label,
-                  answer: rawValue || "N/A",
-                  isHtml: false,
-                };
-              }),
-            );
-
-            // 5. Send the email to all configured recipients
-            const homeurl =
-              process.env.NODE_ENV === "production"
-                ? "https://app.horensoplus.com"
-                : "http://localhost:5173";
-
-            const emailTitle = templateTitle || `新しい申請: ${applicantName}`;
-
-            for (const email of emails) {
-              // Call the named export directly
-              await leaveApplicationAlert(
-                email,
-                emailTitle,
-                applicantName,
-                company_name,
-                answersData,
-                homeurl,
-                buName,
-                templateTitle,
-              );
-            }
-          }
-        }
-        console.log(`Simulating email to: ${emails.join(", ")}`);
-        console.log("Email Payload:", answers);
-      }
-    }
-
-    res
-      .status(201)
-      .json({ message: "Leave submitted successfully", submission });
-  } catch (err) {
-    console.error("Submit Leave Error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+    const submission = await leaveService.submitLeave(req.user, req.body);
+    res.status(201).json({ message: "Leave submitted successfully", submission });
+  } catch (err) { next(err); }
 };
 
-// ==========================================
-// ADMIN/OFFICER: GET COMPANY SUBMISSIONS
-// ==========================================
-export const getCompanySubmissions = async (req, res) => {
-  const business_unit = req.user.business_unit;
-  const company_id = req.query.company_id || null; // null = all companies
-  const start_date = req.query.start_date || null;
-  const end_date = req.query.end_date || null;
-  const preferredLanguage = await getUserLanguage(req.user.id);
-
+export const getCompanySubmissions = async (req, res, next) => {
   try {
-    const query = `
-      SELECT
-        s.submission_id,
-        s.status,
-        s.answers,
-        s.created_at,
-        u.email,
-        p.first_name,
-        p.last_name,
-        COALESCE(c.company_name->>$3, c.company_name->>'en') AS company_name,
-        COALESCE(t.fields, t_default.fields) AS template_fields,
-        COALESCE(t.title, t_default.title) AS template_title
-      FROM v4.leave_submission_tbl s
-      JOIN v4.user_account_tbl u ON s.user_id = u.id
-      JOIN v4.user_profile_tbl p ON u.id = p.user_id
-      LEFT JOIN v4.company_tbl c ON s.company_id = c.company_id::text
-      LEFT JOIN v4.leave_template_tbl t ON s.template_id = t.template_id
-      LEFT JOIN LATERAL (
-        SELECT title, fields
-        FROM v4.leave_template_tbl
-        WHERE company_id::text = s.company_id AND business_unit = s.business_unit AND is_active = true
-        ORDER BY updated_at DESC LIMIT 1
-      ) t_default ON s.template_id IS NULL
-      WHERE s.business_unit = $1
-        AND ($2::text IS NULL OR s.company_id = $2)
-        AND ($4::timestamptz IS NULL OR s.created_at >= $4)
-        AND ($5::timestamptz IS NULL OR s.created_at <= $5)
-      ORDER BY s.created_at DESC
-      LIMIT 50;
-    `;
-
-    const { rows } = await getPool().query(query, [
-      business_unit, // $1
-      company_id, // $2
-      preferredLanguage, // $3
-      start_date, // $4
-      end_date, // $5
-    ]);
-
+    const rows = await leaveService.getCompanySubmissions(req.user, req.query);
     res.status(200).json(rows);
-  } catch (err) {
-    console.error("Get Submissions Error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 };
 
-// ==========================================
-// USER: GET OWN SUBMISSIONS
-// ==========================================
-export const getMySubmissions = async (req, res) => {
-  const userId = req.user.id;
-  const preferredLanguage = await getUserLanguage(userId);
-
+export const getMySubmissions = async (req, res, next) => {
   try {
-    const query = `
-      SELECT
-        s.submission_id,
-        s.status,
-        s.answers,
-        s.created_at,
-        u.email,
-        p.first_name,
-        p.last_name,
-        COALESCE(c.company_name->>$2, c.company_name->>'en') AS company_name,
-        COALESCE(t.fields, t_default.fields) AS template_fields,
-        COALESCE(t.title, t_default.title) AS template_title
-      FROM v4.leave_submission_tbl s
-      JOIN v4.user_account_tbl u ON s.user_id = u.id
-      JOIN v4.user_profile_tbl p ON u.id = p.user_id
-      LEFT JOIN v4.company_tbl c ON s.company_id = c.company_id::text
-      LEFT JOIN v4.leave_template_tbl t ON s.template_id = t.template_id
-      LEFT JOIN LATERAL (
-        SELECT title, fields
-        FROM v4.leave_template_tbl
-        WHERE company_id::text = s.company_id AND business_unit = s.business_unit AND is_active = true
-        ORDER BY updated_at DESC LIMIT 1
-      ) t_default ON s.template_id IS NULL
-      WHERE s.user_id = $1
-      ORDER BY s.created_at DESC
-      LIMIT 100;
-    `;
-
-    const { rows } = await getPool().query(query, [userId, preferredLanguage]);
+    const rows = await leaveService.getMySubmissions(req.user.id);
     res.status(200).json(rows);
-  } catch (err) {
-    console.error("Get My Submissions Error:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { next(err); }
 };
