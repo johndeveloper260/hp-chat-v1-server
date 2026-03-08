@@ -77,7 +77,7 @@ export function errorHandler(err, req, res, next) {
     return res.status(400).json({
       error: message,
       error_code: "api_errors.validation.zod",
-      details: err.errors.map((e) => ({
+      details: (err.errors ?? err.issues ?? []).map((e) => ({
         field: e.path.join("."),
         message: e.message,
       })),
