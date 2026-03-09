@@ -254,7 +254,7 @@ export const findOfficersByBU = async (businessUnit) => {
        AND EXISTS (
          SELECT 1 FROM v4.user_roles r
          WHERE r.user_id = a.id
-           AND r.role_name IN ('inquiries_read', 'inquiries_write')
+           AND r.role_name = 'inquiries_write'
        )
      ORDER BY p.first_name ASC`,
     [businessUnit],
