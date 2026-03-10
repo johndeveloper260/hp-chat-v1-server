@@ -66,8 +66,12 @@ export const insertCompany = (
 
 export const insertRegistrationCodes = (businessUnit, companyId, client) =>
   db(client).query(
-    `INSERT INTO v4.customer_xref_tbl (business_unit, role_name, company)
-     VALUES ($1, 'USER', $2), ($1, 'OFFICER', $2), ($1, 'ADMIN', $2)
+    `INSERT INTO v4.customer_xref_tbl (business_unit, role_name, company, batch_no)
+     SELECT $1, 'USER', $2, 'Batch_' || n FROM generate_series(1, 30) AS n
+     UNION ALL
+     SELECT $1, 'OFFICER', $2, NULL
+     UNION ALL
+     SELECT $1, 'ADMIN', $2, NULL
      RETURNING *`,
     [businessUnit, companyId],
   );
@@ -85,8 +89,14 @@ export const updateCompanyById = (id, businessUnit, data, userId) => {
   );
 };
 
-export const deleteCompanyById = (id, businessUnit) =>
-  getPool().query(
+export const deleteXrefByCompany = (companyId, businessUnit, client) =>
+  db(client).query(
+    `DELETE FROM v4.customer_xref_tbl WHERE company = $1 AND business_unit = $2`,
+    [companyId, businessUnit],
+  );
+
+export const deleteCompanyById = (id, businessUnit, client) =>
+  db(client).query(
     `DELETE FROM v4.company_tbl WHERE company_id = $1 AND business_unit = $2`,
     [id, businessUnit],
   );

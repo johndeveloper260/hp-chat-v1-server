@@ -76,6 +76,17 @@ export const deleteCompany = async (id, businessUnit) => {
   if (parseInt(countRes.rows[0].count, 10) > 0) {
     throw new ConflictError("company_has_users", "api_errors.company.has_users");
   }
-  const { rowCount } = await companyRepo.deleteCompanyById(id, businessUnit);
-  if (rowCount === 0) throw new NotFoundError("company_not_found");
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await companyRepo.deleteXrefByCompany(id, businessUnit, client);
+    const { rowCount } = await companyRepo.deleteCompanyById(id, businessUnit, client);
+    if (rowCount === 0) throw new NotFoundError("company_not_found");
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 };
