@@ -29,6 +29,11 @@ export const getCompanyDropdown = async (userId, businessUnit, feature) => {
   return rows;
 };
 
+export const getRegistrationCodes = async (companyId, businessUnit) => {
+  const { rows } = await companyRepo.findXrefByCompany(companyId, businessUnit);
+  return rows;
+};
+
 export const getEmployeesByCompany = async (companyId, businessUnit) => {
   const { rows } = await companyRepo.findEmployeesByCompany(companyId, businessUnit);
   return rows;

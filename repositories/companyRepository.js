@@ -89,6 +89,18 @@ export const updateCompanyById = (id, businessUnit, data, userId) => {
   );
 };
 
+export const findXrefByCompany = (companyId, businessUnit, client) =>
+  db(client).query(
+    `SELECT sequence_id, role_name, batch_no, registration_code
+     FROM v4.customer_xref_tbl
+     WHERE company = $1::uuid AND business_unit = $2
+     ORDER BY role_name ASC,
+              CASE WHEN batch_no IS NULL THEN 0
+                   ELSE regexp_replace(batch_no, '[^0-9]', '', 'g')::int
+              END ASC`,
+    [companyId, businessUnit],
+  );
+
 export const deleteXrefByCompany = (companyId, businessUnit, client) =>
   db(client).query(
     `DELETE FROM v4.customer_xref_tbl WHERE company = $1 AND business_unit = $2`,

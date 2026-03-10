@@ -62,6 +62,16 @@ export const deleteCompany = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const getRegistrationCodes = async (req, res, next) => {
+  try {
+    const result = await companyService.getRegistrationCodes(
+      req.params.companyId,
+      req.user.business_unit,
+    );
+    res.json(result);
+  } catch (err) { next(err); }
+};
+
 export const getEmployeesByCompany = async (req, res, next) => {
   try {
     const result = await companyService.getEmployeesByCompany(
