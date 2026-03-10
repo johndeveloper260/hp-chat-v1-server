@@ -67,11 +67,7 @@ export const insertCompany = (
 export const insertRegistrationCodes = (businessUnit, companyId, client) =>
   db(client).query(
     `INSERT INTO v4.customer_xref_tbl (business_unit, role_name, company, batch_no)
-     SELECT $1, 'USER', $2::uuid, 'Batch_' || n FROM generate_series(1, 30) AS n
-     UNION ALL
-     SELECT $1, 'OFFICER', $2, NULL
-     UNION ALL
-     SELECT $1, 'ADMIN', $2, NULL
+     VALUES ($1, 'USER', $2::uuid, NULL), ($1, 'OFFICER', $2::uuid, NULL), ($1, 'ADMIN', $2::uuid, NULL)
      RETURNING *`,
     [businessUnit, companyId],
   );
