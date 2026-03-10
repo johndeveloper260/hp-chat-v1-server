@@ -54,6 +54,8 @@ const env = {
 
   google: {
     projectId: process.env.GOOGLE_PROJECT_ID,
+    // Raw service-account JSON string — used by translateService
+    credentials: process.env.CREDENTIALS,
     // Path to service-account JSON — used by @google-cloud/translate
     credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   },
