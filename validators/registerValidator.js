@@ -28,10 +28,7 @@ export const registerSchema = z.object({
     .min(1, "First name is required")
     .trim(),
 
-  lastName: z
-    .string({ required_error: "Last name is required" })
-    .min(1, "Last name is required")
-    .trim(),
+  lastName: z.string().trim().optional().nullable(),
 
   registrationCode: z
     .string({ required_error: "Registration code is required" })
@@ -50,4 +47,5 @@ export const registerSchema = z.object({
   companyBranch: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   sendingOrg: z.string().optional().nullable(),
+  batchNo: z.string().optional().nullable(),
 });
