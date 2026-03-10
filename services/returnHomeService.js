@@ -9,6 +9,7 @@ import * as repo             from "../repositories/returnHomeRepository.js";
 import { deleteFromS3 }       from "../utils/s3Client.js";
 import { getPool }            from "../config/getPool.js";
 import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
+import { createNotification } from "./notificationService.js";
 
 const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,12 +34,40 @@ export const createReturnHome = async (body, creatorId, businessUnit) => {
   const targetUserId =
     body.user_id && UUID_RE.test(body.user_id) ? body.user_id : creatorId;
 
-  return repo.createReturnHome({
+  const row = await repo.createReturnHome({
     ...body,
     targetUserId,
     creatorId,
     businessUnit,
   });
+
+  // Notify: the application's user + officers with flight roles, excluding creator
+  const officerIds = await repo.findOfficersWithFlightRoles(businessUnit);
+  const recipients = [...new Set([targetUserId, ...officerIds])].filter(
+    (id) => id && id !== creatorId,
+  );
+
+  if (recipients.length > 0) {
+    const creatorName = await repo.findUserName(creatorId);
+    await Promise.all(
+      recipients.map((recipientId) =>
+        createNotification({
+          userId: recipientId,
+          titleKey: "new_return_home",
+          bodyKey: "return_home_submitted",
+          bodyParams: { name: creatorName },
+          data: {
+            type: "return_home",
+            rowId: row.id,
+            screen: "ReturnHome",
+            params: { id: row.id },
+          },
+        }),
+      ),
+    );
+  }
+
+  return row;
 };
 
 // ── Get by ID ─────────────────────────────────────────────────────────────────
@@ -86,7 +115,37 @@ export const approveReturnHome = async (id, body, officer) => {
     );
   }
   const { status, approver_remarks } = body;
-  await repo.approveReturnHome(id, officer.business_unit, status, approver_remarks, officer.id);
+  const record = await repo.approveReturnHome(
+    id, officer.business_unit, status, approver_remarks, officer.id,
+  );
+
+  if (record) {
+    const { user_id: applicationUserId } = record;
+    const officerIds = await repo.findOfficersWithFlightRoles(officer.business_unit);
+    const recipients = [...new Set([applicationUserId, ...officerIds])].filter(
+      (uid) => uid && uid !== officer.id,
+    );
+
+    if (recipients.length > 0) {
+      const officerName = await repo.findUserName(officer.id);
+      await Promise.all(
+        recipients.map((recipientId) =>
+          createNotification({
+            userId: recipientId,
+            titleKey: "return_home_updated",
+            bodyKey: "return_home_status_changed",
+            bodyParams: { name: officerName, status },
+            data: {
+              type: "return_home",
+              rowId: Number(id),
+              screen: "ReturnHome",
+              params: { id: Number(id) },
+            },
+          }),
+        ),
+      );
+    }
+  }
 };
 
 // ── Delete ────────────────────────────────────────────────────────────────────

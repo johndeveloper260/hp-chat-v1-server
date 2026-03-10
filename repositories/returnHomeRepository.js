@@ -243,13 +243,44 @@ export const approveReturnHome = async (
   approverRemarks,
   officerId,
 ) => {
-  await getPool().query(
+  const { rows } = await getPool().query(
     `UPDATE v4.return_home_tbl
      SET status = $1, approver_remarks = $2, approved_by = $3,
          approved_at = NOW(), updated_at = NOW(), updated_by = $3
-     WHERE id = $4 AND business_unit = $5`,
+     WHERE id = $4 AND business_unit = $5
+     RETURNING user_id`,
     [status, approverRemarks, officerId, id, businessUnit],
   );
+  return rows[0] ?? null;
+};
+
+/** Returns the display name for a user, or "Someone" if not found. */
+export const findUserName = async (userId) => {
+  const { rows } = await getPool().query(
+    `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+    [userId],
+  );
+  if (!rows[0]) return "Someone";
+  return `${rows[0].first_name} ${rows[0].last_name}`;
+};
+
+/** Returns an array of user_ids for active OFFICERS in the BU with flight_read or flight_write role. */
+export const findOfficersWithFlightRoles = async (businessUnit) => {
+  const { rows } = await getPool().query(
+    `SELECT DISTINCT a.id AS user_id
+     FROM v4.user_profile_tbl p
+     JOIN v4.user_account_tbl a ON p.user_id = a.id
+     WHERE a.business_unit = $1
+       AND p.user_type = 'OFFICER'
+       AND a.is_active = true
+       AND EXISTS (
+         SELECT 1 FROM v4.user_roles r
+         WHERE r.user_id = a.id
+           AND r.role_name IN ('flight_read', 'flight_write')
+       )`,
+    [businessUnit],
+  );
+  return rows.map((r) => r.user_id);
 };
 
 // ── Delete (transaction-scoped) ───────────────────────────────────────────────
