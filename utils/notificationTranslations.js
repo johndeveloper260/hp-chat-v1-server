@@ -133,6 +133,16 @@ const pushMessages = {
     bn: "আপনাকে কল করছে...",
     th: "กำลังโทรหาคุณ...",
   },
+  comment_on_return_home: {
+    en: "New comment on Return Home application",
+    ja: "帰国申請に新しいコメントがあります",
+    id: "Komentar baru pada permohonan kepulangan",
+    vi: "Bình luận mới về đơn xin về nhà",
+    my: "အိမ်ပြန်လျှောက်ထားမှုတွင် မှတ်ချက်အသစ်ရှိသည်",
+    km: "មានមតិថ្មីលើពាក្យស្នើសុំត្រលប់ទៅផ្ទះ",
+    bn: "বাড়ি ফেরার আবেদনে নতুন মন্তব্য",
+    th: "มีความคิดเห็นใหม่ในใบสมัครกลับบ้าน",
+  },
   comment_body: {
     en: "{{name}}: {{comment}}",
     ja: "{{name}}: {{comment}}",
@@ -172,6 +182,16 @@ const pushMessages = {
     km: "ពាក្យស្នើសុំត្រលប់ទៅផ្ទះត្រូវបានធ្វើបច្ចុប្បន្នភាព",
     bn: "বাড়ি ফেরার আবেদন আপডেট হয়েছে",
     th: "ใบสมัครกลับบ้านได้รับการอัปเดต",
+  },
+  return_home_application_updated: {
+    en: "{{name}} updated your return home application",
+    ja: "{{name}}が帰国申請を更新しました",
+    id: "{{name}} memperbarui permohonan kepulangan Anda",
+    vi: "{{name}} đã cập nhật đơn xin về nhà của bạn",
+    my: "{{name}} သည် သင်၏ အိမ်ပြန်လျှောက်ထားမှုကို ပြင်ဆင်ခဲ့သည်",
+    km: "{{name}} បានធ្វើបច្ចុប្បន្នភាពពាក្យស្នើសុំត្រលប់ទៅផ្ទះរបស់អ្នក",
+    bn: "{{name}} আপনার বাড়ি ফেরার আবেদন আপডেট করেছেন",
+    th: "{{name}} อัปเดตใบสมัครกลับบ้านของคุณ",
   },
   return_home_status_changed: {
     en: "{{name}} {{status}} your return home application",

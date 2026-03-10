@@ -24,6 +24,14 @@ export const checkAnnouncementBU = async (id, businessUnit) => {
   return rowCount > 0;
 };
 
+export const checkReturnHomeBU = async (id, businessUnit) => {
+  const { rowCount } = await getPool().query(
+    "SELECT id FROM v4.return_home_tbl WHERE id = $1 AND business_unit = $2",
+    [id, businessUnit],
+  );
+  return rowCount > 0;
+};
+
 // ── Fetch comments ────────────────────────────────────────────────────────────
 
 export const findComments = async (type, id) => {
@@ -114,6 +122,41 @@ export const findAnnouncementRecipients = async (relationId, commenterId) => {
     `SELECT DISTINCT user_id FROM v4.shared_comments
      WHERE relation_type = 'announcements' AND relation_id = $1 AND user_id != $2`,
     [relationId, commenterId],
+  );
+  return [...recipients, ...prevRes.rows.map((r) => r.user_id)];
+};
+
+export const findReturnHomeRecipients = async (relationId, commenterId) => {
+  // Applicant on the record
+  const appRes = await getPool().query(
+    "SELECT user_id FROM v4.return_home_tbl WHERE id = $1",
+    [relationId],
+  );
+  const recipients = appRes.rows[0] ? [appRes.rows[0].user_id] : [];
+
+  // Officers with flight_read or flight_write in the record's BU
+  const officerRes = await getPool().query(
+    `SELECT DISTINCT a.id AS user_id
+     FROM v4.return_home_tbl r
+     JOIN v4.user_account_tbl a ON a.business_unit = r.business_unit
+     JOIN v4.user_profile_tbl p ON p.user_id = a.id
+     WHERE r.id = $1
+       AND p.user_type = 'OFFICER'
+       AND a.is_active = true
+       AND EXISTS (
+         SELECT 1 FROM v4.user_roles ur
+         WHERE ur.user_id = a.id
+           AND ur.role_name IN ('flight_read', 'flight_write')
+       )`,
+    [relationId],
+  );
+  recipients.push(...officerRes.rows.map((r) => r.user_id));
+
+  // Previous commenters on this record
+  const prevRes = await getPool().query(
+    `SELECT DISTINCT user_id FROM v4.shared_comments
+     WHERE relation_type = 'return_home' AND relation_id = $1 AND user_id != $2`,
+    [String(relationId), commenterId],
   );
   return [...recipients, ...prevRes.rows.map((r) => r.user_id)];
 };

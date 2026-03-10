@@ -23,6 +23,8 @@ const assertParentBU = async (relationType, relationId, businessUnit) => {
     ok = await commentsRepo.checkInquiryBU(relationId, businessUnit);
   } else if (relationType === "announcements") {
     ok = await commentsRepo.checkAnnouncementBU(relationId, businessUnit);
+  } else if (relationType === "return_home") {
+    ok = await commentsRepo.checkReturnHomeBU(relationId, businessUnit);
   }
   if (!ok) throw new NotFoundError("record_not_found");
 };
@@ -67,6 +69,8 @@ export const addComment = async (body, userId, userBU) => {
     rawRecipients = await commentsRepo.findInquiryRecipients(relation_id, userId);
   } else if (relation_type === "announcements") {
     rawRecipients = await commentsRepo.findAnnouncementRecipients(relation_id, userId);
+  } else if (relation_type === "return_home") {
+    rawRecipients = await commentsRepo.findReturnHomeRecipients(relation_id, userId);
   }
 
   const recipients = [...new Set(rawRecipients)].filter(
@@ -78,7 +82,9 @@ export const addComment = async (body, userId, userBU) => {
     const titleKey =
       relation_type === "inquiries"
         ? "comment_on_inquiry"
-        : "comment_on_announcement";
+        : relation_type === "return_home"
+          ? "comment_on_return_home"
+          : "comment_on_announcement";
 
     const commentPreview =
       content_text.length > 50
@@ -95,11 +101,18 @@ export const addComment = async (body, userId, userBU) => {
           data: {
             type:   relation_type,
             rowId:  relation_id,
-            screen: relation_type === "inquiries" ? "Inquiry" : "Home",
+            screen:
+              relation_type === "inquiries"
+                ? "Inquiry"
+                : relation_type === "return_home"
+                  ? "ReturnHome"
+                  : "Home",
             params:
               relation_type === "inquiries"
                 ? { ticketId: relation_id }
-                : { rowId: relation_id },
+                : relation_type === "return_home"
+                  ? { id: relation_id }
+                  : { rowId: relation_id },
           },
         }),
       ),

@@ -188,6 +188,15 @@ export const findAttachments = async (id, businessUnit) => {
 
 // ── Update ────────────────────────────────────────────────────────────────────
 
+/** Lightweight pre-update read — returns { user_id, status } or null. */
+export const findReturnHomeForNotify = async (id, businessUnit) => {
+  const { rows } = await getPool().query(
+    `SELECT user_id, status FROM v4.return_home_tbl WHERE id = $1 AND business_unit = $2`,
+    [id, businessUnit],
+  );
+  return rows[0] ?? null;
+};
+
 export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
   const common = [
     data.flight_date        || null,

@@ -94,6 +94,9 @@ export const updateReturnHome = async (id, body, updatedBy, businessUnit) => {
 
   console.log("[updateReturnHome] user_id from body:", JSON.stringify(body.user_id), "-> safeUserId:", safeUserId);
 
+  // Capture old status before overwriting — used to detect status-change events
+  const oldRecord = await repo.findReturnHomeForNotify(id, businessUnit);
+
   const row = await repo.updateReturnHome(
     id,
     businessUnit,
@@ -101,6 +104,38 @@ export const updateReturnHome = async (id, body, updatedBy, businessUnit) => {
     safeUserId,
   );
   if (!row) throw new NotFoundError("record_not_found");
+
+  // Notify: record's user + flight-role officers, excluding the updater
+  const applicationUserId = row.user_id;
+  const officerIds = await repo.findOfficersWithFlightRoles(businessUnit);
+  const recipients = [...new Set([applicationUserId, ...officerIds])].filter(
+    (uid) => uid && uid !== updatedBy,
+  );
+
+  if (recipients.length > 0) {
+    const updaterName  = await repo.findUserName(updatedBy);
+    const statusChanged = body.status && oldRecord && body.status !== oldRecord.status;
+
+    await Promise.all(
+      recipients.map((recipientId) =>
+        createNotification({
+          userId: recipientId,
+          titleKey: "return_home_updated",
+          bodyKey: statusChanged ? "return_home_status_changed" : "return_home_application_updated",
+          bodyParams: statusChanged
+            ? { name: updaterName, status: body.status }
+            : { name: updaterName },
+          data: {
+            type: "return_home",
+            rowId: Number(id),
+            screen: "ReturnHome",
+            params: { id: Number(id) },
+          },
+        }),
+      ),
+    );
+  }
+
   return row;
 };
 
