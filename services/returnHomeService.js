@@ -139,6 +139,44 @@ export const updateReturnHome = async (id, body, updatedBy, businessUnit) => {
   return row;
 };
 
+// ── Patch status only (user-initiated: retract → Draft, re-submit → Pending) ──
+
+export const patchReturnHomeStatus = async (id, body, user) => {
+  const { status } = body;
+  const record = await repo.patchReturnHomeStatus(
+    id, user.business_unit, status, user.id,
+  );
+  if (!record) throw new NotFoundError("record_not_found");
+
+  // Notify: record's user + flight-role officers, excluding the actor
+  const officerIds = await repo.findOfficersWithFlightRoles(user.business_unit);
+  const recipients = [...new Set([record.user_id, ...officerIds])].filter(
+    (uid) => uid && uid !== user.id,
+  );
+
+  if (recipients.length > 0) {
+    const userName = await repo.findUserName(user.id);
+    await Promise.all(
+      recipients.map((recipientId) =>
+        createNotification({
+          userId: recipientId,
+          titleKey: "return_home_updated",
+          bodyKey: "return_home_status_changed",
+          bodyParams: { name: userName, status },
+          data: {
+            type: "return_home",
+            rowId: Number(id),
+            screen: "ReturnHome",
+            params: { id: Number(id) },
+          },
+        }),
+      ),
+    );
+  }
+
+  return record;
+};
+
 // ── Approve ───────────────────────────────────────────────────────────────────
 
 export const approveReturnHome = async (id, body, officer) => {

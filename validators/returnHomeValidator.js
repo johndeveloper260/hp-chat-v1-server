@@ -28,3 +28,9 @@ export const approveReturnHomeSchema = z.object({
   status:            z.enum(["Approved", "Rejected"]),
   approver_remarks:  z.string().optional().nullable(),
 });
+
+// User-initiated status-only patch (e.g. retract submission → Draft,
+// or submit for approval → Pending). Does NOT touch any other column.
+export const patchReturnHomeStatusSchema = z.object({
+  status: z.enum(["Draft", "Pending"]),
+});

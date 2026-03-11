@@ -50,6 +50,15 @@ export const updateReturnHome = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const patchReturnHomeStatus = async (req, res, next) => {
+  try {
+    const data = await returnHomeService.patchReturnHomeStatus(
+      req.params.id, req.body, req.user,
+    );
+    res.json(data);
+  } catch (err) { next(err); }
+};
+
 export const approveReturnHome = async (req, res, next) => {
   try {
     await returnHomeService.approveReturnHome(req.params.id, req.body, req.user);

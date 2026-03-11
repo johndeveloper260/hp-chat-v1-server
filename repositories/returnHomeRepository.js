@@ -243,6 +243,20 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
   return rows[0] ?? null;
 };
 
+// ── Patch status only (retract / re-submit — user-initiated) ─────────────────
+
+/** Touches ONLY status, updated_by, updated_at. All other columns are untouched. */
+export const patchReturnHomeStatus = async (id, businessUnit, status, updatedBy) => {
+  const { rows } = await getPool().query(
+    `UPDATE v4.return_home_tbl
+     SET status = $1, updated_by = $2, updated_at = NOW()
+     WHERE id = $3 AND business_unit = $4
+     RETURNING user_id, status`,
+    [status, updatedBy, id, businessUnit],
+  );
+  return rows[0] ?? null;
+};
+
 // ── Approve ───────────────────────────────────────────────────────────────────
 
 export const approveReturnHome = async (

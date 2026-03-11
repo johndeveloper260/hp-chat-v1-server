@@ -36,6 +36,13 @@ export const checkParentBU = async (relationType, relationId, userBU, client) =>
     );
     return rowCount;
   }
+  if (relationType === "return_home") {
+    const { rowCount } = await db(client).query(
+      "SELECT id FROM v4.return_home_tbl WHERE id = $1 AND business_unit = $2",
+      [relationId, userBU],
+    );
+    return rowCount;
+  }
   return 0; // unknown relation type
 };
 
