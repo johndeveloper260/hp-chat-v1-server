@@ -22,10 +22,10 @@ export const getPosters = async ({ businessUnit }) => {
 
 // ─── 2. Get announcements (role-filtered, dynamic query) ─────────────────────
 
-export const getAnnouncements = async ({ company_filter, userId, userBU, userType }) => {
-  const lang     = await getUserLanguage(userId);
+export const getAnnouncements = async ({ company_filter, userId, userBU, userType, isManagement }) => {
+  const lang      = await getUserLanguage(userId);
   const isOfficer = ["ADMIN", "OFFICER"].includes((userType || "").toUpperCase());
-  return feedRepo.findAnnouncements({ lang, userId, company_filter, userBU, isOfficer });
+  return feedRepo.findAnnouncements({ lang, userId, company_filter, userBU, isOfficer, isManagement });
 };
 
 // ─── 3. Create announcement ───────────────────────────────────────────────────

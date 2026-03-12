@@ -26,7 +26,7 @@ export const findPosters = async (businessUnit) => {
 
 // ─── Fetch announcements (dynamic query) ──────────────────────────────────────
 
-export const findAnnouncements = async ({ lang, userId, company_filter, userBU, isOfficer }) => {
+export const findAnnouncements = async ({ lang, userId, company_filter, userBU, isOfficer, isManagement }) => {
   let query = `
     SELECT
       a.row_id,
@@ -67,13 +67,16 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       ) AS attachments
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
-    WHERE (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)
+    WHERE 1=1
   `;
 
   const values = [lang, userId];
 
-  if (!isOfficer) {
+  if (!(isOfficer && isManagement)) {
+    // Home feed: always restrict to active, within date range (all users)
     query += ` AND a.active = true`;
+    query += ` AND (a.date_from IS NULL OR a.date_from <= CURRENT_DATE)`;
+    query += ` AND (a.date_to IS NULL OR a.date_to >= CURRENT_DATE)`;
   }
 
   if (isOfficer) {
