@@ -124,6 +124,19 @@ export const deleteFile = async (req, res, next) => {
   }
 };
 
+// ─── Storage Quota ────────────────────────────────────────────────────────────
+
+export const getStorageQuota = async (req, res, next) => {
+  try {
+    const result = await spService.getStorageQuota({
+      businessUnit: req.user.business_unit,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
 export const getBreadcrumb = async (req, res, next) => {

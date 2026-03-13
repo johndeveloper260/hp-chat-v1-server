@@ -203,6 +203,26 @@ export const deleteFileById = async (id, client) => {
   );
 };
 
+// ─── Storage Quota ────────────────────────────────────────────────────────────
+
+/**
+ * Returns the total used storage (sum of file_size) and the BU's max quota.
+ * Uses COALESCE so a BU with no files still returns used_storage = 0.
+ */
+export const getStorageQuota = async (businessUnit) => {
+  const { rows } = await getPool().query(
+    `SELECT
+       COALESCE(SUM(f.file_size), 0)::bigint AS used_storage,
+       b.max_storage_size_bytes
+     FROM v4.business_unit_tbl b
+     LEFT JOIN v4.sharepoint_files f ON f.business_unit = b.bu_code
+     WHERE b.bu_code = $1
+     GROUP BY b.max_storage_size_bytes`,
+    [businessUnit],
+  );
+  return rows[0] ?? null;
+};
+
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
 export const findBreadcrumb = async (folderId, businessUnit) => {

@@ -23,6 +23,7 @@ import {
   updateFile,
   deleteFile,
   getBreadcrumb,
+  getStorageQuota,
 } from "../controller/sharepointController.js";
 
 const router = express.Router();
@@ -31,6 +32,7 @@ const router = express.Router();
 router.get("/folders",              auth, getFolders);
 router.get("/files/view/:id",       auth, getFileViewUrl);
 router.get("/breadcrumb/:folderId", auth, getBreadcrumb);
+router.get("/storage-quota",        auth, getStorageQuota);
 
 // ── sharepoint_write ──────────────────────────────────────────────────────────
 router.post("/folders",            auth, requireRole("sharepoint_write"), validate(createFolderSchema),      createFolder);

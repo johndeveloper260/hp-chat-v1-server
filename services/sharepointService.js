@@ -185,6 +185,24 @@ export const deleteFile = async ({ id, userType, businessUnit }) => {
   await spRepo.deleteFileById(id);
 };
 
+// ─── Storage Quota ────────────────────────────────────────────────────────────
+
+/**
+ * Returns usedStorage (bytes), maxStorage (bytes), usagePercent, and canUpload.
+ * canUpload is false only when usage exceeds 110 %.
+ */
+export const getStorageQuota = async ({ businessUnit }) => {
+  const row = await spRepo.getStorageQuota(businessUnit);
+  if (!row) throw new NotFoundError("business_unit_not_found");
+
+  const usedStorage = Number(row.used_storage);
+  const maxStorage = Number(row.max_storage_size_bytes);
+  const usagePercent = maxStorage > 0 ? (usedStorage / maxStorage) * 100 : 0;
+  const canUpload = usagePercent <= 110;
+
+  return { usedStorage, maxStorage, usagePercent, canUpload };
+};
+
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
 export const getBreadcrumb = async ({ folderId, businessUnit }) => {
