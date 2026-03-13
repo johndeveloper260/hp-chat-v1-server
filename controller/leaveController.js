@@ -6,6 +6,13 @@
  */
 import * as leaveService from "../services/leaveService.js";
 
+export const deleteLeaveTemplate = async (req, res, next) => {
+  try {
+    await leaveService.deleteLeaveTemplate(req.params.templateId);
+    res.status(200).json({ message: "Template deleted" });
+  } catch (err) { next(err); }
+};
+
 export const saveLeaveTemplate = async (req, res, next) => {
   try {
     const data = await leaveService.saveLeaveTemplate(req.user.id, req.user, req.body);

@@ -10,6 +10,7 @@ import {
   submitLeaveSchema,
 } from "../validators/leaveValidator.js";
 import {
+  deleteLeaveTemplate,
   saveLeaveTemplate,
   getLeaveTemplate,
   getCompanyTemplates,
@@ -30,6 +31,7 @@ router.get("/templates",   auth, requireRole("leave_read"), getCompanyTemplates)
 router.get("/submissions", auth, requireRole("leave_read"), getCompanySubmissions);
 
 // ── leave_write ───────────────────────────────────────────────────────────────
-router.post("/template", auth, requireRole("leave_write"), validate(saveLeaveTemplateSchema), saveLeaveTemplate);
+router.post("/template",              auth, requireRole("leave_write"), validate(saveLeaveTemplateSchema), saveLeaveTemplate);
+router.delete("/template/:templateId", auth, requireRole("leave_write"), deleteLeaveTemplate);
 
 export default router;

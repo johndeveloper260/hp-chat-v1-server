@@ -99,6 +99,17 @@ export const findLeaveTemplate = async ({
   return rows[0] ?? null;
 };
 
+export const softDeleteLeaveTemplate = async (templateId) => {
+  const { rows } = await getPool().query(
+    `UPDATE v4.leave_template_tbl
+     SET is_active = false, updated_at = NOW()
+     WHERE template_id = $1 AND is_active = true
+     RETURNING template_id`,
+    [templateId],
+  );
+  return rows[0] ?? null;
+};
+
 // ── On-behalf user lookup ──────────────────────────────────────────────────────
 
 export const findTargetUser = async (targetUserId) => {

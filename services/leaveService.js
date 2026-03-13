@@ -51,6 +51,11 @@ export const saveLeaveTemplate = async (userId, requestor, body) => {
   return row;
 };
 
+export const deleteLeaveTemplate = async (templateId) => {
+  const row = await leaveRepo.softDeleteLeaveTemplate(templateId);
+  if (!row) throw new NotFoundError("leave_template_not_found", "api_errors.leave.no_template");
+};
+
 export const getCompanyTemplates = async (requestor, queryParams) => {
   const business_unit = requestor.business_unit;
   const company       = queryParams.company_id || requestor.company;
