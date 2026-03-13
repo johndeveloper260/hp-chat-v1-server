@@ -17,7 +17,8 @@ router.get("/token",         auth, getStreamToken);
 router.get("/token/:userId", auth, getStreamToken); // backward-compat for web frontend
 
 // Add member via server-side admin client (bypasses channel permission restrictions)
-router.post("/channel/add-member", auth, addChannelMember);
+// express.json() is applied inline because this router is mounted before the global body parser
+router.post("/channel/add-member", express.json(), auth, addChannelMember);
 
 // Webhook — raw body required for HMAC signature verification (no auth middleware)
 router.post("/webhook/chat", express.raw({ type: "application/json" }), handleChatWebhook);
