@@ -8,6 +8,7 @@ import { validate }       from "../middleware/validate.js";
 import {
   createFolderSchema,
   updateFolderSchema,
+  updateFileSchema,
   generateUploadUrlSchema,
   confirmFileUploadSchema,
 } from "../validators/sharepointValidator.js";
@@ -19,6 +20,7 @@ import {
   generateUploadUrl,
   confirmFileUpload,
   getFileViewUrl,
+  updateFile,
   deleteFile,
   getBreadcrumb,
 } from "../controller/sharepointController.js";
@@ -36,6 +38,7 @@ router.patch("/folders/:id",       auth, requireRole("sharepoint_write"), valida
 router.delete("/folders/:id",      auth, requireRole("sharepoint_write"),                                    deleteFolder);
 router.post("/files/generate-url", auth, requireRole("sharepoint_write"), validate(generateUploadUrlSchema), generateUploadUrl);
 router.post("/files/confirm",      auth, requireRole("sharepoint_write"), validate(confirmFileUploadSchema),  confirmFileUpload);
+router.patch("/files/:id",         auth, requireRole("sharepoint_write"), validate(updateFileSchema),         updateFile);
 router.delete("/files/:id",        auth, requireRole("sharepoint_write"),                                    deleteFile);
 
 export default router;

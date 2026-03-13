@@ -99,6 +99,18 @@ export const getFileViewUrl = async (req, res, next) => {
   }
 };
 
+export const updateFile = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { display_name } = req.body;
+    const { userType, business_unit: businessUnit } = req.user;
+    const file = await spService.updateFile({ id, display_name, userType, businessUnit });
+    res.json(file);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const deleteFile = async (req, res, next) => {
   try {
     await spService.deleteFile({

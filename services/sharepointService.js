@@ -159,6 +159,20 @@ export const getFileViewUrl = async ({ id, businessUnit }) => {
   return getPresignedUrl(file.s3_bucket, file.s3_key, 3600);
 };
 
+export const updateFile = async ({ id, display_name, userType, businessUnit }) => {
+  if (!isOfficer(userType)) {
+    throw new ForbiddenError("officer_only_update_file", "api_errors.files.officer_only_update_file");
+  }
+  if (!display_name?.trim()) {
+    throw new ValidationError("display_name_required", "api_errors.files.display_name_required");
+  }
+
+  const updated = await spRepo.updateFileDisplayName(id, display_name, businessUnit);
+  if (!updated) throw new NotFoundError("record_not_found");
+
+  return updated;
+};
+
 export const deleteFile = async ({ id, userType, businessUnit }) => {
   if (!isOfficer(userType)) {
     throw new ForbiddenError("officer_only_delete_file", "api_errors.files.officer_only_delete_file");

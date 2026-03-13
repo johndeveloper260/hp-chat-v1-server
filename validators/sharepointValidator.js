@@ -14,6 +14,10 @@ export const updateFolderSchema = z.object({
   company_ids: z.array(z.string()).optional(),
 });
 
+export const updateFileSchema = z.object({
+  display_name: z.string().min(1, "display_name is required"),
+});
+
 export const generateUploadUrlSchema = z.object({
   fileName:  z.string().min(1, "fileName is required"),
   fileType:  z.string().min(1, "fileType is required"),

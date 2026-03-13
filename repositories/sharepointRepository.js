@@ -181,6 +181,21 @@ export const findFileWithFolderBU = async (id, businessUnit) => {
   return rows[0] ?? null;
 };
 
+/** Update a file's display_name, verifying business_unit via the parent folder. */
+export const updateFileDisplayName = async (id, displayName, businessUnit) => {
+  const { rows } = await getPool().query(
+    `UPDATE v4.sharepoint_files f
+     SET display_name = $1, updated_at = NOW()
+     FROM v4.sharepoint_folders fld
+     WHERE f.id = $2
+       AND f.folder_id = fld.id
+       AND fld.business_unit = $3
+     RETURNING f.*`,
+    [displayName.trim(), id, businessUnit],
+  );
+  return rows[0] ?? null;
+};
+
 export const deleteFileById = async (id, client) => {
   await db(client).query(
     `DELETE FROM v4.sharepoint_files WHERE id = $1`,
