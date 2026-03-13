@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const saveLeaveTemplateSchema = z.object({
-  config:       z.union([z.string(), z.record(z.unknown())]),
+  config:       z.union([z.string(), z.record(z.string(), z.unknown())]),
   fields:       z.union([z.string(), z.array(z.unknown())]),
   template_id:  z.string().optional().nullable(),
   company_id:   z.string().optional().nullable(),
@@ -13,6 +13,6 @@ export const saveLeaveTemplateSchema = z.object({
 
 export const submitLeaveSchema = z.object({
   templateId:   z.string().min(1),
-  answers:      z.union([z.string(), z.record(z.unknown())]),
+  answers:      z.union([z.string(), z.record(z.string(), z.unknown())]),
   targetUserId: z.string().optional().nullable(),
 });
