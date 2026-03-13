@@ -31,8 +31,7 @@ export const addChannelMember = async (req, res, next) => {
     await streamService.addChannelMember(channelId, userId);
     res.json({ success: true });
   } catch (err) {
-    const streamErr = err?.response?.data || err?.message || err;
-    console.error("[addChannelMember] error:", streamErr);
-    res.status(500).json({ error: streamErr });
+    console.error("[addChannelMember] error:", err?.message || err);
+    next(err);
   }
 };
