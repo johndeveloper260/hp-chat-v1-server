@@ -290,7 +290,7 @@ export const findViewers = async (rowId, lang, userBU) => {
      LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
      JOIN v4.announcement_tbl a ON v.announcement_id = a.row_id
      WHERE v.announcement_id = $1::integer
-       AND a.business_unit = $3
+       AND ($3::text IS NULL OR a.business_unit = $3)
      ORDER BY v.viewed_at DESC`,
     [rowId, lang, userBU],
   );
