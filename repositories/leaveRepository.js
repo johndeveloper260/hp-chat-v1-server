@@ -6,6 +6,7 @@
  * attachment signed-URL resolution).
  */
 import { getPool } from "../config/getPool.js";
+import { formatDisplayName } from "../utils/formatDisplayName.js";
 
 // ── Templates ─────────────────────────────────────────────────────────────────
 
@@ -174,11 +175,11 @@ export const findBuName = async (businessUnit) => {
 
 export const findApplicantName = async (userId) => {
   const { rows } = await getPool().query(
-    "SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1",
+    "SELECT first_name, middle_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1",
     [userId],
   );
   if (!rows[0]) return "An Employee";
-  return `${rows[0].first_name} ${rows[0].last_name}`;
+  return formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name);
 };
 
 export const findAttachmentForEmail = async (attachmentId) => {

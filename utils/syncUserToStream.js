@@ -2,6 +2,7 @@ import { StreamChat } from "stream-chat";
 import dotenv from "dotenv";
 
 import { getPool } from "../config/getPool.js";
+import { formatDisplayName } from "./formatDisplayName.js";
 
 dotenv.config();
 
@@ -72,7 +73,7 @@ export const syncUserToStream = async (userId, dbClient) => {
   }
 
   const user = result.rows[0];
-  const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+  const fullName = formatDisplayName(user.last_name, user.first_name, user.middle_name);
   const normalizedEmail = user.email.toLowerCase().trim();
 
   // Use the permanent avatar proxy URL instead of a pre-signed S3 URL.

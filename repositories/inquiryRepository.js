@@ -5,6 +5,7 @@
  * Write functions that participate in a transaction accept an optional `client`.
  */
 import { getPool } from "../config/getPool.js";
+import { formatDisplayName } from "../utils/formatDisplayName.js";
 
 const db = (client) => client ?? getPool();
 
@@ -18,14 +19,14 @@ export const searchInquiries = async ({ lang, businessUnit, userId, userRole, fi
       i.*,
       COALESCE(NULLIF(c.company_name->>$1, ''), NULLIF(c.company_name->>'en', ''), 'N/A') AS company_name_text,
       COALESCE(iss.descr->>$1, iss.descr->>'en', 'General Inquiry') AS type_name,
-      TRIM(CONCAT(u_assign.first_name, ' ', u_assign.last_name)) AS assigned_to_name,
-      TRIM(CONCAT(u_owner.first_name, ' ', u_owner.last_name)) AS owner_name,
-      TRIM(CONCAT(u_open.first_name, ' ', u_open.last_name)) AS opened_by_name,
-      TRIM(CONCAT(u_upd.first_name, ' ', u_upd.last_name)) AS last_updated_by_name,
+      u_assign.first_name AS assign_fn, u_assign.middle_name AS assign_mn, u_assign.last_name AS assign_ln,
+      u_owner.first_name AS owner_fn, u_owner.middle_name AS owner_mn, u_owner.last_name AS owner_ln,
+      u_open.first_name AS open_fn, u_open.middle_name AS open_mn, u_open.last_name AS open_ln,
+      u_upd.first_name AS upd_fn, u_upd.middle_name AS upd_mn, u_upd.last_name AS upd_ln,
       COALESCE(vl.descr->>$1, vl.descr->>'en', vi.visa_type) AS visa_type,
-      (SELECT STRING_AGG(TRIM(CONCAT(first_name, ' ', last_name)), ', ')
+      (SELECT JSON_AGG(JSON_BUILD_OBJECT('fn', first_name, 'mn', middle_name, 'ln', last_name))
        FROM v4.user_profile_tbl
-       WHERE user_id = ANY(i.watcher)) AS watcher_names,
+       WHERE user_id = ANY(i.watcher)) AS watcher_name_parts,
       (SELECT COUNT(*)
        FROM v4.shared_comments
        WHERE relation_type = 'inquiries' AND relation_id = i.ticket_id) AS comment_count,
@@ -98,7 +99,22 @@ export const searchInquiries = async ({ lang, businessUnit, userId, userRole, fi
   query += ` ORDER BY i.last_update_dttm DESC`;
 
   const { rows } = await getPool().query(query, values);
-  return rows;
+  return rows.map((r) => {
+    const { assign_fn, assign_mn, assign_ln, owner_fn, owner_mn, owner_ln,
+            open_fn, open_mn, open_ln, upd_fn, upd_mn, upd_ln,
+            watcher_name_parts, ...rest } = r;
+    const watchers = Array.isArray(watcher_name_parts)
+      ? watcher_name_parts.map((w) => formatDisplayName(w.ln, w.fn, w.mn)).join(", ")
+      : null;
+    return {
+      ...rest,
+      assigned_to_name: assign_ln ? formatDisplayName(assign_ln, assign_fn, assign_mn) : null,
+      owner_name: owner_ln ? formatDisplayName(owner_ln, owner_fn, owner_mn) : null,
+      opened_by_name: open_ln ? formatDisplayName(open_ln, open_fn, open_mn) : null,
+      last_updated_by_name: upd_ln ? formatDisplayName(upd_ln, upd_fn, upd_mn) : null,
+      watcher_names: watchers,
+    };
+  });
 };
 
 // ─── Create ───────────────────────────────────────────────────────────────────
@@ -159,11 +175,11 @@ export const findOldInquiry = async (ticketId, businessUnit) => {
 /** Returns the display name for a user, or "Someone" if not found. */
 export const findUserName = async (userId, client) => {
   const { rows } = await db(client).query(
-    `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+    `SELECT first_name, middle_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
     [userId],
   );
   if (!rows[0]) return "Someone";
-  return `${rows[0].first_name} ${rows[0].last_name}`;
+  return formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name);
 };
 
 // ─── Update ───────────────────────────────────────────────────────────────────
@@ -245,7 +261,7 @@ export const findOfficersByBU = async (businessUnit) => {
   const { rows } = await getPool().query(
     `SELECT
        p.user_id AS value,
-       p.first_name || ' ' || p.last_name AS label
+       p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln
      FROM v4.user_profile_tbl p
      JOIN v4.user_account_tbl a ON p.user_id = a.id
      WHERE a.business_unit = $1
@@ -259,5 +275,5 @@ export const findOfficersByBU = async (businessUnit) => {
      ORDER BY p.first_name ASC`,
     [businessUnit],
   );
-  return rows;
+  return rows.map(({ fn, mn, ln, ...rest }) => ({ ...rest, label: formatDisplayName(ln, fn, mn) }));
 };

@@ -5,6 +5,7 @@
  * checks for "inquiries" and "announcements" relation types.
  */
 import { getPool } from "../config/getPool.js";
+import { formatDisplayName } from "../utils/formatDisplayName.js";
 
 // ── Parent record BU checks ───────────────────────────────────────────────────
 
@@ -40,8 +41,7 @@ export const findComments = async (type, id) => {
        c.comment_id, c.user_id, c.content_text, c.created_at,
        c.updated_at, c.is_edited,
        u.email, u.business_unit,
-       p.first_name, p.last_name, p.position, p.company AS user_company,
-       CONCAT(p.first_name, ' ', p.last_name) AS user_name
+       p.first_name, p.middle_name, p.last_name, p.position, p.company AS user_company
      FROM v4.shared_comments c
      LEFT JOIN v4.user_account_tbl u  ON c.user_id = u.id
      LEFT JOIN v4.user_profile_tbl p  ON c.user_id = p.user_id
@@ -49,7 +49,7 @@ export const findComments = async (type, id) => {
      ORDER BY c.created_at ASC`,
     [type, id],
   );
-  return rows;
+  return rows.map((r) => ({ ...r, user_name: formatDisplayName(r.last_name, r.first_name, r.middle_name) }));
 };
 
 // ── Insert comment ────────────────────────────────────────────────────────────
@@ -85,10 +85,10 @@ export const insertComment = async ({
 
 export const findCommenterName = async (userId) => {
   const { rows } = await getPool().query(
-    "SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1",
+    "SELECT first_name, middle_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1",
     [userId],
   );
-  return rows[0] ? `${rows[0].first_name} ${rows[0].last_name}` : "Someone";
+  return rows[0] ? formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name) : "Someone";
 };
 
 // ── Recipient resolution ──────────────────────────────────────────────────────

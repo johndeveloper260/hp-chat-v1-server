@@ -6,6 +6,7 @@
  * Every delete helper accepts a `client` for transaction support.
  */
 import { getPool } from "../config/getPool.js";
+import { formatDisplayName } from "../utils/formatDisplayName.js";
 
 const db = (client) => client ?? getPool();
 
@@ -34,8 +35,8 @@ export const searchReturnHome = async (
   let query = `
     SELECT
       r.*,
-      TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS user_name,
-      p.company AS user_company_id,
+      p.first_name AS rh_fn, p.middle_name AS rh_mn, p.last_name AS rh_ln,
+      p.company AS user_company_id, p.country,
       COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
       v.visa_type, v.joining_date, v.visa_expiry_date,
       COALESCE(vl.descr->>$1, vl.descr->>'en', (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)) AS visa_type_descr,
@@ -112,7 +113,10 @@ export const searchReturnHome = async (
 
   query += ` ORDER BY r.created_at DESC`;
   const { rows } = await getPool().query(query, values);
-  return rows;
+  return rows.map(({ rh_fn, rh_mn, rh_ln, ...rest }) => ({
+    ...rest,
+    user_name: formatDisplayName(rh_ln, rh_fn, rh_mn),
+  }));
 };
 
 // ── Create ────────────────────────────────────────────────────────────────────
@@ -160,8 +164,7 @@ export const findReturnHomeById = async (id, businessUnit, lang) => {
   const { rows } = await getPool().query(
     `SELECT
        r.*,
-       TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS user_name,
-       p.first_name, p.last_name, p.company AS user_company_id,
+       p.first_name, p.middle_name, p.last_name, p.company AS user_company_id, p.country,
        COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
        v.visa_type, v.joining_date, v.visa_expiry_date,
        COALESCE(vl.descr->>$1, vl.descr->>'en', (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)) AS visa_type_descr
@@ -173,7 +176,9 @@ export const findReturnHomeById = async (id, businessUnit, lang) => {
      WHERE r.id = $2 AND r.business_unit = $3`,
     [lang, id, businessUnit],
   );
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (!row) return null;
+  return { ...row, user_name: formatDisplayName(row.last_name, row.first_name, row.middle_name) };
 };
 
 export const findAttachments = async (id, businessUnit) => {
@@ -280,11 +285,11 @@ export const approveReturnHome = async (
 /** Returns the display name for a user, or "Someone" if not found. */
 export const findUserName = async (userId) => {
   const { rows } = await getPool().query(
-    `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+    `SELECT first_name, middle_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
     [userId],
   );
   if (!rows[0]) return "Someone";
-  return `${rows[0].first_name} ${rows[0].last_name}`;
+  return formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name);
 };
 
 /** Returns an array of user_ids for active OFFICERS in the BU with flight_read or flight_write role. */

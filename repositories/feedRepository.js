@@ -5,6 +5,7 @@
  * Write functions that participate in a transaction accept an optional `client`.
  */
 import { getPool } from "../config/getPool.js";
+import { formatDisplayName } from "../utils/formatDisplayName.js";
 
 const db = (client) => client ?? getPool();
 
@@ -14,14 +15,15 @@ export const findPosters = async (businessUnit) => {
   const { rows } = await getPool().query(
     `SELECT DISTINCT
        a.created_by AS value,
-       p.first_name || ' ' || p.last_name AS label
+       p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln
      FROM v4.announcement_tbl a
      JOIN v4.user_profile_tbl p ON a.created_by = p.user_id
-     WHERE a.business_unit = $1
-     ORDER BY label ASC`,
+     WHERE a.business_unit = $1`,
     [businessUnit],
   );
-  return rows;
+  return rows
+    .map(({ fn, mn, ln, ...rest }) => ({ ...rest, label: formatDisplayName(ln, fn, mn) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 };
 
 // ─── Fetch announcements (dynamic query) ──────────────────────────────────────
@@ -54,7 +56,7 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
-      u.first_name || ' ' || u.last_name AS created_by_name,
+      u.first_name AS cb_fn, u.middle_name AS cb_mn, u.last_name AS cb_ln,
       COALESCE(
         (
           SELECT json_agg(att)
@@ -96,7 +98,10 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
   query += ` ORDER BY a.created_at DESC`;
 
   const { rows } = await getPool().query(query, values);
-  return rows;
+  return rows.map(({ cb_fn, cb_mn, cb_ln, ...rest }) => ({
+    ...rest,
+    created_by_name: formatDisplayName(cb_ln, cb_fn, cb_mn),
+  }));
 };
 
 // ─── Create ───────────────────────────────────────────────────────────────────
@@ -128,11 +133,11 @@ export const findAnnouncementById = async (rowId, userBU, client) => {
 /** Returns the display name for a user, or "Someone" if not found. */
 export const findUserName = async (userId, client) => {
   const { rows } = await db(client).query(
-    `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
+    `SELECT first_name, middle_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
     [userId],
   );
   if (!rows[0]) return "Someone";
-  return `${rows[0].first_name} ${rows[0].last_name}`;
+  return formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name);
 };
 
 /**
@@ -198,13 +203,13 @@ export const saveReactions = async (rowId, userBU, reactions) => {
 /** Fetch user details (name + company) for a list of user IDs. */
 export const findUsersForReactions = async (userIds) => {
   const { rows } = await getPool().query(
-    `SELECT a.id, p.first_name || ' ' || p.last_name AS name, p.company
+    `SELECT a.id, p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln, p.company
      FROM v4.user_account_tbl a
      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
      WHERE a.id = ANY($1::uuid[])`,
     [userIds],
   );
-  return rows;
+  return rows.map(({ fn, mn, ln, ...rest }) => ({ ...rest, name: formatDisplayName(ln, fn, mn) }));
 };
 
 // ─── Companies / Batches / Audience ──────────────────────────────────────────
@@ -282,7 +287,7 @@ export const findViewers = async (rowId, lang, userBU) => {
   const { rows } = await getPool().query(
     `SELECT
        v.user_id AS id,
-       p.first_name || ' ' || p.last_name AS name,
+       p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln,
        COALESCE(c.company_name->>$2, c.company_name->>'en') AS company,
        v.viewed_at
      FROM v4.announcement_views v
@@ -294,7 +299,7 @@ export const findViewers = async (rowId, lang, userBU) => {
      ORDER BY v.viewed_at DESC`,
     [rowId, lang, userBU],
   );
-  return rows;
+  return rows.map(({ fn, mn, ln, ...rest }) => ({ ...rest, name: formatDisplayName(ln, fn, mn) }));
 };
 
 // ─── Delete (cascade) ─────────────────────────────────────────────────────────
