@@ -41,10 +41,18 @@ export const findComments = async (type, id) => {
        c.comment_id, c.user_id, c.content_text, c.created_at,
        c.updated_at, c.is_edited,
        u.email, u.business_unit,
-       p.first_name, p.middle_name, p.last_name, p.position, p.company AS user_company
+       p.first_name, p.middle_name, p.last_name, p.position, p.company AS user_company,
+       sa.attachment_id AS author_profile_pic_id
      FROM v4.shared_comments c
      LEFT JOIN v4.user_account_tbl u  ON c.user_id = u.id
      LEFT JOIN v4.user_profile_tbl p  ON c.user_id = p.user_id
+     LEFT JOIN LATERAL (
+       SELECT attachment_id
+       FROM v4.shared_attachments
+       WHERE relation_type = 'profile' AND relation_id = c.user_id::text
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) sa ON true
      WHERE c.relation_type = $1 AND c.relation_id = $2
      ORDER BY c.created_at ASC`,
     [type, id],

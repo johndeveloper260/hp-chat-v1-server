@@ -57,6 +57,7 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
       u.first_name AS cb_fn, u.middle_name AS cb_mn, u.last_name AS cb_ln,
+      sa.attachment_id AS author_profile_pic_id,
       COALESCE(
         (
           SELECT json_agg(att)
@@ -69,6 +70,13 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       ) AS attachments
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
+    LEFT JOIN LATERAL (
+      SELECT attachment_id
+      FROM v4.shared_attachments
+      WHERE relation_type = 'profile' AND relation_id = a.created_by::text
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) sa ON true
     WHERE 1=1
   `;
 
