@@ -23,8 +23,6 @@ export const searchReturnHome = async (
 ) => {
   const {
     status,
-    is_resignation,
-    is_paid_leave,
     company,
     user_name,
     flight_date_from,
@@ -64,15 +62,6 @@ export const searchReturnHome = async (
     LEFT JOIN v4.visa_list_tbl       vl ON v.visa_type = vl.code AND r.business_unit = vl.business_unit
     WHERE r.business_unit = $2
   `;
-
-  if (is_resignation !== undefined) {
-    values.push(is_resignation);
-    query += ` AND r.is_resignation = $${values.length}`;
-  }
-  if (is_paid_leave !== undefined) {
-    values.push(is_paid_leave);
-    query += ` AND r.is_paid_leave = $${values.length}`;
-  }
 
   // Non-elevated users see only their own records
   if (!ELEVATED_ROLES.includes(userRole)) {
@@ -126,11 +115,10 @@ export const createReturnHome = async (data) => {
     `INSERT INTO v4.return_home_tbl (
        user_id, business_unit, flight_date, return_date,
        route_origin, route_destination, ticket_type,
-       return_type, lumpsum_applying, details, tio_jo,
-       is_resignation, is_paid_leave, status,
+       return_type, details, tio_jo, status,
        resign_date, leave_days, mode_of_payment, payment_amount, currency,
        payment_settled, created_by, updated_by
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18)
      RETURNING id`,
     [
       data.targetUserId,
@@ -141,11 +129,8 @@ export const createReturnHome = async (data) => {
       data.route_destination  || null,
       data.ticket_type        || null,
       data.return_type        ?? -1,
-      data.lumpsum_applying,
       data.details            || null,
       data.tio_jo             || null,
-      data.is_resignation     ?? false,
-      data.is_paid_leave      ?? false,
       data.status             || "Draft",
       data.resign_date        || null,
       data.leave_days != null ? Number(data.leave_days) : null,
@@ -211,11 +196,8 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
     data.route_destination  || null,
     data.ticket_type        || null,
     data.return_type        ?? -1,
-    data.lumpsum_applying,
     data.tio_jo             || null,
     data.details            || null,
-    data.is_resignation     ?? false,
-    data.is_paid_leave      ?? false,
     data.status             || null,
     data.resign_date        || null,
     data.leave_days != null ? Number(data.leave_days) : null,
@@ -229,18 +211,18 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
   const sql = safeUserId
     ? `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
-           ticket_type=$5, return_type=$6, lumpsum_applying=$7, tio_jo=$8, details=$9,
-           is_resignation=$10, is_paid_leave=$11, status=$12, resign_date=$13,
-           leave_days=$14, mode_of_payment=$15, payment_amount=$16, currency=$17,
-           updated_by=$18, updated_at=NOW(), payment_settled=$19, user_id=$20
-       WHERE id=$21 AND business_unit=$22 RETURNING *`
+           ticket_type=$5, return_type=$6, tio_jo=$7, details=$8,
+           status=$9, resign_date=$10, leave_days=$11, mode_of_payment=$12,
+           payment_amount=$13, currency=$14, updated_by=$15, updated_at=NOW(),
+           payment_settled=$16, user_id=$17
+       WHERE id=$18 AND business_unit=$19 RETURNING *`
     : `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
-           ticket_type=$5, return_type=$6, lumpsum_applying=$7, tio_jo=$8, details=$9,
-           is_resignation=$10, is_paid_leave=$11, status=$12, resign_date=$13,
-           leave_days=$14, mode_of_payment=$15, payment_amount=$16, currency=$17,
-           updated_by=$18, updated_at=NOW(), payment_settled=$19
-       WHERE id=$20 AND business_unit=$21 RETURNING *`;
+           ticket_type=$5, return_type=$6, tio_jo=$7, details=$8,
+           status=$9, resign_date=$10, leave_days=$11, mode_of_payment=$12,
+           payment_amount=$13, currency=$14, updated_by=$15, updated_at=NOW(),
+           payment_settled=$16
+       WHERE id=$17 AND business_unit=$18 RETURNING *`;
 
   const values = safeUserId
     ? [...common, safeUserId, id, businessUnit]
