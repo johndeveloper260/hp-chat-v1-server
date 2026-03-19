@@ -126,11 +126,11 @@ export const createReturnHome = async (data) => {
     `INSERT INTO v4.return_home_tbl (
        user_id, business_unit, flight_date, return_date,
        route_origin, route_destination, ticket_type,
-       lumpsum_applying, details, tio_jo,
+       return_type, lumpsum_applying, details, tio_jo,
        is_resignation, is_paid_leave, status,
        resign_date, leave_days, mode_of_payment, payment_amount, currency,
        payment_settled, created_by, updated_by
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$20)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$21)
      RETURNING id`,
     [
       data.targetUserId,
@@ -140,6 +140,7 @@ export const createReturnHome = async (data) => {
       data.route_origin       || null,
       data.route_destination  || null,
       data.ticket_type        || null,
+      data.return_type        ?? -1,
       data.lumpsum_applying,
       data.details            || null,
       data.tio_jo             || null,
@@ -209,6 +210,7 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
     data.route_origin       || null,
     data.route_destination  || null,
     data.ticket_type        || null,
+    data.return_type        ?? -1,
     data.lumpsum_applying,
     data.tio_jo             || null,
     data.details            || null,
@@ -227,18 +229,18 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
   const sql = safeUserId
     ? `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
-           ticket_type=$5, lumpsum_applying=$6, tio_jo=$7, details=$8,
-           is_resignation=$9, is_paid_leave=$10, status=$11, resign_date=$12,
-           leave_days=$13, mode_of_payment=$14, payment_amount=$15, currency=$16,
-           updated_by=$17, updated_at=NOW(), payment_settled=$18, user_id=$19
-       WHERE id=$20 AND business_unit=$21 RETURNING *`
+           ticket_type=$5, return_type=$6, lumpsum_applying=$7, tio_jo=$8, details=$9,
+           is_resignation=$10, is_paid_leave=$11, status=$12, resign_date=$13,
+           leave_days=$14, mode_of_payment=$15, payment_amount=$16, currency=$17,
+           updated_by=$18, updated_at=NOW(), payment_settled=$19, user_id=$20
+       WHERE id=$21 AND business_unit=$22 RETURNING *`
     : `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
-           ticket_type=$5, lumpsum_applying=$6, tio_jo=$7, details=$8,
-           is_resignation=$9, is_paid_leave=$10, status=$11, resign_date=$12,
-           leave_days=$13, mode_of_payment=$14, payment_amount=$15, currency=$16,
-           updated_by=$17, updated_at=NOW(), payment_settled=$18
-       WHERE id=$19 AND business_unit=$20 RETURNING *`;
+           ticket_type=$5, return_type=$6, lumpsum_applying=$7, tio_jo=$8, details=$9,
+           is_resignation=$10, is_paid_leave=$11, status=$12, resign_date=$13,
+           leave_days=$14, mode_of_payment=$15, payment_amount=$16, currency=$17,
+           updated_by=$18, updated_at=NOW(), payment_settled=$19
+       WHERE id=$20 AND business_unit=$21 RETURNING *`;
 
   const values = safeUserId
     ? [...common, safeUserId, id, businessUnit]

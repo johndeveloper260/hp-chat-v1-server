@@ -6,6 +6,7 @@ const returnHomeBodySchema = z.object({
   route_origin:       z.string().optional().nullable(),
   route_destination:  z.string().optional().nullable(),
   ticket_type:        z.string().optional().nullable(),
+  return_type:        z.number().optional().nullable(),
   lumpsum_applying:   z.boolean().optional(),
   details:            z.string().optional().nullable(),
   tio_jo:             z.string().optional().nullable(),
