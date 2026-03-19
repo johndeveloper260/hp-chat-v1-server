@@ -108,10 +108,10 @@ export const searchInquiries = async ({ lang, businessUnit, userId, userRole, fi
       : null;
     return {
       ...rest,
-      assigned_to_name: assign_ln ? formatDisplayName(assign_ln, assign_fn, assign_mn) : null,
-      owner_name: owner_ln ? formatDisplayName(owner_ln, owner_fn, owner_mn) : null,
-      opened_by_name: open_ln ? formatDisplayName(open_ln, open_fn, open_mn) : null,
-      last_updated_by_name: upd_ln ? formatDisplayName(upd_ln, upd_fn, upd_mn) : null,
+      assigned_to_name: (assign_fn || assign_mn || assign_ln) ? formatDisplayName(assign_ln, assign_fn, assign_mn) : null,
+      owner_name: (owner_fn || owner_mn || owner_ln) ? formatDisplayName(owner_ln, owner_fn, owner_mn) : null,
+      opened_by_name: (open_fn || open_mn || open_ln) ? formatDisplayName(open_ln, open_fn, open_mn) : null,
+      last_updated_by_name: (upd_fn || upd_mn || upd_ln) ? formatDisplayName(upd_ln, upd_fn, upd_mn) : null,
       watcher_names: watchers,
     };
   });
