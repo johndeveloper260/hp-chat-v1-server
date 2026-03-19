@@ -13,7 +13,7 @@ export const getAuditByRecord = async (req, res, next) => {
       recordId:     req.params.recordId,
       businessUnit: req.user.business_unit,
       userId:       req.user.id,
-      userType:     req.user.user_type,
+      userType:     req.user.userType,
     });
     res.json(rows);
   } catch (err) { next(err); }
@@ -28,7 +28,7 @@ export const getAuditByUser = async (req, res, next) => {
       sourceTable:  source_table,
       limit,
       offset,
-      callerType:   req.user.user_type,
+      callerType:   req.user.userType,
     });
     res.json(rows);
   } catch (err) { next(err); }
@@ -42,7 +42,7 @@ export const searchAuditLog = async (req, res, next) => {
     } = req.query;
     const rows = await auditService.searchAuditLog({
       businessUnit: req.user.business_unit,
-      callerType:   req.user.user_type,
+      callerType:   req.user.userType,
       sourceTable:  source_table,
       fieldName:    field_name,
       changedBy:    changed_by,
