@@ -14,7 +14,7 @@ const lang = (req) => req.user?.preferred_language || "en";
 export const getUsers = async (req, res, next) => {
   try {
     const { search = "" } = req.query;
-    const result = await accessService.getUsers(search);
+    const result = await accessService.getUsers(search, req.user.business_unit);
     res.json(result);
   } catch (err) { next(err); }
 };
@@ -28,7 +28,7 @@ export const getAllRoleDefinitions = async (req, res, next) => {
 
 export const getUserRoles = async (req, res, next) => {
   try {
-    const result = await accessService.getUserRoles(req.params.userId);
+    const result = await accessService.getUserRoles(req.params.userId, req.user.business_unit);
     res.json(result);
   } catch (err) { next(err); }
 };
@@ -37,7 +37,7 @@ export const assignRole = async (req, res, next) => {
   try {
     const { userId } = req.params;
     const { role_name } = req.body;
-    await accessService.assignRole(userId, role_name, req.user.id);
+    await accessService.assignRole(userId, role_name, req.user.id, req.user.business_unit);
     res.json({
       success: true,
       message: getApiMessage("access_role_assigned", lang(req), { role: role_name }),
@@ -48,7 +48,7 @@ export const assignRole = async (req, res, next) => {
 export const revokeRole = async (req, res, next) => {
   try {
     const { userId, roleName } = req.params;
-    await accessService.revokeRole(userId, roleName);
+    await accessService.revokeRole(userId, roleName, req.user.business_unit);
     res.json({
       success: true,
       message: getApiMessage("access_role_revoked", lang(req), { role: roleName }),
@@ -60,7 +60,7 @@ export const replaceUserRoles = async (req, res, next) => {
   try {
     const { userId } = req.params;
     const { roles } = req.body;
-    await accessService.replaceUserRoles(userId, roles, req.user.id);
+    await accessService.replaceUserRoles(userId, roles, req.user.id, req.user.business_unit);
     res.json({
       success: true,
       message: getApiMessage("access_roles_updated", lang(req)),

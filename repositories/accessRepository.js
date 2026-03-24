@@ -10,21 +10,22 @@ const db = (client) => client ?? getPool();
 
 // ── Officer user listing ──────────────────────────────────────────────────────
 
-export const findOfficerUsers = (search = "") =>
+export const findOfficerUsers = (search = "", businessUnit) =>
   getPool().query(
     `SELECT p.user_id::text AS id,
-            p.first_name, p.last_name, p.user_type, p.business_unit,
+            p.first_name, p.last_name, p.user_type, a.business_unit,
             a.email
      FROM v4.user_profile_tbl p
      JOIN v4.user_account_tbl a ON a.id = p.user_id
-     WHERE a.is_active = true
+     WHERE a.is_active    = true
+       AND a.business_unit = $2
        AND UPPER(p.user_type) = 'OFFICER'
        AND ($1 = ''
             OR LOWER(p.first_name || ' ' || p.last_name) LIKE '%' || LOWER($1) || '%'
             OR LOWER(a.email) LIKE '%' || LOWER($1) || '%')
      ORDER BY p.last_name, p.first_name
      LIMIT 50`,
-    [search],
+    [search, businessUnit],
   );
 
 // ── Role definitions ──────────────────────────────────────────────────────────
@@ -54,7 +55,10 @@ export const findUserRolesList = (userId) =>
 
 export const findUserTypeById = (userId, client) =>
   db(client).query(
-    `SELECT user_type FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
+    `SELECT p.user_type, a.business_unit
+     FROM v4.user_profile_tbl p
+     JOIN v4.user_account_tbl a ON a.id = p.user_id
+     WHERE p.user_id = $1::uuid`,
     [userId],
   );
 
