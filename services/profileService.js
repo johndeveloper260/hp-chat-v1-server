@@ -4,7 +4,9 @@
  * Business logic for user profiles, visa info, avatar, and account status.
  * No req/res references — all errors thrown as AppError subclasses.
  */
+import bcrypt from "bcrypt";
 import * as profileRepo   from "../repositories/profileRepository.js";
+import * as userRepo      from "../repositories/userRepository.js";
 import { syncUserToStream } from "../utils/syncUserToStream.js";
 import { getUserLanguage }   from "../utils/getUserLanguage.js";
 import { getPresignedUrl }   from "../utils/s3Client.js";
@@ -99,6 +101,23 @@ export const toggleUserActive = async (userId, officerId, officerBU) => {
   const newStatus = !current.is_active;
   await profileRepo.setActiveStatus(userId, newStatus);
   return { is_active: newStatus };
+};
+
+// ── Admin reset user password ──────────────────────────────────────────────────
+
+/**
+ * Officer-initiated password reset for a user in the same business unit.
+ * @param {string} targetUserId
+ * @param {string} newPassword  - Already validated (min 6 chars) by Zod
+ * @param {string} officerBU
+ */
+export const adminResetUserPassword = async (targetUserId, newPassword, officerBU) => {
+  const member = await profileRepo.findUserInBU(targetUserId, officerBU);
+  if (!member) throw new ForbiddenError();
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const rowCount = await userRepo.updatePasswordHash(targetUserId, passwordHash);
+  if (rowCount === 0) throw new NotFoundError("user_not_found");
 };
 
 // ── Language preference ────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import express from "express";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { validate }           from "../middleware/validate.js";
-import { updateLanguageSchema } from "../validators/profileValidator.js";
+import { updateLanguageSchema, adminResetPasswordSchema } from "../validators/profileValidator.js";
 import {
   searchUsers,
   updateWorkVisa,
@@ -14,6 +14,7 @@ import {
   updateUserProfile,
   updateUserLanguage,
   toggleUserActive,
+  adminResetUserPassword,
   getUserAvatar,
 } from "../controller/profileController.js";
 
@@ -34,6 +35,7 @@ router.patch("/update-language",       auth, validate(updateLanguageSchema), upd
 router.get("/search-users", auth, requireRole("profile_read"), searchUsers);
 
 // ── profile_write ─────────────────────────────────────────────────────────────
-router.patch("/toggle-active/:userId", auth, requireRole("profile_write"), toggleUserActive);
+router.patch("/toggle-active/:userId",  auth, requireRole("profile_write"), toggleUserActive);
+router.patch("/reset-password/:userId", auth, requireRole("profile_write"), validate(adminResetPasswordSchema), adminResetUserPassword);
 
 export default router;

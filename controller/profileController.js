@@ -82,6 +82,17 @@ export const searchUsers = async (req, res, next) => {
 
 // ── profile_write ─────────────────────────────────────────────────────────────
 
+export const adminResetUserPassword = async (req, res, next) => {
+  try {
+    await profileService.adminResetUserPassword(
+      req.params.userId,
+      req.body.newPassword,
+      req.user.business_unit,
+    );
+    res.json({ message: getApiMessage("update_success", lang(req)) });
+  } catch (err) { next(err); }
+};
+
 export const toggleUserActive = async (req, res, next) => {
   try {
     const result = await profileService.toggleUserActive(
