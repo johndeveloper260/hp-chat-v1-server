@@ -282,12 +282,17 @@ export const countAudience = async (businessUnit, company, batch_no) => {
 // ─── Views ────────────────────────────────────────────────────────────────────
 
 export const upsertAnnouncementView = async (rowId, userId, userBU) => {
-  await getPool().query(
+  const pool = getPool();
+  await pool.query(
     `INSERT INTO v4.announcement_views (announcement_id, user_id, business_unit)
      VALUES ($1::integer, $2::uuid, $3)
      ON CONFLICT (announcement_id, user_id)
      DO UPDATE SET viewed_at = NOW()`,
     [rowId, userId, userBU],
+  );
+  await pool.query(
+    `UPDATE v4.user_account_tbl SET last_seen = NOW() WHERE id = $1::uuid`,
+    [userId],
   );
 };
 

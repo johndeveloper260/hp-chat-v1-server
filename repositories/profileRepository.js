@@ -51,7 +51,8 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name 
       p.position,
       p.user_type,
       a.is_active,
-      a.email
+      a.email,
+      a.last_seen
     FROM v4.user_profile_tbl p
     JOIN  v4.user_account_tbl a ON p.user_id = a.id
     LEFT JOIN v4.company_tbl  c ON p.company::uuid = c.company_id
