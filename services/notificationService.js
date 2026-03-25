@@ -12,7 +12,7 @@
  */
 import { Expo }         from "expo-server-sdk";
 import * as notifRepo   from "../repositories/notificationRepository.js";
-import { getTranslation } from "../utils/notificationTranslations.js";
+import { getTranslation, translateStatus } from "../utils/notificationTranslations.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
 
 const expo = new Expo();
@@ -146,8 +146,12 @@ export const createNotification = async ({
     const finalTitle = data?.rowId ? `#${data.rowId} ${title}` : title;
 
     let body = getTranslation(bodyKey, userLanguage);
-    Object.keys(bodyParams).forEach((key) => {
-      body = body.replace(`{{${key}}}`, bodyParams[key]);
+    const translatedParams = { ...bodyParams };
+    if (translatedParams.status) {
+      translatedParams.status = translateStatus(translatedParams.status, userLanguage);
+    }
+    Object.keys(translatedParams).forEach((key) => {
+      body = body.replace(`{{${key}}}`, translatedParams[key]);
     });
 
     console.log(`📤 Sending notification in ${userLanguage}:`, { title: finalTitle, body });

@@ -5,7 +5,7 @@
  *  1. pushMessages  — titles/bodies sent via Expo push notifications
  *  2. apiMessages   — error / success strings returned in HTTP responses
  *
- * Supported languages: en · ja · id · vi · my · km · bn · th
+ * Supported languages: en · ja · id · vi · my · km · bn · th · ne
  * Keep these synchronised with the frontend i18n files.
  */
 
@@ -22,6 +22,7 @@ const pushMessages = {
     km: "មតិយោបល់ថ្មីលើការសាកសួរ",
     bn: "অনুসন্ধানে নতুন মন্তব্য",
     th: "ความคิดเห็นใหม่เกี่ยวกับการสอบถาม",
+    ne: "सोधपुछमा नयाँ टिप्पणी",
   },
   comment_on_announcement: {
     en: "New comment on Announcement",
@@ -32,6 +33,7 @@ const pushMessages = {
     km: "មតិយោបល់ថ្មីលើការប្រកាស",
     bn: "ঘোষণায় নতুন মন্তব্য",
     th: "ความคิดเห็นใหม่เกี่ยวกับประกาศ",
+    ne: "घोषणामा नयाँ टिप्पणी",
   },
   new_inquiry: {
     en: "New Inquiry",
@@ -42,6 +44,7 @@ const pushMessages = {
     km: "ការសាកសួរថ្មី",
     bn: "নতুন অনুসন্ধান",
     th: "การสอบถามใหม่",
+    ne: "नयाँ सोधपुछ",
   },
   high_priority: {
     en: "(High Priority)",
@@ -52,6 +55,7 @@ const pushMessages = {
     km: "(អាទិភាពខ្ពស់)",
     bn: "(উচ্চ অগ্রাধিকার)",
     th: "(ความสำคัญสูง)",
+    ne: "(उच्च प्राथमिकता)",
   },
   new_inquiry_high_priority: {
     en: "New Inquiry (High Priority)",
@@ -62,6 +66,7 @@ const pushMessages = {
     km: "ការសាកសួរថ្មី (អាទិភាពខ្ពស់)",
     bn: "নতুন অনুসন্ধান (উচ্চ অগ্রাধিকার)",
     th: "การสอบถามใหม่ (ความสำคัญสูง)",
+    ne: "नयाँ सोधपुछ (उच्च प्राथमिकता)",
   },
   inquiry_updated: {
     en: "Inquiry Updated",
@@ -72,6 +77,7 @@ const pushMessages = {
     km: "ការសាកសួរត្រូវបានអាប់ដេត",
     bn: "অনুসন্ধান আপডেট হয়েছে",
     th: "การสอบถามได้รับการอัปเดต",
+    ne: "सोधपुछ अपडेट भयो",
   },
   created_inquiry: {
     en: "{{name}} created a new inquiry: {{title}}",
@@ -82,6 +88,7 @@ const pushMessages = {
     km: "{{name}} បានបង្កើតការសាកសួរថ្មី: {{title}}",
     bn: "{{name}} একটি নতুন অনুসন্ধান তৈরি করেছেন: {{title}}",
     th: "{{name}} สร้างการสอบถามใหม่: {{title}}",
+    ne: "{{name}} ले नयाँ सोधपुछ सिर्जना गर्नुभयो: {{title}}",
   },
   updated_inquiry: {
     en: "{{name}} updated the inquiry",
@@ -92,6 +99,7 @@ const pushMessages = {
     km: "{{name}} បានអាប់ដេតការសាកសួរ",
     bn: "{{name}} অনুসন্ধান আপডেট করেছেন",
     th: "{{name}} อัปเดตการสอบถาม",
+    ne: "{{name}} ले सोधपुछ अपडेट गर्नुभयो",
   },
   changed_status_to: {
     en: "changed status to",
@@ -102,6 +110,7 @@ const pushMessages = {
     km: "បានផ្លាស់ប្តូរស្ថានភាពទៅជា",
     bn: "স্ট্যাটাস পরিবর্তন করেছেন:",
     th: "เปลี่ยนสถานะเป็น",
+    ne: "स्थिति परिवर्तन:",
   },
   assigned_to_you: {
     en: "assigned this inquiry to you",
@@ -112,6 +121,7 @@ const pushMessages = {
     km: "បានចាត់តាំងការសាកសួរនេះទៅអ្នក",
     bn: "এই অনুসন্ধানটি আপনাকে বরাদ্দ করা হয়েছে",
     th: "ได้มอบหมายการสอบถามนี้ให้คุณ",
+    ne: "तपाईंलाई यो सोधपुछ सुम्पिएको छ",
   },
   incoming_call: {
     en: "Incoming Video Call 📞",
@@ -122,6 +132,7 @@ const pushMessages = {
     km: "ការហៅវីដេអូចូល 📞",
     bn: "ইনকামিং ভিডিও কল 📞",
     th: "สายวิดีโอโทรเข้า 📞",
+    ne: "भिडियो कल आउँदैछ 📞",
   },
   calling_you: {
     en: "is calling you...",
@@ -132,6 +143,7 @@ const pushMessages = {
     km: "កំពុងហៅអ្នក...",
     bn: "আপনাকে কল করছে...",
     th: "กำลังโทรหาคุณ...",
+    ne: "तपाईंलाई कल गर्दैछ...",
   },
   comment_on_return_home: {
     en: "New comment on Return Home application",
@@ -142,6 +154,7 @@ const pushMessages = {
     km: "មានមតិថ្មីលើពាក្យស្នើសុំត្រលប់ទៅផ្ទះ",
     bn: "বাড়ি ফেরার আবেদনে নতুন মন্তব্য",
     th: "มีความคิดเห็นใหม่ในใบสมัครกลับบ้าน",
+    ne: "घर फर्कने आवेदनमा नयाँ टिप्पणी",
   },
   comment_body: {
     en: "{{name}}: {{comment}}",
@@ -152,6 +165,7 @@ const pushMessages = {
     km: "{{name}}: {{comment}}",
     bn: "{{name}}: {{comment}}",
     th: "{{name}}: {{comment}}",
+    ne: "{{name}}: {{comment}}",
   },
   new_return_home: {
     en: "New Return Home Application",
@@ -162,6 +176,7 @@ const pushMessages = {
     km: "ពាក្យស្នើសុំត្រលប់ទៅផ្ទះថ្មី",
     bn: "নতুন বাড়ি ফেরার আবেদন",
     th: "ใบสมัครกลับบ้านใหม่",
+    ne: "नयाँ घर फर्कने आवेदन",
   },
   return_home_submitted: {
     en: "{{name}} submitted a return home application",
@@ -172,6 +187,7 @@ const pushMessages = {
     km: "{{name}} បានដាក់ពាក្យស្នើសុំត្រលប់ទៅផ្ទះ",
     bn: "{{name}} বাড়ি ফেরার আবেদন জমা দিয়েছেন",
     th: "{{name}} ได้ยื่นใบสมัครกลับบ้าน",
+    ne: "{{name}} ले घर फर्कने आवेदन पेश गर्नुभयो",
   },
   return_home_updated: {
     en: "Return Home Application Updated",
@@ -182,6 +198,7 @@ const pushMessages = {
     km: "ពាក្យស្នើសុំត្រលប់ទៅផ្ទះត្រូវបានធ្វើបច្ចុប្បន្នភាព",
     bn: "বাড়ি ফেরার আবেদন আপডেট হয়েছে",
     th: "ใบสมัครกลับบ้านได้รับการอัปเดต",
+    ne: "घर फर्कने आवेदन अपडेट भयो",
   },
   return_home_application_updated: {
     en: "{{name}} updated your return home application",
@@ -192,6 +209,7 @@ const pushMessages = {
     km: "{{name}} បានធ្វើបច្ចុប្បន្នភាពពាក្យស្នើសុំត្រលប់ទៅផ្ទះរបស់អ្នក",
     bn: "{{name}} আপনার বাড়ি ফেরার আবেদন আপডেট করেছেন",
     th: "{{name}} อัปเดตใบสมัครกลับบ้านของคุณ",
+    ne: "{{name}} ले तपाईंको घर फर्कने आवेदन अपडेट गर्नुभयो",
   },
   return_home_status_changed: {
     en: "{{name}} {{status}} your return home application",
@@ -202,6 +220,7 @@ const pushMessages = {
     km: "{{name}} {{status}} ពាក្យស្នើសុំត្រលប់ទៅផ្ទះរបស់អ្នក",
     bn: "{{name}} আপনার বাড়ি ফেরার আবেদন {{status}} করেছেন",
     th: "{{name}} {{status}} ใบสมัครกลับบ้านของคุณ",
+    ne: "{{name}} ले तपाईंको घर फर्कने आवेदन {{status}} गर्नुभयो",
   },
 };
 
@@ -224,6 +243,7 @@ const apiMessages = {
     km: "ការចុះឈ្មោះបានជោគជ័យ",
     bn: "নিবন্ধন সফল হয়েছে",
     th: "ลงทะเบียนสำเร็จ",
+    ne: "दर्ता सफल भयो",
   },
   register_code_required: {
     en: "Code is required",
@@ -234,6 +254,7 @@ const apiMessages = {
     km: "លេខកូដត្រូវការ",
     bn: "কোড প্রয়োজন",
     th: "ต้องระบุรหัส",
+    ne: "कोड आवश्यक छ",
   },
   register_invalid_code: {
     en: "Invalid Registration Code",
@@ -244,6 +265,7 @@ const apiMessages = {
     km: "លេខកូដចុះឈ្មោះមិនត្រឹមត្រូវ",
     bn: "নিবন্ধন কোড অবৈধ",
     th: "รหัสลงทะเบียนไม่ถูกต้อง",
+    ne: "दर्ता कोड अमान्य छ",
   },
   register_fields_required: {
     en: "Missing required fields",
@@ -254,6 +276,7 @@ const apiMessages = {
     km: "វាលដែលត្រូវការមិនទាន់បញ្ចូល",
     bn: "প্রয়োজনীয় তথ্য পূরণ করা হয়নি",
     th: "ข้อมูลที่จำเป็นยังไม่ครบ",
+    ne: "आवश्यक फिल्डहरू छुटेका छन्",
   },
   register_email_exists: {
     en: "Email already exists",
@@ -264,6 +287,7 @@ const apiMessages = {
     km: "អ៊ីម៉ែលនេះមានរួចហើយ",
     bn: "এই ইমেইলটি ইতিমধ্যে নিবন্ধিত",
     th: "อีเมลนี้มีอยู่แล้ว",
+    ne: "इमेल पहिले नै अवस्थित छ",
   },
   register_validation_failed: {
     en: "Validation failed",
@@ -274,6 +298,7 @@ const apiMessages = {
     km: "ការផ្ទៀងផ្ទាត់បរាជ័យ",
     bn: "যাচাইকরণ ব্যর্থ হয়েছে",
     th: "การตรวจสอบล้มเหลว",
+    ne: "प्रमाणीकरण असफल भयो",
   },
 
   // ── Login ─────────────────────────────────────────────────────────────────
@@ -286,6 +311,7 @@ const apiMessages = {
     km: "ចូលប្រព័ន្ធបានជោគជ័យ",
     bn: "লগইন সফল হয়েছে",
     th: "เข้าสู่ระบบสำเร็จ",
+    ne: "लगइन सफल भयो",
   },
   login_fields_required: {
     en: "Email and password are required",
@@ -296,6 +322,7 @@ const apiMessages = {
     km: "អ៊ីម៉ែល និងពាក្យសម្ងាត់ត្រូវការ",
     bn: "ইমেইল এবং পাসওয়ার্ড প্রয়োজন",
     th: "ต้องระบุอีเมลและรหัสผ่าน",
+    ne: "इमेल र पासवर्ड आवश्यक छ",
   },
   login_invalid_credentials: {
     en: "Invalid email or password",
@@ -306,6 +333,7 @@ const apiMessages = {
     km: "អ៊ីម៉ែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ",
     bn: "ইমেইল বা পাসওয়ার্ড সঠিক নয়",
     th: "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+    ne: "इमेल वा पासवर्ड अमान्य छ",
   },
   login_account_deactivated: {
     en: "Your account has been deactivated. Please contact your administrator.",
@@ -316,6 +344,7 @@ const apiMessages = {
     km: "គណនីរបស់អ្នកត្រូវបានបិទ។ សូមទាក់ទងអ្នកគ្រប់គ្រង។",
     bn: "আপনার অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে। অনুগ্রহ করে আপনার প্রশাসকের সাথে যোগাযোগ করুন।",
     th: "บัญชีของคุณถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+    ne: "तपाईंको खाता निष्क्रिय गरिएको छ। कृपया आफ्नो प्रशासकसँग सम्पर्क गर्नुहोस्।",
   },
   login_password_too_short: {
     en: "New password must be at least 6 characters long.",
@@ -326,6 +355,7 @@ const apiMessages = {
     km: "ពាក្យសម្ងាត់ថ្មីត្រូវតែមានយ៉ាងហោចណាស់ 6 តួអក្សរ។",
     bn: "নতুন পাসওয়ার্ড অবশ্যই কমপক্ষে ৬ অক্ষরের হতে হবে।",
     th: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร",
+    ne: "नयाँ पासवर्ड कम्तिमा ६ अक्षरको हुनुपर्छ।",
   },
   login_check_email_reset: {
     en: "Check your email for a reset code.",
@@ -336,6 +366,7 @@ const apiMessages = {
     km: "ពិនិត្យអ៊ីម៉ែលរបស់អ្នកសម្រាប់លេខកូដកំណត់ឡើងវិញ។",
     bn: "রিসেট কোডের জন্য আপনার ইমেইল চেক করুন।",
     th: "ตรวจสอบอีเมลของคุณเพื่อรับรหัสรีเซ็ต",
+    ne: "रिसेट कोडको लागि आफ्नो इमेल जाँच गर्नुहोस्।",
   },
   login_temp_password_sent: {
     en: "Temporary password sent.",
@@ -346,6 +377,7 @@ const apiMessages = {
     km: "ពាក្យសម្ងាត់បណ្ដោះអាសន្នត្រូវបានផ្ញើ។",
     bn: "অস্থায়ী পাসওয়ার্ড পাঠানো হয়েছে।",
     th: "รหัสผ่านชั่วคราวถูกส่งแล้ว",
+    ne: "अस्थायी पासवर्ड पठाइयो।",
   },
   login_password_updated: {
     en: "Password updated successfully.",
@@ -356,6 +388,7 @@ const apiMessages = {
     km: "ពាក်យសម្ងាត់ត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ។",
     bn: "পাসওয়ার্ড সফলভাবে আপডেট হয়েছে।",
     th: "อัปเดตรหัสผ่านสำเร็จ",
+    ne: "पासवर्ड सफलतापूर्वक अपडेट भयो।",
   },
   login_account_deleted: {
     en: "Account deleted permanently.",
@@ -366,6 +399,7 @@ const apiMessages = {
     km: "គណនីត្រូវបានលុបចោលជាអចិន្ត្រៃ។",
     bn: "অ্যাকাউন্ট স্থায়ীভাবে মুছে ফেলা হয়েছে।",
     th: "ลบบัญชีอย่างถาวรแล้ว",
+    ne: "खाता स्थायी रूपमा मेटाइयो।",
   },
   login_account_data_deleted: {
     en: "Your account and all associated data have been permanently deleted.",
@@ -376,6 +410,7 @@ const apiMessages = {
     km: "គណនីរបស់អ្នក និងទិន្នន័យដែលទាក់ទងទាំងអស់ត្រូវបានលុបចោលជាអចិន្ត្រៃ។",
     bn: "আপনার অ্যাকাউন্ট এবং সমস্ত সম্পর্কিত ডেটা স্থায়ীভাবে মুছে ফেলা হয়েছে।",
     th: "บัญชีของคุณและข้อมูลที่เกี่ยวข้องทั้งหมดถูกลบอย่างถาวรแล้ว",
+    ne: "तपाईंको खाता र सबै सम्बन्धित डाटा स्थायी रूपमा मेटाइएको छ।",
   },
   login_user_deleted: {
     en: "User deleted successfully.",
@@ -386,6 +421,7 @@ const apiMessages = {
     km: "អ្នកប្រើប្រាស់ត្រូវបានលុបដោយជោគជ័យ។",
     bn: "ব্যবহারকারী সফলভাবে মুছে ফেলা হয়েছে।",
     th: "ลบผู้ใช้งานสำเร็จ",
+    ne: "प्रयोगकर्ता सफलतापूर्वक मेटाइयो।",
   },
   login_verification_sent: {
     en: "Verification code sent to your email.",
@@ -396,6 +432,7 @@ const apiMessages = {
     km: "លេខកូដផ្ទៀងផ្ទាត់ត្រូវបានផ្ញើទៅអ៊ីម៉ែលរបស់អ្នក។",
     bn: "যাচাই কোড আপনার ইমেইলে পাঠানো হয়েছে।",
     th: "ส่งรหัสยืนยันไปยังอีเมลของคุณแล้ว",
+    ne: "प्रमाणीकरण कोड तपाईंको इमेलमा पठाइयो।",
   },
   login_verification_sent_safe: {
     en: "If an account exists, a verification code has been sent.",
@@ -406,6 +443,7 @@ const apiMessages = {
     km: "ប្រសិនបើគណនីមាន លេខកូដផ្ទៀងផ្ទាត់ត្រូវបានផ្ញើ។",
     bn: "যদি অ্যাকাউন্ট থাকে তবে একটি যাচাই কোড পাঠানো হয়েছে।",
     th: "หากมีบัญชีอยู่ รหัสยืนยันจะถูกส่ง",
+    ne: "यदि खाता अवस्थित छ भने, प्रमाणीकरण कोड पठाइएको छ।",
   },
   login_invalid_otp: {
     en: "Invalid or expired verification code.",
@@ -416,6 +454,7 @@ const apiMessages = {
     km: "លេខកូដផ្ទៀងផ្ទាត់មិនត្រឹមត្រូវ ឬផុតកំណត់។",
     bn: "যাচাই কোড অবৈধ বা মেয়াদ শেষ।",
     th: "รหัสยืนยันไม่ถูกต้องหรือหมดอายุ",
+    ne: "प्रमाणीकरण कोड अमान्य वा म्याद सकिएको छ।",
   },
   login_cannot_delete_self: {
     en: "Cannot delete your own account via this route.",
@@ -426,6 +465,7 @@ const apiMessages = {
     km: "មិនអាចលុបគណនីផ្ទាល់ខ្លួនតាមផ្លូវនេះបានទេ។",
     bn: "এই রুটের মাধ্যমে নিজের অ্যাকাউন্ট মুছতে পারবেন না।",
     th: "ไม่สามารถลบบัญชีของตัวเองผ่านเส้นทางนี้ได้",
+    ne: "यस मार्गबाट आफ्नै खाता मेटाउन सकिँदैन।",
   },
   login_server_deletion_error: {
     en: "Server error during account deletion.",
@@ -436,6 +476,7 @@ const apiMessages = {
     km: "កំហុសម៉ាស៊ីនមេក្នុងពេលលុបគណនី",
     bn: "অ্যাকাউন্ট মুছে ফেলার সময় সার্ভার ত্রুটি।",
     th: "ข้อผิดพลาดเซิร์ฟเวอร์ขณะลบบัญชี",
+    ne: "खाता मेटाउँदा सर्भर त्रुटि।",
   },
 
   // ── User / Profile ────────────────────────────────────────────────────────
@@ -448,6 +489,7 @@ const apiMessages = {
     km: "រកមិនឃើញអ្នកប្រើប្រាស់",
     bn: "ব্যবহারকারী পাওয়া যায়নি",
     th: "ไม่พบผู้ใช้งาน",
+    ne: "प्रयोगकर्ता फेला परेन",
   },
   profile_not_found: {
     en: "Profile not found",
@@ -458,6 +500,7 @@ const apiMessages = {
     km: "រកមិនឃើញប្រវត្តិរូប",
     bn: "প্রোফাইল পাওয়া যায়নি",
     th: "ไม่พบโปรไฟล์",
+    ne: "प्रोफाइल फेला परेन",
   },
   profile_updated: {
     en: "Profile updated successfully",
@@ -468,6 +511,7 @@ const apiMessages = {
     km: "ប្រវត្តិរូបត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ",
     bn: "প্রোফাইল সফলভাবে আপডেট হয়েছে",
     th: "อัปเดตโปรไฟล์สำเร็จ",
+    ne: "प्रोफाइल सफलतापूर्वक अपडेट भयो",
   },
   visa_updated: {
     en: "Visa information updated successfully",
@@ -478,6 +522,7 @@ const apiMessages = {
     km: "ព័ត៌មានទិដ្ឋាការត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ",
     bn: "ভিসার তথ্য সফলভাবে আপডেট হয়েছে",
     th: "อัปเดตข้อมูลวีซ่าสำเร็จ",
+    ne: "भिसा जानकारी सफलतापूर्वक अपडेट भयो",
   },
   language_updated: {
     en: "Language preference updated",
@@ -488,6 +533,7 @@ const apiMessages = {
     km: "ចំណូលចិត្តភាសាត្រូវបានធ្វើបច្ចុប្បន្នភាព",
     bn: "ভাষার পছন্দ আপডেট হয়েছে",
     th: "อัปเดตการตั้งค่าภาษาแล้ว",
+    ne: "भाषा प्राथमिकता अपडेट भयो",
   },
   invalid_language_code: {
     en: "Invalid language code",
@@ -498,6 +544,7 @@ const apiMessages = {
     km: "លេខកូដភាសាមិនត្រឹមត្រូវ",
     bn: "অবৈধ ভাষার কোড",
     th: "รหัสภาษาไม่ถูกต้อง",
+    ne: "अमान्य भाषा कोड",
   },
   language_update_failed: {
     en: "Failed to update language preference",
@@ -508,6 +555,7 @@ const apiMessages = {
     km: "បរាជ័យក្នុងការធ្វើបច្ចុប្បន្នភាពភាសា",
     bn: "ভাষার পছন্দ আপডেট করতে ব্যর্থ হয়েছে",
     th: "ไม่สามารถอัปเดตการตั้งค่าภาษาได้",
+    ne: "भाषा प्राथमिकता अपडेट गर्न असफल भयो",
   },
   cannot_change_own_status: {
     en: "Cannot change your own status",
@@ -518,6 +566,7 @@ const apiMessages = {
     km: "មិនអាចផ្លាស់ប្តូរស្ថានភាពផ្ទាល់ខ្លួនរបស់អ្នកបានទេ",
     bn: "নিজের স্ট্যাটাস পরিবর্তন করা যাবে না",
     th: "ไม่สามารถเปลี่ยนสถานะของตัวเองได้",
+    ne: "आफ्नै स्थिति परिवर्तन गर्न सकिँदैन",
   },
   no_profile_picture: {
     en: "No profile picture found",
@@ -528,6 +577,7 @@ const apiMessages = {
     km: "រកមិនឃើញរូបភាពប្រវត្តិរូប",
     bn: "প্রোফাইল ছবি পাওয়া যায়নি",
     th: "ไม่พบรูปโปรไฟล์",
+    ne: "प्रोफाइल तस्विर फेला परेन",
   },
 
   // ── Comments ──────────────────────────────────────────────────────────────
@@ -540,6 +590,7 @@ const apiMessages = {
     km: "រកមិនឃើញមតិយោបល់",
     bn: "মন্তব্য পাওয়া যায়নি",
     th: "ไม่พบความคิดเห็น",
+    ne: "टिप्पणी फेला परेन",
   },
   comment_deleted: {
     en: "Comment deleted successfully",
@@ -550,6 +601,7 @@ const apiMessages = {
     km: "មតិយោបល់ត្រូវបានលុបដោយជោគជ័យ",
     bn: "মন্তব্য সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบความคิดเห็นสำเร็จ",
+    ne: "टिप्पणी सफलतापूर्वक मेटाइयो",
   },
   fetch_comments_failed: {
     en: "Failed to fetch comments",
@@ -560,6 +612,7 @@ const apiMessages = {
     km: "បរាជ័យក្នុងការទាញយកមតិយោបល់",
     bn: "মন্তব্য আনতে ব্যর্থ হয়েছে",
     th: "ไม่สามารถโหลดความคิดเห็นได้",
+    ne: "टिप्पणीहरू लोड गर्न असफल भयो",
   },
 
   // ── Access / Roles ────────────────────────────────────────────────────────
@@ -572,6 +625,7 @@ const apiMessages = {
     km: "role_name ត្រូវការ",
     bn: "role_name প্রয়োজন",
     th: "ต้องระบุ role_name",
+    ne: "role_name आवश्यक छ",
   },
   roles_must_be_array: {
     en: "roles must be an array",
@@ -582,6 +636,7 @@ const apiMessages = {
     km: "roles ត្រូវតែជាអារ៉េ",
     bn: "roles অবশ্যই একটি অ্যারে হতে হবে",
     th: "roles ต้องเป็น array",
+    ne: "roles एउटा array हुनुपर्छ",
   },
   role_assigned: {
     en: "Role '{{role}}' assigned.",
@@ -592,6 +647,7 @@ const apiMessages = {
     km: "តួនាទី '{{role}}' ត្រូវបានចាត់ផ្តល់។",
     bn: "ভূমিকা '{{role}}' বরাদ্দ করা হয়েছে।",
     th: "มอบหมายบทบาท '{{role}}' แล้ว",
+    ne: "भूमिका '{{role}}' सुम्पिइयो।",
   },
   role_revoked: {
     en: "Role '{{role}}' revoked.",
@@ -602,6 +658,7 @@ const apiMessages = {
     km: "តួនាទី '{{role}}' ត្រូវបានដកហូត។",
     bn: "ভূমিকা '{{role}}' প্রত্যাহার করা হয়েছে।",
     th: "เพิกถอนบทบาท '{{role}}' แล้ว",
+    ne: "भूमिका '{{role}}' फिर्ता लिइयो।",
   },
   roles_updated: {
     en: "Roles updated successfully.",
@@ -612,6 +669,7 @@ const apiMessages = {
     km: "តួនាទីត្រូវបានធ្វើបច្ចុប្បន្នភាពដោយជោគជ័យ",
     bn: "ভূমিকাগুলি সফলভাবে আপডেট হয়েছে।",
     th: "อัปเดตบทบาทสำเร็จ",
+    ne: "भूमिकाहरू सफलतापूर्वक अपडेट भयो।",
   },
   target_user_not_officer: {
     en: "Roles can only be assigned to OFFICER users.",
@@ -622,6 +680,7 @@ const apiMessages = {
     km: "តួនាទីអាចចាត់ផ្តល់ដល់អ្នកប្រើប្រាស់ OFFICER ប៉ុណ្ណោះ",
     bn: "ভূমিকা শুধুমাত্র OFFICER ব্যবহারকারীদের বরাদ্দ করা যাবে।",
     th: "สามารถมอบหมายบทบาทได้เฉพาะผู้ใช้ OFFICER เท่านั้น",
+    ne: "भूमिका केवल OFFICER प्रयोगकर्ताहरूलाई मात्र सुम्पन सकिन्छ।",
   },
 
   // ── Attachments ───────────────────────────────────────────────────────────
@@ -634,6 +693,7 @@ const apiMessages = {
     km: "រកមិនឃើញឯកសារភ្ជាប់",
     bn: "সংযুক্তি পাওয়া যায়নি",
     th: "ไม่พบไฟล์แนบ",
+    ne: "संलग्नक फेला परेन",
   },
   attachment_deleted: {
     en: "Attachment deleted successfully",
@@ -644,6 +704,7 @@ const apiMessages = {
     km: "ឯកសារភ្ជាប់ត្រូវបានលុបដោយជោគជ័យ",
     bn: "সংযুক্তি সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบไฟล์แนบสำเร็จ",
+    ne: "संलग्नक सफलतापूर्वक मेटाइयो",
   },
   attachment_renamed: {
     en: "Attachment renamed successfully",
@@ -654,6 +715,7 @@ const apiMessages = {
     km: "ឯកសារភ្ជាប់ត្រូវបានដំឡើងឈ្មោះដោយជោគជ័យ",
     bn: "সংযুক্তির নাম সফলভাবে পরিবর্তন হয়েছে",
     th: "เปลี่ยนชื่อไฟล์แนบสำเร็จ",
+    ne: "संलग्नकको नाम सफलतापूर्वक परिवर्तन भयो",
   },
   profile_picture_deleted: {
     en: "Profile picture deleted successfully",
@@ -664,6 +726,7 @@ const apiMessages = {
     km: "រូបភាពប្រវត្តិរូបត្រូវបានលុបដោយជោគជ័យ",
     bn: "প্রোফাইল ছবি সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบรูปโปรไฟล์สำเร็จ",
+    ne: "प्रोफाइल तस्विर सफलतापूर्वक मेटाइयो",
   },
   missing_relation_id: {
     en: "Missing relation_id",
@@ -674,6 +737,7 @@ const apiMessages = {
     km: "relation_id ខ្វះ",
     bn: "relation_id অনুপস্থিত",
     th: "ขาด relation_id",
+    ne: "relation_id छुटेको छ",
   },
   record_not_found: {
     en: "Record not found",
@@ -684,6 +748,7 @@ const apiMessages = {
     km: "រកមិនឃើញកំណត់ត្រា",
     bn: "রেকর্ড পাওয়া যায়নি",
     th: "ไม่พบข้อมูล",
+    ne: "रेकर्ड फेला परेन",
   },
   no_attachments_found: {
     en: "No attachments found",
@@ -694,6 +759,7 @@ const apiMessages = {
     km: "រកមិនឃើញឯកសារភ្ជាប់ណាមួយ",
     bn: "কোনো সংযুক্তি পাওয়া যায়নি",
     th: "ไม่พบไฟล์แนบ",
+    ne: "कुनै संलग्नक फेला परेन",
   },
 
   // ── Inquiries / Tickets ───────────────────────────────────────────────────
@@ -706,6 +772,7 @@ const apiMessages = {
     km: "រកមិនឃើញសំបុត្រ",
     bn: "টিকিট পাওয়া যায়নি",
     th: "ไม่พบตั๋ว",
+    ne: "टिकट फेला परेन",
   },
   invalid_ticket_id: {
     en: "Invalid Ticket ID format",
@@ -716,6 +783,7 @@ const apiMessages = {
     km: "ទម្រង់លេខសំបុត្រមិនត្រឹមត្រូវ",
     bn: "টিকিট আইডির ফরম্যাট অবৈধ",
     th: "รูปแบบ Ticket ID ไม่ถูกต้อง",
+    ne: "टिकट ID ढाँचा अमान्य छ",
   },
   inquiry_deleted: {
     en: "Inquiry and all related data deleted successfully",
@@ -726,6 +794,7 @@ const apiMessages = {
     km: "ការសាកសួរ និងទិន្នន័យដែលពាក់ព័ន្ធទាំងអស់ត្រូវបានលុបដោយជោគជ័យ",
     bn: "অনুসন্ধান এবং সমস্ত সম্পর্কিত ডেটা সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบคำถามและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ",
+    ne: "सोधपुछ र सबै सम्बन्धित डाटा सफलतापूर्वक मेटाइयो",
   },
   business_unit_missing: {
     en: "Business Unit missing from user token",
@@ -736,6 +805,7 @@ const apiMessages = {
     km: "Business Unit ខ្វះក្នុង Token អ្នកប្រើប្រាស់",
     bn: "ব্যবহারকারীর টোকেনে Business Unit নেই",
     th: "ไม่มี Business Unit ใน token ของผู้ใช้",
+    ne: "प्रयोगकर्ता टोकनमा Business Unit छैन",
   },
   search_failed: {
     en: "Search failed",
@@ -746,6 +816,7 @@ const apiMessages = {
     km: "ការស្វែងរកបានបរាជ័យ",
     bn: "অনুসন্ধান ব্যর্থ হয়েছে",
     th: "การค้นหาล้มเหลว",
+    ne: "खोजी असफल भयो",
   },
 
   // ── Feed / Announcements ──────────────────────────────────────────────────
@@ -758,6 +829,7 @@ const apiMessages = {
     km: "រកមិនឃើញការប្រកាស",
     bn: "ঘোষণা পাওয়া যায়নি",
     th: "ไม่พบประกาศ",
+    ne: "घोषणा फेला परेन",
   },
   announcement_deleted: {
     en: "Announcement and all related data deleted successfully",
@@ -768,6 +840,7 @@ const apiMessages = {
     km: "ការប្រកាស និងទិន្នន័យដែលពាក់ព័ន្ធទាំងអស់ត្រូវបានលុបដោយជោគជ័យ",
     bn: "ঘোষণা এবং সমস্ত সম্পর্কিত ডেটা সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบประกาศและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ",
+    ne: "घोषणा र सबै सम्बन्धित डाटा सफलतापूर्वक मेटाइयो",
   },
   announcement_permission_denied: {
     en: "Announcement not found or you do not have permission to delete it.",
@@ -778,6 +851,7 @@ const apiMessages = {
     km: "រកមិនឃើញការប្រកាស ឬអ្នកមិនមានការអនុញ្ញាតលុប",
     bn: "ঘোষণা পাওয়া যায়নি অথবা আপনার মুছে ফেলার অনুমতি নেই।",
     th: "ไม่พบประกาศหรือคุณไม่มีสิทธิ์ลบ",
+    ne: "घोषणा फेला परेन वा तपाईंलाई मेटाउने अनुमति छैन।",
   },
 
   // ── Company ───────────────────────────────────────────────────────────────
@@ -790,6 +864,7 @@ const apiMessages = {
     km: "រកមិនឃើញក្រុមហ៊ុន",
     bn: "কোম্পানি পাওয়া যায়নি",
     th: "ไม่พบบริษัท",
+    ne: "कम्पनी फेला परेन",
   },
   company_has_users: {
     en: "Cannot delete a company that has active users",
@@ -800,6 +875,7 @@ const apiMessages = {
     km: "មិនអាចលុបក្រុមហ៊ុនដែលមានអ្នកប្រើប្រាស់សកម្ម",
     bn: "সক্রিয় ব্যবহারকারী আছে এমন কোম্পানি মুছতে পারবেন না",
     th: "ไม่สามารถลบบริษัทที่มีผู้ใช้งานอยู่",
+    ne: "सक्रिय प्रयोगकर्ता भएको कम्पनी मेटाउन सकिँदैन",
   },
 
   // ── Notifications (push token) ────────────────────────────────────────────
@@ -812,6 +888,7 @@ const apiMessages = {
     km: "Expo Push Token មិនត្រឹមត្រូវ",
     bn: "অবৈধ Expo Push Token",
     th: "Expo Push Token ไม่ถูกต้อง",
+    ne: "Expo Push Token अमान्य छ",
   },
   push_token_removed: {
     en: "Push token removed successfully",
@@ -822,6 +899,7 @@ const apiMessages = {
     km: "Token Push ត្រូវបានលុបដោយជោគជ័យ",
     bn: "Push token সফলভাবে সরানো হয়েছে",
     th: "ลบ push token สำเร็จ",
+    ne: "Push token सफलतापूर्वक हटाइयो",
   },
   push_token_not_found: {
     en: "Token not found or already removed",
@@ -832,6 +910,7 @@ const apiMessages = {
     km: "រកមិនឃើញ Token ឬត្រូវបានលុបរួចហើយ",
     bn: "Token পাওয়া যায়নি বা ইতিমধ্যে সরানো হয়েছে",
     th: "ไม่พบ token หรือถูกลบแล้ว",
+    ne: "Token फेला परेन वा पहिले नै हटाइएको छ",
   },
   missing_required_fields: {
     en: "Missing required fields",
@@ -842,6 +921,7 @@ const apiMessages = {
     km: "វាលដែលត្រូវការខ្វះ",
     bn: "প্রয়োজনীয় তথ্য পূরণ করা হয়নি",
     th: "ข้อมูลที่จำเป็นไม่ครบ",
+    ne: "आवश्यक फिल्डहरू छुटेका छन्",
   },
 
   // ── Stream Chat ───────────────────────────────────────────────────────────
@@ -854,6 +934,7 @@ const apiMessages = {
     km: "បរាជ័យក្នុងការបង្កើត Stream Token",
     bn: "Stream token তৈরি করতে ব্যর্থ হয়েছে",
     th: "ไม่สามารถสร้าง Stream token ได้",
+    ne: "Stream token उत्पन्न गर्न असफल भयो",
   },
   stream_signature_invalid: {
     en: "Invalid webhook signature",
@@ -864,6 +945,7 @@ const apiMessages = {
     km: "ហត្ថលេខា webhook មិនត្រឹមត្រូវ",
     bn: "Webhook স্বাক্ষর অবৈধ",
     th: "ลายเซ็น webhook ไม่ถูกต้อง",
+    ne: "Webhook हस्ताक्षर अमान्य छ",
   },
 
   // ── Return Home ───────────────────────────────────────────────────────────
@@ -876,6 +958,7 @@ const apiMessages = {
     km: "កំណត់ត្រា귀환 និងទិន្នន័យដែលពាក់ព័ន្ធទាំងអស់ត្រូវបានលុបដោយជោគជ័យ",
     bn: "বাড়ি ফেরার রেকর্ড এবং সম্পর্কিত সমস্ত ডেটা সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบบันทึกการกลับบ้านและข้อมูลที่เกี่ยวข้องทั้งหมดสำเร็จ",
+    ne: "घर फर्कने रेकर्ड र सबै सम्बन्धित डाटा सफलतापूर्वक मेटाइयो",
   },
   application_status_updated: {
     en: "Application {{status}} successfully",
@@ -886,6 +969,7 @@ const apiMessages = {
     km: "ពាក្យស្នើសុំ {{status}} ដោយជោគជ័យ",
     bn: "আবেদন {{status}} সফলভাবে হয়েছে",
     th: "การสมัคร {{status}} สำเร็จ",
+    ne: "आवेदन {{status}} सफलतापूर्वक भयो",
   },
   officer_only_approve: {
     en: "Permission denied. Only officers can approve.",
@@ -896,6 +980,7 @@ const apiMessages = {
     km: "ការអនុញ្ញាតត្រូវបានបដិសេធ។ មន្ត្រីប៉ុណ្ណោះអាចអនុម័តបាន",
     bn: "অনুমতি অস্বীকার করা হয়েছে। শুধুমাত্র অফিসাররা অনুমোদন করতে পারে।",
     th: "การอนุญาตถูกปฏิเสธ เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถอนุมัติได้",
+    ne: "अनुमति अस्वीकार गरियो। केवल अफिसरहरूले मात्र स्वीकृत गर्न सक्छन्।",
   },
 
   // ── SharePoint / Files ────────────────────────────────────────────────────
@@ -908,6 +993,7 @@ const apiMessages = {
     km: "ឈ្មោះថតត្រូវការ",
     bn: "ফোল্ডারের নাম প্রয়োজন",
     th: "ต้องระบุชื่อโฟลเดอร์",
+    ne: "फोल्डरको नाम आवश्यक छ",
   },
   folder_not_found: {
     en: "Folder not found",
@@ -918,6 +1004,7 @@ const apiMessages = {
     km: "រកមិនឃើញថត",
     bn: "ফোল্ডার পাওয়া যায়নি",
     th: "ไม่พบโฟลเดอร์",
+    ne: "फोल्डर फेला परेन",
   },
   file_not_found: {
     en: "File not found",
@@ -928,6 +1015,7 @@ const apiMessages = {
     km: "រកមិនឃើញឯកសារ",
     bn: "ফাইল পাওয়া যায়নি",
     th: "ไม่พบไฟล์",
+    ne: "फाइल फेला परेन",
   },
   folder_deleted: {
     en: "Folder deleted successfully",
@@ -938,6 +1026,7 @@ const apiMessages = {
     km: "ថតត្រូវបានលុបដោយជោគជ័យ",
     bn: "ফোল্ডার সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบโฟลเดอร์สำเร็จ",
+    ne: "फोल्डर सफलतापूर्वक मेटाइयो",
   },
   file_deleted: {
     en: "File deleted successfully",
@@ -948,6 +1037,7 @@ const apiMessages = {
     km: "ឯកសារត្រូវបានលុបដោយជោគជ័យ",
     bn: "ফাইল সফলভাবে মুছে ফেলা হয়েছে",
     th: "ลบไฟล์สำเร็จ",
+    ne: "फाइल सफलतापूर्वक मेटाइयो",
   },
   officer_only_create_folder: {
     en: "Only officers can create top-level folders",
@@ -958,6 +1048,7 @@ const apiMessages = {
     km: "មន្ត្រីប៉ុណ្ណោះអាចបង្កើតថតថ្នាក់ខ្ពស់",
     bn: "শুধুমাত্র অফিসাররা টপ-লেভেল ফোল্ডার তৈরি করতে পারে",
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถสร้างโฟลเดอร์ระดับบนได้",
+    ne: "केवल अफिसरहरूले मात्र शीर्ष-स्तर फोल्डर बनाउन सक्छन्",
   },
   officer_only_update_folder: {
     en: "Only officers can update folders",
@@ -968,6 +1059,7 @@ const apiMessages = {
     km: "មន្ត្រីប៉ុណ្ណោះអាចធ្វើបច្ចុប្បន្នភាពថត",
     bn: "শুধুমাত্র অফিসাররা ফোল্ডার আপডেট করতে পারে",
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถอัปเดตโฟลเดอร์ได้",
+    ne: "केवल अफिसरहरूले मात्र फोल्डर अपडेट गर्न सक्छन्",
   },
   officer_only_delete_folder: {
     en: "Only officers can delete folders",
@@ -978,6 +1070,7 @@ const apiMessages = {
     km: "មន្ត្រីប៉ុណ្ណោះអាចលុបថត",
     bn: "শুধুমাত্র অফিসাররা ফোল্ডার মুছতে পারে",
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถลบโฟลเดอร์ได้",
+    ne: "केवल अफिसरहरूले मात्र फोल्डर मेटाउन सक्छन्",
   },
   officer_only_delete_file: {
     en: "Only officers can delete files",
@@ -988,6 +1081,7 @@ const apiMessages = {
     km: "មន្ត្រីប៉ុណ្ណោះអាចលុបឯកសារ",
     bn: "শুধুমাত্র অফিসাররা ফাইল মুছতে পারে",
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถลบไฟล์ได้",
+    ne: "केवल अफिसरहरूले मात्र फाइल मेटाउन सक्छन्",
   },
   nothing_to_update: {
     en: "Nothing to update",
@@ -998,6 +1092,7 @@ const apiMessages = {
     km: "គ្មានអ្វីត្រូវធ្វើបច្ចុប្បន្នភាព",
     bn: "আপডেট করার কিছু নেই",
     th: "ไม่มีอะไรต้องอัปเดต",
+    ne: "अपडेट गर्न केही छैन",
   },
 
   // ── Leave ─────────────────────────────────────────────────────────────────
@@ -1010,6 +1105,7 @@ const apiMessages = {
     km: "ពាក្យស្នើសុំការឈប់សម្រាកត្រូវបានដាក់ស្នើដោយជោគជ័យ",
     bn: "ছুটির আবেদন সফলভাবে জমা দেওয়া হয়েছে",
     th: "ยื่นคำขอลาสำเร็จ",
+    ne: "बिदाको आवेदन सफलतापूर्वक पेश गरियो",
   },
   leave_template_not_found: {
     en: "Leave template not found.",
@@ -1020,6 +1116,7 @@ const apiMessages = {
     km: "រកមិនឃើញគំរូការឈប់សម្រាក",
     bn: "ছুটির টেমপ্লেট পাওয়া যায়নি।",
     th: "ไม่พบเทมเพลตการลา",
+    ne: "बिदाको टेम्प्लेट फेला परेन।",
   },
   no_leave_template: {
     en: "No leave template configured for this company.",
@@ -1030,6 +1127,7 @@ const apiMessages = {
     km: "គ្មានគំរូការឈប់សម្រាកដែលបានកំណត់សម្រាប់ក្រុមហ៊ុននេះ",
     bn: "এই কোম্পানির জন্য কোনো ছুটির টেমপ্লেট কনফিগার করা হয়নি।",
     th: "ไม่มีเทมเพลตการลาสำหรับบริษัทนี้",
+    ne: "यस कम्पनीका लागि कुनै बिदाको टेम्प्लेट कन्फिगर गरिएको छैन।",
   },
   officer_only_behalf: {
     en: "Only officers can submit on behalf of another user.",
@@ -1040,6 +1138,7 @@ const apiMessages = {
     km: "មន្ត្រីប៉ុណ្ណោះអាចដាក់ស្នើក្នុងនាមអ្នកប្រើប្រាស់ផ្សេង",
     bn: "শুধুমাত্র অফিসাররা অন্য ব্যবহারকারীর হয়ে আবেদন করতে পারে।",
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถยื่นในนามผู้ใช้อื่นได้",
+    ne: "केवल अफिसरहरूले मात्र अर्को प्रयोगकर्ताको तर्फबाट पेश गर्न सक्छन्।",
   },
   target_user_not_found: {
     en: "Target user not found.",
@@ -1050,6 +1149,7 @@ const apiMessages = {
     km: "រកមិនឃើញអ្នកប្រើប្រាស់គោលដៅ",
     bn: "লক্ষ্য ব্যবহারকারী পাওয়া যায়নি।",
     th: "ไม่พบผู้ใช้เป้าหมาย",
+    ne: "लक्ष्य प्रयोगकर्ता फेला परेन।",
   },
 
   // ── Audit ─────────────────────────────────────────────────────────────────
@@ -1062,6 +1162,7 @@ const apiMessages = {
     km: "តារាងប្រភពមិនត្រឹមត្រូវ",
     bn: "অবৈধ সোর্স টেবিল",
     th: "ตารางต้นทางไม่ถูกต้อง",
+    ne: "अमान्य स्रोत तालिका",
   },
 
   // ── Translate ─────────────────────────────────────────────────────────────
@@ -1074,6 +1175,7 @@ const apiMessages = {
     km: "សូមផ្តល់អត្ថបទ និងភាសាគោលដៅដែលត្រឹមត្រូវ",
     bn: "অনুগ্রহ করে টেক্সট এবং একটি বৈধ টার্গেট ভাষা প্রদান করুন।",
     th: "กรุณาระบุข้อความและภาษาปลายทางที่ถูกต้อง",
+    ne: "कृपया टेक्स्ट र एउटा मान्य लक्ष्य भाषा प्रदान गर्नुहोस्।",
   },
   translate_invalid_lang: {
     en: "Invalid language code.",
@@ -1084,6 +1186,7 @@ const apiMessages = {
     km: "លេខកូដភាសាមិនត្រឹមត្រូវ",
     bn: "অবৈধ ভাষার কোড।",
     th: "รหัสภาษาไม่ถูกต้อง",
+    ne: "अमान्य भाषा कोड।",
   },
   translate_failed: {
     en: "Translation failed on server.",
@@ -1094,6 +1197,7 @@ const apiMessages = {
     km: "ការបកប្រែបានបរាជ័យនៅលើម៉ាស៊ីនមេ",
     bn: "সার্ভারে অনুবাদ ব্যর্থ হয়েছে।",
     th: "การแปลล้มเหลวบนเซิร์ฟเวอร์",
+    ne: "सर्भरमा अनुवाद असफल भयो।",
   },
 
   // ── Generic ───────────────────────────────────────────────────────────────
@@ -1106,6 +1210,7 @@ const apiMessages = {
     km: "កំហុសម៉ាស៊ីនមេផ្ទៃក្នុង",
     bn: "অভ্যন্তরীণ সার্ভার ত্রুটি",
     th: "ข้อผิดพลาดเซิร์ฟเวอร์ภายใน",
+    ne: "आन्तरिक सर्भर त्रुटि",
   },
   unauthorized: {
     en: "Unauthorized",
@@ -1116,6 +1221,7 @@ const apiMessages = {
     km: "គ្មានការអនុញ្ញាត",
     bn: "অননুমোদিত",
     th: "ไม่ได้รับอนุญาต",
+    ne: "अनाधिकृत",
   },
   forbidden: {
     en: "Forbidden",
@@ -1126,6 +1232,7 @@ const apiMessages = {
     km: "ហាមឃាត់",
     bn: "নিষিদ্ধ",
     th: "ต้องห้าม",
+    ne: "निषेध",
   },
   access_denied: {
     en: "Access denied",
@@ -1136,6 +1243,7 @@ const apiMessages = {
     km: "ការចូលប្រើត្រូវបានបដិសេធ",
     bn: "প্রবেশাধিকার অস্বীকার করা হয়েছে",
     th: "การเข้าถึงถูกปฏิเสธ",
+    ne: "पहुँच अस्वीकार गरियो",
   },
   permission_denied: {
     en: "Permission denied",
@@ -1146,6 +1254,7 @@ const apiMessages = {
     km: "ការអនុញ្ញាតត្រូវបានបដិសេធ",
     bn: "অনুমতি অস্বীকার করা হয়েছে",
     th: "การอนุญาตถูกปฏิเสธ",
+    ne: "अनुमति अस्वीकार गरियो",
   },
 };
 
@@ -1153,7 +1262,31 @@ const apiMessages = {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VALID_LANGUAGES = ["en", "ja", "id", "vi", "my", "km", "bn", "th"];
+const VALID_LANGUAGES = ["en", "ja", "id", "vi", "my", "km", "bn", "th", "ne"];
+
+const statusTranslations = {
+  Approved: {
+    en: "Approved", ja: "承認", id: "Disetujui", vi: "Đã duyệt",
+    my: "အတည်ပြု", km: "អនុម័ត", bn: "অনুমোদিত", th: "อนุมัติ", ne: "स्वीकृत",
+  },
+  Rejected: {
+    en: "Rejected", ja: "却下", id: "Ditolak", vi: "Từ chối",
+    my: "ငြင်းပယ်", km: "បដិសេធ", bn: "প্রত্যাখ্যাত", th: "ปฏิเสธ", ne: "अस्वीकृत",
+  },
+  Pending: {
+    en: "Pending", ja: "保留中", id: "Menunggu", vi: "Đang chờ",
+    my: "စောင့်ဆိုင်း", km: "កំពុងរង់ចាំ", bn: "অপেক্ষারত", th: "รอดำเนินการ", ne: "विचाराधीन",
+  },
+  Draft: {
+    en: "Draft", ja: "下書き", id: "Draf", vi: "Bản nháp",
+    my: "မူကြမ်း", km: "សេចក្តីព្រាង", bn: "খসড়া", th: "ร่าง", ne: "मस्यौदा",
+  },
+};
+
+export const translateStatus = (status, language = "en") => {
+  const lang = resolveLang(language);
+  return statusTranslations[status]?.[lang] ?? statusTranslations[status]?.["en"] ?? status;
+};
 
 const resolveLang = (language) =>
   VALID_LANGUAGES.includes(language) ? language : "en";
