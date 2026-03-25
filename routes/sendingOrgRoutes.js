@@ -21,12 +21,12 @@ const router = express.Router();
 router.get("/dropdown",  auth, requireOfficer, getSendingOrgDropdown);
 router.get("/visa-type", auth, requireOfficer, getVisaDropdown);
 
-// ── sending_org_read ──────────────────────────────────────────────────────────
-router.get("/list", auth, requireRole("sending_org_read"), getSendingOrgList);
+// ── company_read ──────────────────────────────────────────────────────────────
+router.get("/list", auth, requireRole("company_read"), getSendingOrgList);
 
-// ── sending_org_write ─────────────────────────────────────────────────────────
-router.post(  "/create",         auth, requireRole("sending_org_write"), validate(createSendingOrgSchema), createSendingOrg);
-router.put(   "/update/:code",   auth, requireRole("sending_org_write"), validate(updateSendingOrgSchema), updateSendingOrg);
-router.delete("/delete/:code",   auth, requireRole("sending_org_write"),                                   deleteSendingOrg);
+// ── company_write ─────────────────────────────────────────────────────────────
+router.post(  "/create",         auth, requireRole("company_write"), validate(createSendingOrgSchema), createSendingOrg);
+router.put(   "/update/:code",   auth, requireRole("company_write"), validate(updateSendingOrgSchema), updateSendingOrg);
+router.delete("/delete/:code",   auth, requireRole("company_write"),                                   deleteSendingOrg);
 
 export default router;
