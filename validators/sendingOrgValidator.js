@@ -5,8 +5,8 @@ import { z } from "zod";
 
 const sendingOrgBodySchema = z.object({
   code:           z.string().max(3).optional(),
-  descr:          z.string().optional().nullable(),
-  country_origin: z.string().max(3).optional().nullable(),
+  descr:          z.string().min(1, "descr_required"),
+  country_origin: z.string().min(1, "country_origin_required").max(3),
   msgnbr:         z.string().max(5).optional().nullable(),
   msgset:         z.string().max(5).optional().nullable(),
   sort_order:     z.number().int().optional(),

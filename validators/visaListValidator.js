@@ -4,9 +4,9 @@
 import { z } from "zod";
 
 const descrSchema = z.object({
-  en: z.string().optional(),
-  ja: z.string().optional(),
-}).optional();
+  en: z.string().min(1),
+  ja: z.string().min(1),
+});
 
 const visaListBodySchema = z.object({
   code:       z.string().max(10),
