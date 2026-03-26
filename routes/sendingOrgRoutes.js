@@ -17,8 +17,8 @@ import {
 
 const router = express.Router();
 
-// ── any officer — dropdowns used widely ───────────────────────────────────────
-router.get("/dropdown",  auth, requireOfficer, getSendingOrgDropdown);
+// ── any authenticated user — dropdowns used widely ────────────────────────────
+router.get("/dropdown",  auth, getSendingOrgDropdown);
 router.get("/visa-type", auth, requireOfficer, getVisaDropdown);
 
 // ── company_read ──────────────────────────────────────────────────────────────
