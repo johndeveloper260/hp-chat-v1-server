@@ -30,14 +30,24 @@ export const insertVisaList = ({ code, descr, active, sort_order, businessUnit }
     [code, businessUnit, descr ?? {}, active ?? true, sort_order ?? 1],
   );
 
-export const updateVisaListById = (id, businessUnit, { code, descr, active, sort_order }) =>
+export const updateVisaListById = (id, businessUnit, { descr, active, sort_order }) =>
   getPool().query(
     `UPDATE v4.visa_list_tbl
-     SET code = $1, descr = $2, active = $3, sort_order = $4,
+     SET descr = $1, active = $2, sort_order = $3,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $5 AND business_unit = $6
+     WHERE id = $4 AND business_unit = $5
      RETURNING *`,
-    [code, descr ?? {}, active ?? true, sort_order ?? 1, id, businessUnit],
+    [descr ?? {}, active ?? true, sort_order ?? 1, id, businessUnit],
+  );
+
+export const countUsersWithVisaTypeById = (id, businessUnit) =>
+  getPool().query(
+    `SELECT COUNT(*) AS count
+     FROM v4.user_visa_info_tbl vi
+     JOIN v4.user_account_tbl a ON a.id = vi.user_id
+     JOIN v4.visa_list_tbl vl ON vl.code = vi.visa_type
+     WHERE vl.id = $1 AND a.business_unit = $2`,
+    [id, businessUnit],
   );
 
 export const deleteVisaListById = (id, businessUnit) =>

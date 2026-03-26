@@ -992,6 +992,17 @@ const apiMessages = {
     th: "ไม่พบประเภทวีซ่า",
     ne: "भिसा प्रकार फेला परेन",
   },
+  visa_list_has_users: {
+    en: "Cannot delete: this visa type is assigned to one or more users",
+    ja: "削除できません：このビザ種別は1人以上のユーザーに割り当てられています",
+    id: "Tidak dapat dihapus: jenis visa ini ditetapkan untuk satu atau lebih pengguna",
+    vi: "Không thể xóa: loại visa này đã được gán cho một hoặc nhiều người dùng",
+    my: "ဖျက်၍မရပါ: ဤဗီဇာ အမျိုးအစားသည် အသုံးပြုသူများတွင် သတ်မှတ်ထားပါသည်",
+    km: "មិនអាចលុបបាន: ប្រភេទទិដ្ឋាការនេះត្រូវបានកំណត់ជូនអ្នកប្រើប្រាស់ម្នាក់ឬច្រើននាក់",
+    bn: "মুছতে পারবেন না: এই ভিসার ধরনটি এক বা একাধিক ব্যবহারকারীকে নির্ধারিত করা হয়েছে",
+    th: "ไม่สามารถลบได้: ประเภทวีซ่านี้ถูกกำหนดให้กับผู้ใช้หนึ่งคนหรือมากกว่า",
+    ne: "मेटाउन सकिँदैन: यो भिसा प्रकार एक वा बढी प्रयोगकर्ताहरूलाई तोकिएको छ",
+  },
   visa_list_code_exists: {
     en: "A visa type with this code already exists",
     ja: "このコードのビザ種別はすでに存在します",

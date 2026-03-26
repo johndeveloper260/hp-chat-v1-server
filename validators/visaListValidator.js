@@ -18,5 +18,5 @@ const visaListBodySchema = z.object({
 // ── POST /visa-list/create ─────────────────────────────────────────────────────
 export const createVisaListSchema = visaListBodySchema.required({ code: true });
 
-// ── PUT /visa-list/update/:id ──────────────────────────────────────────────────
-export const updateVisaListSchema = visaListBodySchema;
+// ── PUT /visa-list/update/:id ── code is immutable; omit from update ───────────
+export const updateVisaListSchema = visaListBodySchema.omit({ code: true });

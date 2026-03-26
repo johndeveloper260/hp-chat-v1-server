@@ -27,6 +27,10 @@ export const updateVisaList = async (id, businessUnit, data) => {
 };
 
 export const deleteVisaList = async (id, businessUnit) => {
+  const countRes = await visaListRepo.countUsersWithVisaTypeById(id, businessUnit);
+  if (parseInt(countRes.rows[0].count, 10) > 0) {
+    throw new ConflictError("visa_list_has_users", "visa_list_has_users");
+  }
   const { rowCount } = await visaListRepo.deleteVisaListById(id, businessUnit);
   if (rowCount === 0) throw new NotFoundError("visa_list_not_found");
 };
