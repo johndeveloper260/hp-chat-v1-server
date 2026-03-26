@@ -42,6 +42,10 @@ export const updateSendingOrg = async (code, businessUnit, data) => {
 };
 
 export const deleteSendingOrg = async (code, businessUnit) => {
+  const inUse = await sendingOrgRepo.countProfilesBySendingOrg(code, businessUnit);
+  if (parseInt(inUse.rows[0].count, 10) > 0) {
+    throw new ConflictError("sending_org_in_use");
+  }
   const { rowCount } = await sendingOrgRepo.deleteSendingOrgByCode(code, businessUnit);
   if (rowCount === 0) throw new NotFoundError("sending_org_not_found");
 };

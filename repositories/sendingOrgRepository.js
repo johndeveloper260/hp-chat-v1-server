@@ -67,6 +67,14 @@ export const updateSendingOrgByCode = (code, businessUnit, { descr, active, coun
     [descr ?? null, active ?? true, country_origin ?? null, msgnbr ?? null, msgset ?? null, sort_order ?? 0, code, businessUnit],
   );
 
+export const countProfilesBySendingOrg = (code, businessUnit) =>
+  getPool().query(
+    `SELECT COUNT(*) AS count
+     FROM v4.user_profile_tbl
+     WHERE sending_org = $1 AND business_unit = $2`,
+    [code, businessUnit],
+  );
+
 export const deleteSendingOrgByCode = (code, businessUnit) =>
   getPool().query(
     `DELETE FROM v4.sending_org_tbl WHERE code = $1 AND business_unit = $2`,
