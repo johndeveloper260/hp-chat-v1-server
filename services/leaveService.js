@@ -59,7 +59,8 @@ export const deleteLeaveTemplate = async (templateId) => {
 export const getCompanyTemplates = async (requestor, queryParams) => {
   const business_unit = requestor.business_unit;
   const company       = queryParams.company_id || requestor.company;
-  return leaveRepo.findCompanyTemplates(company, business_unit);
+  const isOfficer     = OFFICER_TYPES.includes((requestor.userType || "").toLowerCase());
+  return leaveRepo.findCompanyTemplates(company, business_unit, !isOfficer);
 };
 
 export const getLeaveTemplate = async (requestor, queryParams) => {

@@ -26,8 +26,8 @@ router.get("/template",       auth, getLeaveTemplate);
 router.post("/submit",        auth, validate(submitLeaveSchema), submitLeave);
 router.get("/my-submissions", auth, getMySubmissions);
 
-// ── leave_read (or leave_write) ───────────────────────────────────────────────
-router.get("/templates",   auth, requireRole("leave_read"), getCompanyTemplates);
+// ── All authenticated users (published only for non-officers) ─────────────────
+router.get("/templates",   auth, getCompanyTemplates);
 router.get("/submissions", auth, requireRole("leave_read"), getCompanySubmissions);
 
 // ── leave_write ───────────────────────────────────────────────────────────────

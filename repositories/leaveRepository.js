@@ -59,13 +59,14 @@ export const upsertLeaveTemplate = async (templateId, userId, data) => {
   return rows[0];
 };
 
-export const findCompanyTemplates = async (company, businessUnit) => {
+export const findCompanyTemplates = async (company, businessUnit, publishedOnly = false) => {
   const { rows } = await getPool().query(
     `SELECT template_id, title, description, category, is_published, version, updated_at
      FROM v4.leave_template_tbl
      WHERE company_id = $1 AND business_unit = $2 AND is_active = true
+       AND ($3::boolean IS FALSE OR is_published = true)
      ORDER BY updated_at DESC`,
-    [company, businessUnit],
+    [company, businessUnit, publishedOnly],
   );
   return rows;
 };
