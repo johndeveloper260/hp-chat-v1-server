@@ -24,6 +24,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import translateRoutes from "./routes/translateRoutes.js";
 import sendingOrgRoutes from "./routes/sendingOrgRoutes.js";
 import visaListRoutes from "./routes/visaListRoutes.js";
+import issueTypeRoutes from "./routes/issueTypeRoutes.js";
 import sharepointRoutes from "./routes/sharepointRoutes.js";
 import returnHomeRoutes from "./routes/returnHomeRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
@@ -104,6 +105,7 @@ app.use("/notifications", notificationRoutes);
 app.use("/translate", translateRoutes);
 app.use("/sending-org", sendingOrgRoutes);
 app.use("/visa-list", visaListRoutes);
+app.use("/issue-type", issueTypeRoutes);
 
 app.use("/sharepoint", sharepointRoutes);
 
