@@ -3,7 +3,7 @@
  */
 import express from "express";
 import auth from "../middleware/auth.js";
-import { requireOfficer, requireRole } from "../middleware/requireRole.js";
+import { requireRole } from "../middleware/requireRole.js";
 import { validate } from "../middleware/validate.js";
 import { createSendingOrgSchema, updateSendingOrgSchema } from "../validators/sendingOrgValidator.js";
 import {
@@ -19,7 +19,7 @@ const router = express.Router();
 
 // ── any authenticated user — dropdowns used widely ────────────────────────────
 router.get("/dropdown",  auth, getSendingOrgDropdown);
-router.get("/visa-type", auth, requireOfficer, getVisaDropdown);
+router.get("/visa-type", auth, getVisaDropdown);
 
 // ── company_read ──────────────────────────────────────────────────────────────
 router.get("/list", auth, requireRole("company_read"), getSendingOrgList);
