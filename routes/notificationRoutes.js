@@ -93,13 +93,14 @@ router.post("/stream-webhook", async (req, res) => {
           callerId, callerName, memberIds: allMemberIds,
           createdAt: Date.now(), accepted: false,
         });
-      }
 
-      for (const member of recipients) {
-        console.log(`  → Notifying user ${member.user_id}`);
-        await notificationController.sendCallNotification(
-          member.user_id, callerName, callId, callerId, callerImage,
-        );
+        // Only notify if call.ring didn't already handle it
+        for (const member of recipients) {
+          console.log(`  → Notifying user ${member.user_id}`);
+          await notificationController.sendCallNotification(
+            member.user_id, callerName, callId, callerId, callerImage,
+          );
+        }
       }
     }
 

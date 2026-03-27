@@ -24,6 +24,15 @@ const connectDB = async () => {
     if (results.rows.length > 0) {
       console.log("PostgreSQL Connected!");
     }
+
+    // Ensure webhook dedup table exists (shared across all server instances)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS v4.processed_webhook_messages (
+        message_id   TEXT PRIMARY KEY,
+        processed_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     // It is common to return the pool or close it
     // depending on how you use this specific connectDB file.
     return pool;

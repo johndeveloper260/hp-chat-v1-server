@@ -3,9 +3,6 @@ import { getPool } from "../config/getPool.js";
 import { sendNotificationToUser } from "./notificationController.js";
 import { StreamClient } from "@stream-io/node-sdk";
 
-// In-memory dedup: tracks message IDs already processed (cleared after 5 min)
-const processedMessageIds = new Map();
-
 const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 
@@ -59,17 +56,17 @@ export const handleChatWebhook = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Dedup: if this message was already processed (Stream retry), skip silently
-    if (messageId && processedMessageIds.has(messageId)) {
-      console.log(`⚠️ Duplicate webhook for message ${messageId}, skipping`);
-      return res.status(200).json({ message: "Duplicate, skipped" });
-    }
+    // Dedup: use DB INSERT ON CONFLICT so all server instances share the same state
     if (messageId) {
-      processedMessageIds.set(messageId, Date.now());
-      // Clean up entries older than 5 minutes
-      const cutoff = Date.now() - 5 * 60 * 1000;
-      for (const [id, ts] of processedMessageIds) {
-        if (ts < cutoff) processedMessageIds.delete(id);
+      const { rowCount } = await getPool().query(
+        `INSERT INTO v4.processed_webhook_messages (message_id, processed_at)
+         VALUES ($1, NOW())
+         ON CONFLICT (message_id) DO NOTHING`,
+        [messageId]
+      );
+      if (rowCount === 0) {
+        console.log(`⚠️ Duplicate webhook for message ${messageId}, skipping`);
+        return res.status(200).json({ message: "Duplicate, skipped" });
       }
     }
 
