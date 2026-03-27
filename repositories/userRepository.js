@@ -118,11 +118,13 @@ export async function findUserByEmail(email, client) {
       c.company_form   AS company_form,
       v.visa_type,
       v.visa_expiry_date,
+      v.passport_expiry,
       COALESCE(
         vl.descr ->> 'ja',
         vl.descr ->> 'en',
         (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
       ) AS visa_type_descr,
+      bu.lock_screen_expire,
       sa.attachment_id AS profile_pic_id,
       sa.s3_key        AS profile_pic_s3_key,
       sa.s3_bucket     AS profile_pic_s3_bucket,
@@ -134,6 +136,7 @@ export async function findUserByEmail(email, client) {
     LEFT JOIN v4.user_visa_info_tbl v      ON a.id = v.user_id
     LEFT JOIN v4.visa_list_tbl vl          ON v.visa_type = vl.code
                                           AND a.business_unit = vl.business_unit
+    LEFT JOIN v4.business_unit_tbl bu      ON a.business_unit = bu.bu_code
     LEFT JOIN LATERAL (
       SELECT attachment_id, s3_key, s3_bucket, display_name, file_type
       FROM   v4.shared_attachments

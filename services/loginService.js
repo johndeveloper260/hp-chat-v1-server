@@ -142,6 +142,8 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       stateProvince: user.state_province,
       visaType: user.visa_type,
       visaExpiry: user.visa_expiry_date,
+      passportExpiry: user.passport_expiry,
+      lockScreenExpire: user.lock_screen_expire ?? false,
       profilePicId: user.profile_pic_id,
       profilePictureUrl,
       profilePicS3Key: user.profile_pic_s3_key,
