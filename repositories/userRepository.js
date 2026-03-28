@@ -103,7 +103,7 @@ export async function findUserByEmail(email, client) {
   const loginQuery = `
     SELECT
       a.id, a.email, a.password_hash, a.business_unit,
-      a.is_active, a.preferred_language,
+      a.is_active, a.preferred_language, a.created_at AS account_created_at,
       p.user_id, p.first_name, p.middle_name, p.last_name,
       p.user_type, p.position, p.company, p.batch_no,
       p.company_branch, p.phone_number,

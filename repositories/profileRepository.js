@@ -29,6 +29,17 @@ export const findUserInBU = async (userId, businessUnit, client) => {
   return rows[0] ?? null;
 };
 
+// ── BU settings ───────────────────────────────────────────────────────────────
+
+/** Returns live BU-level feature flags for a given business unit code. */
+export const getBUSettings = async (businessUnit) => {
+  const { rows } = await getPool().query(
+    "SELECT lock_screen_expire FROM v4.business_unit_tbl WHERE bu_code = $1",
+    [businessUnit],
+  );
+  return rows[0] ?? null;
+};
+
 // ── Search users ──────────────────────────────────────────────────────────────
 
 export const searchUsers = async (lang, businessUnit, { company, batch_no, name } = {}) => {
@@ -122,7 +133,8 @@ export const findLegalProfile = async (userId, businessUnit) => {
        v.visa_type, v.visa_number, v.visa_issue_date, v.visa_expiry_date,
        v.passport_expiry, v.issuing_authority, v.passport_issuing_country,
        v.passport_no, v.passport_name,
-       v.joining_date, v.assignment_start_date
+       v.joining_date, v.assignment_start_date,
+       a.created_at AS account_created_at
      FROM v4.user_profile_tbl p
      JOIN  v4.user_account_tbl a  ON p.user_id = a.id
      LEFT JOIN v4.user_visa_info_tbl v ON p.user_id = v.user_id

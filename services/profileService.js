@@ -19,6 +19,16 @@ import {
 
 const VALID_LANGUAGES = ["en", "ja", "id", "vi"];
 
+// ── BU settings ───────────────────────────────────────────────────────────────
+
+/** Returns live BU feature flags (e.g. lock_screen_expire) for the caller's BU. */
+export const getBUSettings = async (businessUnit) => {
+  const row = await profileRepo.getBUSettings(businessUnit);
+  return {
+    lockScreenExpire: row?.lock_screen_expire ?? false,
+  };
+};
+
 // ── Search users ──────────────────────────────────────────────────────────────
 
 export const searchUsers = async (requestor, filters) => {

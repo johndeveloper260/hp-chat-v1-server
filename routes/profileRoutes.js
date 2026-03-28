@@ -16,6 +16,7 @@ import {
   toggleUserActive,
   adminResetUserPassword,
   getUserAvatar,
+  getBUSettings,
 } from "../controller/profileController.js";
 
 const router = express.Router();
@@ -25,6 +26,7 @@ const router = express.Router();
 router.get("/avatar/:userId", getUserAvatar);
 
 // ── All authenticated users (own profile) ─────────────────────────────────────
+router.get("/bu-settings",             auth, getBUSettings);
 router.get("/personal-info/:userId",   auth, getUserProfile);
 router.put("/personal-info/:userId",   auth, updateUserProfile);
 router.get("/user-legal-info/:userId", auth, getUserLegalProfile);
