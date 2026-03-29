@@ -147,7 +147,7 @@ export const previewAudience = async ({ company, batch_no, businessUnit }) => {
 
 // ─── 7. Reactions detail ──────────────────────────────────────────────────────
 
-export const getReactions = async ({ rowId, userBU }) => {
+export const getReactions = async ({ rowId, userId, userBU }) => {
   const { reactions, rowCount } = await feedRepo.findReactions(rowId, userBU);
   if (rowCount === 0) throw new NotFoundError("record_not_found");
 
@@ -155,7 +155,8 @@ export const getReactions = async ({ rowId, userBU }) => {
   const userIds = Object.values(r).flat();
   if (userIds.length === 0) return [];
 
-  const users = await feedRepo.findUsersForReactions(userIds);
+  const lang = await getUserLanguage(userId);
+  const users = await feedRepo.findUsersForReactions(userIds, lang);
   const userMap = {};
   users.forEach((u) => { userMap[u.id] = { name: u.name, company: u.company }; });
 

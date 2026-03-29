@@ -209,13 +209,15 @@ export const saveReactions = async (rowId, userBU, reactions) => {
 };
 
 /** Fetch user details (name + company) for a list of user IDs. */
-export const findUsersForReactions = async (userIds) => {
+export const findUsersForReactions = async (userIds, lang = 'en') => {
   const { rows } = await getPool().query(
-    `SELECT a.id, p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln, p.company
+    `SELECT a.id, p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln,
+            COALESCE(c.company_name->>$2, c.company_name->>'en') AS company
      FROM v4.user_account_tbl a
      LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+     LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
      WHERE a.id = ANY($1::uuid[])`,
-    [userIds],
+    [userIds, lang],
   );
   return rows.map(({ fn, mn, ln, ...rest }) => ({ ...rest, name: formatDisplayName(ln, fn, mn) }));
 };

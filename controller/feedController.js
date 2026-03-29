@@ -86,6 +86,7 @@ export const getReactions = async (req, res, next) => {
   try {
     const list = await feedService.getReactions({
       rowId: req.params.rowId,
+      userId: req.user.id,
       userBU: req.user.business_unit,
     });
     res.json(list);
