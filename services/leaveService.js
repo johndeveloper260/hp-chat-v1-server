@@ -215,11 +215,11 @@ async function _dispatchLeavePush({ templateId, userId, company, business_unit, 
       createNotification({
         userId: recipientId,
         titleKey: "leave_submitted",
+        titleParams: { title: formTitle },
         bodyKey: "leave_submitted_body",
         bodyParams: { name: applicantName, company: companyName, title: formTitle },
         data: {
           type: "leave",
-          rowId: submission.submission_id,
           screen: "Leave",
           params: { submissionId: submission.submission_id },
         },

@@ -134,6 +134,7 @@ export const sendNotificationToMultipleUsers = async (
 export const createNotification = async ({
   userId,
   titleKey,
+  titleParams = {},
   bodyKey,
   bodyParams = {},
   data,
@@ -150,7 +151,10 @@ export const createNotification = async ({
       return;
     }
 
-    const title = getTranslation(titleKey, userLanguage);
+    let title = getTranslation(titleKey, userLanguage);
+    Object.keys(titleParams).forEach((key) => {
+      title = title.replace(`{{${key}}}`, titleParams[key]);
+    });
     const finalTitle = data?.rowId ? `#${data.rowId} ${title}` : title;
 
     let body = getTranslation(bodyKey, userLanguage);
