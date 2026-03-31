@@ -200,6 +200,7 @@ async function _dispatchLeaveEmail({ templateId, userId, company, business_unit,
 /** Internal: send push notifications to company coordinators on leave submission. */
 async function _dispatchLeavePush({ templateId, userId, company, business_unit, submission }) {
   const coordinatorIds = await findCoordinatorsByCompany(company, business_unit);
+  console.log(`[LeavePush] company=${company} bu=${business_unit} coordinators found:`, coordinatorIds);
   if (coordinatorIds.length === 0) return;
 
   const [applicantName, companyName, template] = await Promise.all([
@@ -220,6 +221,7 @@ async function _dispatchLeavePush({ templateId, userId, company, business_unit, 
         bodyParams: { name: applicantName, company: companyName, title: formTitle },
         data: {
           type: "leave",
+          rowId: submission.id,
           screen: "Leave",
           params: { submissionId: submission.submission_id },
         },

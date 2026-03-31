@@ -150,6 +150,7 @@ export const createNotification = async ({
       console.log(`🔕 Notifications disabled for user ${userId}, skipping`);
       return;
     }
+    console.log(`[createNotification] userId=${userId} lang=${userLanguage} bu=${businessUnit}`);
 
     let title = getTranslation(titleKey, userLanguage);
     Object.keys(titleParams).forEach((key) => {
