@@ -60,13 +60,13 @@ export const deletePushToken = async (userId, expoPushToken, businessUnit) => {
 
 // ── User account helpers ───────────────────────────────────────────────────────
 
-/** Returns { preferred_language, business_unit } for the given user. */
+/** Returns { preferred_language, business_unit, notification } for the given user. */
 export const findUserLangAndBU = async (userId) => {
   const { rows } = await getPool().query(
-    "SELECT preferred_language, business_unit FROM v4.user_account_tbl WHERE id = $1",
+    "SELECT preferred_language, business_unit, notification FROM v4.user_account_tbl WHERE id = $1",
     [userId],
   );
-  return rows[0] ?? { preferred_language: "en", business_unit: null };
+  return rows[0] ?? { preferred_language: "en", business_unit: null, notification: true };
 };
 
 export const findUserLanguage = async (userId) => {

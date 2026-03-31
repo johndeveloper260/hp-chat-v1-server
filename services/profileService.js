@@ -139,6 +139,15 @@ export const updateUserLanguage = async (userId, language) => {
   await profileRepo.updatePreferredLanguage(userId, language);
 };
 
+// ── Notification preference ───────────────────────────────────────────────────
+
+export const updateNotificationPreference = async (userId, value) => {
+  if (typeof value !== "boolean") {
+    throw new ValidationError("invalid_notification_value");
+  }
+  await userRepo.updateNotificationPreference(userId, value);
+};
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 /**

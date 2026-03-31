@@ -147,6 +147,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       accountCreatedAt: user.account_created_at,
       profilePicId: user.profile_pic_id,
       profilePictureUrl,
+      notification: user.notification ?? true,
       profilePicS3Key: user.profile_pic_s3_key,
       profilePicS3Bucket: user.profile_pic_s3_bucket,
     },

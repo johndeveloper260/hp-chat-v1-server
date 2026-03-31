@@ -103,7 +103,7 @@ export async function findUserByEmail(email, client) {
   const loginQuery = `
     SELECT
       a.id, a.email, a.password_hash, a.business_unit,
-      a.is_active, a.preferred_language, a.created_at AS account_created_at,
+      a.is_active, a.preferred_language, a.notification, a.created_at AS account_created_at,
       p.user_id, p.first_name, p.middle_name, p.last_name,
       p.user_type, p.position, p.company, p.batch_no,
       p.company_branch, p.phone_number,
@@ -315,6 +315,13 @@ export async function updateUserLanguage(userId, language, client) {
   await db(client).query(
     `UPDATE v4.user_account_tbl SET preferred_language = $1 WHERE id = $2`,
     [language, userId],
+  );
+}
+
+export async function updateNotificationPreference(userId, value, client) {
+  await db(client).query(
+    `UPDATE v4.user_account_tbl SET notification = $1, updated_at = NOW() WHERE id = $2`,
+    [value, userId],
   );
 }
 

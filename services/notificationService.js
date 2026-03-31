@@ -139,8 +139,16 @@ export const createNotification = async ({
   data,
 }) => {
   try {
-    const { preferred_language: userLanguage, business_unit: businessUnit } =
-      await notifRepo.findUserLangAndBU(userId);
+    const {
+      preferred_language: userLanguage,
+      business_unit: businessUnit,
+      notification: notificationEnabled,
+    } = await notifRepo.findUserLangAndBU(userId);
+
+    if (notificationEnabled === false) {
+      console.log(`🔕 Notifications disabled for user ${userId}, skipping`);
+      return;
+    }
 
     const title = getTranslation(titleKey, userLanguage);
     const finalTitle = data?.rowId ? `#${data.rowId} ${title}` : title;
