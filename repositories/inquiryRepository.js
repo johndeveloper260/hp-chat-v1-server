@@ -257,6 +257,14 @@ export const findIssues = async (lang, businessUnit) => {
   return rows;
 };
 
+export const findInquiryCompany = async (ticketId, businessUnit) => {
+  const { rows } = await getPool().query(
+    `SELECT company FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2`,
+    [ticketId, businessUnit],
+  );
+  return rows[0]?.company ?? null;
+};
+
 export const findOfficersByBU = async (businessUnit) => {
   const { rows } = await getPool().query(
     `SELECT

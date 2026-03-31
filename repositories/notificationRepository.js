@@ -113,6 +113,23 @@ export const findUserNotifications = async (userId, businessUnit) => {
   return rows;
 };
 
+/**
+ * Returns an array of coordinator user_ids for a given company.
+ * Used by inquiry, leave, and return-home services.
+ */
+export const findCoordinatorsByCompany = async (companyId, businessUnit) => {
+  if (!companyId) return [];
+  const { rows } = await getPool().query(
+    `SELECT unnest(coordinators) AS user_id
+     FROM v4.company_tbl
+     WHERE company_id = $1::uuid
+       AND business_unit = $2
+       AND coordinators IS NOT NULL`,
+    [companyId, businessUnit],
+  );
+  return rows.map((r) => r.user_id);
+};
+
 export const markNotificationRead = async (notificationId, userId, businessUnit) => {
   await getPool().query(
     `UPDATE v4.notification_history_tbl

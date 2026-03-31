@@ -276,6 +276,15 @@ export const findUserName = async (userId) => {
   return formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name);
 };
 
+/** Returns the company UUID for a user (from their profile). */
+export const findUserCompany = async (userId) => {
+  const { rows } = await getPool().query(
+    `SELECT company FROM v4.user_profile_tbl WHERE user_id = $1`,
+    [userId],
+  );
+  return rows[0]?.company ?? null;
+};
+
 /** Returns an array of user_ids for active OFFICERS in the BU with flight_read or flight_write role. */
 export const findOfficersWithFlightRoles = async (businessUnit) => {
   const { rows } = await getPool().query(

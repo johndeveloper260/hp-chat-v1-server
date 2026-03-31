@@ -10,6 +10,7 @@ import { deleteFromS3 }       from "../utils/s3Client.js";
 import { getPool }            from "../config/getPool.js";
 import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
 import { createNotification } from "./notificationService.js";
+import { findCoordinatorsByCompany } from "../repositories/notificationRepository.js";
 
 const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,9 +42,10 @@ export const createReturnHome = async (body, creatorId, businessUnit) => {
     businessUnit,
   });
 
-  // Notify: the application's user + officers with flight roles, excluding creator
-  const officerIds = await repo.findOfficersWithFlightRoles(businessUnit);
-  const recipients = [...new Set([targetUserId, ...officerIds])].filter(
+  // Notify: the application's user + company coordinators, excluding creator
+  const userCompany = await repo.findUserCompany(targetUserId);
+  const coordinatorIds = await findCoordinatorsByCompany(userCompany, businessUnit);
+  const recipients = [...new Set([targetUserId, ...coordinatorIds])].filter(
     (id) => id && id !== creatorId,
   );
 
@@ -105,10 +107,11 @@ export const updateReturnHome = async (id, body, updatedBy, businessUnit) => {
   );
   if (!row) throw new NotFoundError("record_not_found");
 
-  // Notify: record's user + flight-role officers, excluding the updater
+  // Notify: record's user + company coordinators, excluding the updater
   const applicationUserId = row.user_id;
-  const officerIds = await repo.findOfficersWithFlightRoles(businessUnit);
-  const recipients = [...new Set([applicationUserId, ...officerIds])].filter(
+  const userCompany = await repo.findUserCompany(applicationUserId);
+  const coordinatorIds = await findCoordinatorsByCompany(userCompany, businessUnit);
+  const recipients = [...new Set([applicationUserId, ...coordinatorIds])].filter(
     (uid) => uid && uid !== updatedBy,
   );
 
@@ -148,9 +151,10 @@ export const patchReturnHomeStatus = async (id, body, user) => {
   );
   if (!record) throw new NotFoundError("record_not_found");
 
-  // Notify: record's user + flight-role officers, excluding the actor
-  const officerIds = await repo.findOfficersWithFlightRoles(user.business_unit);
-  const recipients = [...new Set([record.user_id, ...officerIds])].filter(
+  // Notify: record's user + company coordinators, excluding the actor
+  const userCompany = await repo.findUserCompany(record.user_id);
+  const coordinatorIds = await findCoordinatorsByCompany(userCompany, user.business_unit);
+  const recipients = [...new Set([record.user_id, ...coordinatorIds])].filter(
     (uid) => uid && uid !== user.id,
   );
 
@@ -194,8 +198,9 @@ export const approveReturnHome = async (id, body, officer) => {
 
   if (record) {
     const { user_id: applicationUserId } = record;
-    const officerIds = await repo.findOfficersWithFlightRoles(officer.business_unit);
-    const recipients = [...new Set([applicationUserId, ...officerIds])].filter(
+    const userCompany = await repo.findUserCompany(applicationUserId);
+    const coordinatorIds = await findCoordinatorsByCompany(userCompany, officer.business_unit);
+    const recipients = [...new Set([applicationUserId, ...coordinatorIds])].filter(
       (uid) => uid && uid !== officer.id,
     );
 

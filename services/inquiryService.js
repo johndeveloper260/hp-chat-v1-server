@@ -14,6 +14,7 @@ import { getUserLanguage }   from "../utils/getUserLanguage.js";
 import { deleteFromS3 }      from "../utils/s3Client.js";
 import { createNotification } from "./notificationService.js";
 import * as inquiryRepo      from "../repositories/inquiryRepository.js";
+import { findCoordinatorsByCompany } from "../repositories/notificationRepository.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
 
 // ─── 1. Search ────────────────────────────────────────────────────────────────
@@ -39,8 +40,9 @@ export const createInquiry = async ({ body, userId, userBU }) => {
     assigned_to: assigned_to || null,
   });
 
-  // Fan-out notifications to owner, assignee, and watchers (excluding creator)
-  const recipients = [owner_id, assigned_to, ...(Array.isArray(watcher) ? watcher : [])];
+  // Fan-out notifications to owner, assignee, watchers, and company coordinators (excluding creator)
+  const coordinatorIds = await findCoordinatorsByCompany(company, userBU);
+  const recipients = [owner_id, assigned_to, ...(Array.isArray(watcher) ? watcher : []), ...coordinatorIds];
   const notifyIds = [...new Set(recipients)].filter((id) => id && id !== userId);
 
   if (notifyIds.length > 0) {
@@ -87,13 +89,16 @@ export const updateInquiry = async ({ ticketId, body, userId, userBU }) => {
   });
   if (!updated) throw new NotFoundError("record_not_found");
 
-  // Build recipient set: owner, assignee, watchers (excluding the updater)
+  // Build recipient set: owner, assignee, watchers, and company coordinators (excluding the updater)
+  const inquiryCompany = await inquiryRepo.findInquiryCompany(ticketId, userBU);
+  const coordinatorIds = await findCoordinatorsByCompany(inquiryCompany, userBU);
   const recipientsSet = new Set();
   if (updated.owner_id && updated.owner_id !== userId)     recipientsSet.add(updated.owner_id);
   if (updated.assigned_to && updated.assigned_to !== userId) recipientsSet.add(updated.assigned_to);
   if (watcher && Array.isArray(watcher)) {
     watcher.forEach((w) => { if (w && w !== userId) recipientsSet.add(w); });
   }
+  coordinatorIds.forEach((id) => { if (id && id !== userId) recipientsSet.add(id); });
 
   const recipients = Array.from(recipientsSet);
   if (recipients.length > 0) {

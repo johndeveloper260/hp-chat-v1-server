@@ -11,6 +11,8 @@ import { getPresignedUrl }          from "../utils/s3Client.js";
 import { leaveApplicationAlert }    from "../config/systemMailer.js";
 import env                          from "../config/env.js";
 import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
+import { createNotification }        from "./notificationService.js";
+import { findCoordinatorsByCompany } from "../repositories/notificationRepository.js";
 
 const OFFICER_TYPES = ["officer", "admin"];
 
@@ -123,6 +125,11 @@ export const submitLeave = async (requestor, body) => {
     (err) => console.error("Leave email dispatch error:", err),
   );
 
+  // 3. Fire-and-forget push notification to company coordinators
+  _dispatchLeavePush({ templateId, userId, company, business_unit, submission }).catch(
+    (err) => console.error("Leave push dispatch error:", err),
+  );
+
   return submission;
 };
 
@@ -188,6 +195,37 @@ async function _dispatchLeaveEmail({ templateId, userId, company, business_unit,
       template.title,
     );
   }
+}
+
+/** Internal: send push notifications to company coordinators on leave submission. */
+async function _dispatchLeavePush({ templateId, userId, company, business_unit, submission }) {
+  const coordinatorIds = await findCoordinatorsByCompany(company, business_unit);
+  if (coordinatorIds.length === 0) return;
+
+  const [applicantName, companyName, template] = await Promise.all([
+    leaveRepo.findApplicantName(userId),
+    leaveRepo.findCompanyName(company),
+    leaveRepo.findTemplateConfig(templateId),
+  ]);
+
+  const formTitle = template?.title || "Leave Form";
+
+  await Promise.all(
+    coordinatorIds.map((recipientId) =>
+      createNotification({
+        userId: recipientId,
+        titleKey: "leave_submitted",
+        bodyKey: "leave_submitted_body",
+        bodyParams: { name: applicantName, company: companyName, title: formTitle },
+        data: {
+          type: "leave",
+          rowId: submission.submission_id,
+          screen: "Leave",
+          params: { submissionId: submission.submission_id },
+        },
+      }),
+    ),
+  );
 }
 
 export const getCompanySubmissions = async (requestor, queryParams) => {

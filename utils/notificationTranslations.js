@@ -222,6 +222,28 @@ const pushMessages = {
     th: "{{name}} {{status}} ใบสมัครกลับบ้านของคุณ",
     ne: "{{name}} ले तपाईंको घर फर्कने आवेदन {{status}} गर्नुभयो",
   },
+  leave_submitted: {
+    en: "New Leave Submission",
+    ja: "新しい申請が届きました",
+    id: "Pengajuan Cuti Baru",
+    vi: "Đơn nghỉ phép mới",
+    my: "အားလပ်ရက်လျှောက်ထားမှုအသစ်",
+    km: "សំណើឈប់សម្រាកថ្មី",
+    bn: "নতুন ছুটির আবেদন",
+    th: "การยื่นลาใหม่",
+    ne: "नयाँ बिदा आवेदन",
+  },
+  leave_submitted_body: {
+    en: "{{name}} from {{company}} has submitted {{title}}",
+    ja: "{{company}}の{{name}}が{{title}}を提出しました",
+    id: "{{name}} dari {{company}} telah mengajukan {{title}}",
+    vi: "{{name}} từ {{company}} đã nộp {{title}}",
+    my: "{{company}} မှ {{name}} သည် {{title}} တင်ပြပြီးပါပြီ",
+    km: "{{name}} ពី {{company}} បានដាក់ {{title}}",
+    bn: "{{company}} থেকে {{name}} {{title}} জমা দিয়েছেন",
+    th: "{{name}} จาก {{company}} ได้ยื่น {{title}}",
+    ne: "{{company}} बाट {{name}} ले {{title}} पेश गर्नुभयो",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
