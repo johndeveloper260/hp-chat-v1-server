@@ -39,6 +39,11 @@ export const getEmployeesByCompany = async (companyId, businessUnit) => {
   return rows;
 };
 
+export const getCoordinatorOptions = async (businessUnit) => {
+  const { rows } = await companyRepo.findCoordinatorOptions(businessUnit);
+  return rows;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────────────────────────────────────────

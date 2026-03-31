@@ -11,6 +11,7 @@ const companyBodySchema = z.object({
   flight_tracker: z.boolean().optional(),
   company_form:  z.boolean().optional(),
   sort_order:    z.number().optional(),
+  coordinators:  z.array(z.string().uuid()).optional().nullable(),
 });
 
 // ── POST /company/create ──────────────────────────────────────────────────────

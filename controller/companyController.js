@@ -81,3 +81,10 @@ export const getEmployeesByCompany = async (req, res, next) => {
     res.json(result);
   } catch (err) { next(err); }
 };
+
+export const getCoordinatorOptions = async (req, res, next) => {
+  try {
+    const result = await companyService.getCoordinatorOptions(req.user.business_unit);
+    res.json(result);
+  } catch (err) { next(err); }
+};

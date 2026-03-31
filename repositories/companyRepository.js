@@ -41,6 +41,18 @@ export const findEmployeesByCompany = (companyId, businessUnit) =>
     [companyId, businessUnit],
   );
 
+export const findCoordinatorOptions = (businessUnit) =>
+  getPool().query(
+    `SELECT a.id AS value,
+            (p.first_name || ' ' || p.last_name) AS label
+     FROM v4.user_account_tbl a
+     JOIN v4.user_profile_tbl p ON a.id = p.user_id
+     WHERE a.business_unit = $1
+       AND UPPER(p.user_type) IN ('OFFICER', 'ADMIN')
+     ORDER BY p.first_name ASC`,
+    [businessUnit],
+  );
+
 export const countUsersInCompany = (companyId, businessUnit) =>
   getPool().query(
     `SELECT COUNT(*) AS count
@@ -53,15 +65,15 @@ export const countUsersInCompany = (companyId, businessUnit) =>
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 export const insertCompany = (
-  { company_name, website_url, is_active, ticketing, flight_tracker, company_form, sort_order, businessUnit, userId },
+  { company_name, website_url, is_active, ticketing, flight_tracker, company_form, sort_order, coordinators, businessUnit, userId },
   client,
 ) =>
   db(client).query(
     `INSERT INTO v4.company_tbl
-       (company_name, business_unit, website_url, is_active, ticketing, flight_tracker, company_form, sort_order, last_updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (company_name, business_unit, website_url, is_active, ticketing, flight_tracker, company_form, sort_order, coordinators, last_updated_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
-    [company_name, businessUnit, website_url, is_active ?? true, ticketing ?? false, flight_tracker ?? false, company_form ?? false, sort_order ?? 0, userId],
+    [company_name, businessUnit, website_url, is_active ?? true, ticketing ?? false, flight_tracker ?? false, company_form ?? false, sort_order ?? 0, coordinators ?? null, userId],
   );
 
 export const insertRegistrationCodes = (businessUnit, companyId, client) =>
@@ -73,15 +85,15 @@ export const insertRegistrationCodes = (businessUnit, companyId, client) =>
   );
 
 export const updateCompanyById = (id, businessUnit, data, userId) => {
-  const { company_name, website_url, is_active, ticketing, flight_tracker, company_form, sort_order } = data;
+  const { company_name, website_url, is_active, ticketing, flight_tracker, company_form, sort_order, coordinators } = data;
   return getPool().query(
     `UPDATE v4.company_tbl
      SET company_name = $1, website_url = $2, is_active = $3,
          ticketing = $4, flight_tracker = $5, company_form = $6,
-         sort_order = $7, last_updated_by = $8, updated_at = NOW()
-     WHERE company_id = $9 AND business_unit = $10
+         sort_order = $7, coordinators = $8, last_updated_by = $9, updated_at = NOW()
+     WHERE company_id = $10 AND business_unit = $11
      RETURNING *`,
-    [company_name, website_url, is_active, ticketing ?? false, flight_tracker ?? false, company_form ?? false, sort_order ?? 0, userId, id, businessUnit],
+    [company_name, website_url, is_active, ticketing ?? false, flight_tracker ?? false, company_form ?? false, sort_order ?? 0, coordinators ?? null, userId, id, businessUnit],
   );
 };
 

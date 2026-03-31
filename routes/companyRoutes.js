@@ -16,13 +16,15 @@ import {
   deleteCompany,
   getRegistrationCodes,
   getEmployeesByCompany,
+  getCoordinatorOptions,
 } from "../controller/companyController.js";
 
 const router = express.Router();
 
 // ── any officer — used widely (dropdowns, audience targeting, etc.) ───────────
-router.get("/dropdown",             auth, requireOfficer,            getCompanyDropdown);
-router.get("/:companyId/employees",         auth, requireOfficer,             getEmployeesByCompany);
+router.get("/dropdown",              auth, requireOfficer,            getCompanyDropdown);
+router.get("/coordinator-options",   auth, requireRole("company_write"), getCoordinatorOptions);
+router.get("/:companyId/employees",          auth, requireOfficer,             getEmployeesByCompany);
 router.get("/:companyId/registration-codes", auth, requireRole("company_read"), getRegistrationCodes);
 
 // ── company_read ──────────────────────────────────────────────────────────────
