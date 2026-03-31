@@ -202,7 +202,7 @@ export const findCompanySubmissions = async (
 ) => {
   const { rows } = await getPool().query(
     `SELECT
-       s.submission_id, s.status, s.answers, s.created_at,
+       s.id, s.submission_id, s.status, s.answers, s.created_at,
        u.email, p.first_name, p.last_name,
        COALESCE(c.company_name->>$3, c.company_name->>'en') AS company_name,
        COALESCE(t.fields,    t_default.fields) AS template_fields,
@@ -233,7 +233,7 @@ export const findCompanySubmissions = async (
 export const findMySubmissions = async (userId, lang) => {
   const { rows } = await getPool().query(
     `SELECT
-       s.submission_id, s.status, s.answers, s.created_at,
+       s.id, s.submission_id, s.status, s.answers, s.created_at,
        u.email, p.first_name, p.last_name,
        COALESCE(c.company_name->>$2, c.company_name->>'en') AS company_name,
        COALESCE(t.fields,    t_default.fields) AS template_fields,
