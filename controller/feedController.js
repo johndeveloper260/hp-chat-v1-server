@@ -126,6 +126,8 @@ export const previewAudience = async (req, res, next) => {
     const result = await feedService.previewAudience({
       company:      req.body.company,
       batch_no:     req.body.batch_no,
+      country:      req.body.country,
+      sending_org:  req.body.sending_org,
       businessUnit: req.user.business_unit,
     });
     res.json(result);

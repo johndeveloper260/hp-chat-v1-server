@@ -115,15 +115,15 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
 export const insertAnnouncement = async (fields) => {
-  const { userBU, company, batch_no, title, content_text, date_from, date_to, active, comments_on, userId } = fields;
+  const { userBU, company, batch_no, country, sending_org, title, content_text, date_from, date_to, active, comments_on, userId } = fields;
   const { rows } = await getPool().query(
     `INSERT INTO v4.announcement_tbl (
-       business_unit, company, batch_no, title, content_text,
+       business_unit, company, batch_no, country, sending_org, title, content_text,
        date_from, date_to, active, comments_on,
        created_by, created_at, last_updated_by, last_updated_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::uuid, NOW(), $10::uuid, NOW())
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::uuid, NOW(), $12::uuid, NOW())
      RETURNING *`,
-    [userBU, company, batch_no || null, title, content_text, date_from, date_to, active, comments_on, userId],
+    [userBU, company, batch_no || null, country?.length ? country : null, sending_org || null, title, content_text, date_from, date_to, active, comments_on, userId],
   );
   return rows[0];
 };
@@ -150,9 +150,9 @@ export const findUserName = async (userId, client) => {
 
 /**
  * Returns user_id strings for all active BU users (excluding the poster),
- * optionally filtered by company array.
+ * optionally filtered by company, country, and sending_org.
  */
-export const findRecipientIds = async (userBU, excludeUserId, company) => {
+export const findRecipientIds = async (userBU, excludeUserId, company, country, sending_org) => {
   let query = `
     SELECT DISTINCT a.id::text AS user_id
     FROM v4.user_account_tbl a
@@ -168,6 +168,16 @@ export const findRecipientIds = async (userBU, excludeUserId, company) => {
     query += ` AND (p.company::uuid = ANY($${values.length}::uuid[]) OR p.company IS NULL)`;
   }
 
+  if (country && Array.isArray(country) && country.length > 0) {
+    values.push(country);
+    query += ` AND p.country = ANY($${values.length}::text[])`;
+  }
+
+  if (sending_org) {
+    values.push(sending_org);
+    query += ` AND p.sending_org = $${values.length}`;
+  }
+
   const { rows } = await getPool().query(query, values);
   return rows.map((r) => r.user_id);
 };
@@ -175,17 +185,17 @@ export const findRecipientIds = async (userBU, excludeUserId, company) => {
 // ─── Update ───────────────────────────────────────────────────────────────────
 
 export const updateAnnouncement = async (fields) => {
-  const { company, batch_no, title, content_text, date_from, date_to, active, comments_on, userId, rowId, userBU } = fields;
+  const { company, batch_no, country, sending_org, title, content_text, date_from, date_to, active, comments_on, userId, rowId, userBU } = fields;
   const { rows } = await getPool().query(
     `UPDATE v4.announcement_tbl
-     SET company = $1, batch_no = $2, title = $3,
-         content_text = $4, date_from = $5, date_to = $6,
-         active = $7, comments_on = $8,
-         last_updated_by = $9::uuid,
+     SET company = $1, batch_no = $2, country = $3, sending_org = $4, title = $5,
+         content_text = $6, date_from = $7, date_to = $8,
+         active = $9, comments_on = $10,
+         last_updated_by = $11::uuid,
          last_updated_at = NOW()
-     WHERE row_id = $10::integer AND business_unit = $11
+     WHERE row_id = $12::integer AND business_unit = $13
      RETURNING *`,
-    [company, batch_no || null, title, content_text, date_from, date_to, active, comments_on, userId, rowId, userBU],
+    [company, batch_no || null, country?.length ? country : null, sending_org || null, title, content_text, date_from, date_to, active, comments_on, userId, rowId, userBU],
   );
   return rows[0] ?? null;
 };
@@ -258,9 +268,11 @@ export const findBatchesByCompany = async (companyId, userBU) => {
   return rows;
 };
 
-export const countAudience = async (businessUnit, company, batch_no) => {
+export const countAudience = async (businessUnit, company, batch_no, country, sending_org) => {
   let query = `
-    SELECT COUNT(DISTINCT a.id) AS count
+    SELECT
+      COUNT(DISTINCT a.id) AS count,
+      COUNT(DISTINCT CASE WHEN LOWER(p.user_type) NOT IN ('officer', 'admin') THEN a.id END) AS regular_count
     FROM v4.user_account_tbl a
     INNER JOIN v4.user_profile_tbl p ON a.id = p.user_id
     WHERE a.business_unit = $1 AND a.is_active = true
@@ -277,8 +289,20 @@ export const countAudience = async (businessUnit, company, batch_no) => {
     query += ` AND p.batch_no = $${values.length}`;
   }
 
+  if (country && Array.isArray(country) && country.length > 0) {
+    values.push(country);
+    query += ` AND p.country = ANY($${values.length}::text[])`;
+  }
+
+  if (sending_org) {
+    values.push(sending_org);
+    query += ` AND p.sending_org = $${values.length}`;
+  }
+
   const { rows } = await getPool().query(query, values);
-  return parseInt(rows[0].count) || 0;
+  const count = parseInt(rows[0].count) || 0;
+  const regularCount = parseInt(rows[0].regular_count) || 0;
+  return { count, officers_only: count > 0 && regularCount === 0 };
 };
 
 // ─── Views ────────────────────────────────────────────────────────────────────

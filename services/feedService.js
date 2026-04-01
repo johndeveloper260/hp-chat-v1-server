@@ -31,10 +31,10 @@ export const getAnnouncements = async ({ company_filter, userId, userBU, userTyp
 // ─── 3. Create announcement ───────────────────────────────────────────────────
 
 export const createAnnouncement = async ({ body, userId, userBU }) => {
-  const { company, batch_no, title, content_text, date_from, date_to, active, comments_on } = body;
+  const { company, batch_no, country, sending_org, title, content_text, date_from, date_to, active, comments_on } = body;
 
   const newAnnouncement = await feedRepo.insertAnnouncement({
-    userBU, company, batch_no, title, content_text,
+    userBU, company, batch_no, country, sending_org, title, content_text,
     date_from, date_to, active, comments_on, userId,
   });
 
@@ -42,7 +42,7 @@ export const createAnnouncement = async ({ body, userId, userBU }) => {
   if (active) {
     const [creatorName, recipientIds] = await Promise.all([
       feedRepo.findUserName(userId),
-      feedRepo.findRecipientIds(userBU, userId, company),
+      feedRepo.findRecipientIds(userBU, userId, company, country, sending_org),
     ]);
 
     if (recipientIds.length > 0) {
@@ -66,11 +66,11 @@ export const createAnnouncement = async ({ body, userId, userBU }) => {
 // ─── 4. Update announcement ───────────────────────────────────────────────────
 
 export const updateAnnouncement = async ({ rowId, body, userId, userBU }) => {
-  const { company, batch_no, title, content_text, date_from, date_to, active, comments_on } = body;
+  const { company, batch_no, country, sending_org, title, content_text, date_from, date_to, active, comments_on } = body;
 
   const oldData = await feedRepo.findAnnouncementById(rowId, userBU);
   const updated = await feedRepo.updateAnnouncement({
-    company, batch_no, title, content_text, date_from, date_to,
+    company, batch_no, country, sending_org, title, content_text, date_from, date_to,
     active, comments_on, userId, rowId, userBU,
   });
   if (!updated) throw new NotFoundError("record_not_found");
@@ -83,7 +83,7 @@ export const updateAnnouncement = async ({ rowId, body, userId, userBU }) => {
   if (wasActivated || (active && (titleChanged || contentChanged))) {
     const [updaterName, recipientIds] = await Promise.all([
       feedRepo.findUserName(userId),
-      feedRepo.findRecipientIds(updated.business_unit, userId, company),
+      feedRepo.findRecipientIds(updated.business_unit, userId, company, country, sending_org),
     ]);
 
     if (recipientIds.length > 0) {
@@ -140,9 +140,8 @@ export const getBatchesByCompany = async ({ companyId, userBU }) => {
   return feedRepo.findBatchesByCompany(companyId, userBU);
 };
 
-export const previewAudience = async ({ company, batch_no, businessUnit }) => {
-  const count = await feedRepo.countAudience(businessUnit, company, batch_no);
-  return { count };
+export const previewAudience = async ({ company, batch_no, country, sending_org, businessUnit }) => {
+  return feedRepo.countAudience(businessUnit, company, batch_no, country, sending_org);
 };
 
 // ─── 7. Reactions detail ──────────────────────────────────────────────────────
