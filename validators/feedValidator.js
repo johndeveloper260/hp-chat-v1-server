@@ -23,6 +23,8 @@ export const toggleReactionSchema = z.object({
 });
 
 export const previewAudienceSchema = z.object({
-  company:  z.array(z.string().uuid()).optional().nullable(),
-  batch_no: z.string().optional().nullable(),
+  company:     z.array(z.string().uuid()).optional().nullable(),
+  batch_no:    z.string().optional().nullable(),
+  country:     z.array(z.string()).optional().nullable(),
+  sending_org: z.string().optional().nullable(),
 });
