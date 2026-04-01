@@ -6,6 +6,8 @@ import { z } from "zod";
 const announcementBase = z.object({
   company:      z.array(z.string().uuid()).optional().nullable(),
   batch_no:     z.string().optional().nullable(),
+  country:      z.array(z.string()).optional().nullable(),
+  sending_org:  z.string().optional().nullable(),
   title:        z.string().min(1, "Title is required"),
   content_text: z.string().optional().nullable(),
   date_from:    z.string().optional().nullable(),
