@@ -22,10 +22,13 @@ export const getPosters = async ({ businessUnit }) => {
 
 // ─── 2. Get announcements (role-filtered, dynamic query) ─────────────────────
 
-export const getAnnouncements = async ({ company_filter, userId, userBU, userType, isManagement }) => {
+export const getAnnouncements = async ({ company_filter, userId, userBU, userType, userCompany, isManagement }) => {
   const lang      = await getUserLanguage(userId);
   const isOfficer = ["ADMIN", "OFFICER"].includes((userType || "").toUpperCase());
-  return feedRepo.findAnnouncements({ lang, userId, company_filter, userBU, isOfficer, isManagement });
+  // Non-officers see announcements for their own company (plus global ones).
+  // Fall back to the user's company UUID when no explicit filter is supplied.
+  const effectiveFilter = company_filter ?? (!isOfficer ? userCompany : undefined);
+  return feedRepo.findAnnouncements({ lang, userId, company_filter: effectiveFilter, userBU, isOfficer, isManagement });
 };
 
 // ─── 3. Create announcement ───────────────────────────────────────────────────

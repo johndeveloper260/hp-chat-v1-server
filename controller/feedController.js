@@ -26,9 +26,9 @@ export const getPosters = async (req, res, next) => {
 export const getAnnouncements = async (req, res, next) => {
   try {
     const { company_filter, management } = req.query;
-    const { id: userId, business_unit: userBU, userType } = req.user;
+    const { id: userId, business_unit: userBU, userType, company: userCompany } = req.user;
     const isManagement = management === "true";
-    const rows = await feedService.getAnnouncements({ company_filter, userId, userBU, userType, isManagement });
+    const rows = await feedService.getAnnouncements({ company_filter, userId, userBU, userType, userCompany, isManagement });
     res.json(rows);
   } catch (err) {
     next(err);
