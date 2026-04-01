@@ -35,6 +35,8 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       a.business_unit,
       a.company AS company_ids,
       a.batch_no,
+      a.country,
+      a.sending_org,
       ARRAY(
         SELECT COALESCE(c.company_name->>$1, c.company_name->>'en')
         FROM v4.company_tbl c
