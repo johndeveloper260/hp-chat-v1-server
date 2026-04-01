@@ -153,30 +153,46 @@ export const findUserName = async (userId, client) => {
  * optionally filtered by company, country, and sending_org.
  */
 export const findRecipientIds = async (userBU, excludeUserId, company, country, sending_org) => {
-  let query = `
-    SELECT DISTINCT a.id::text AS user_id
+  // Officers/admins bypass all targeting filters (same as the feed query).
+  // Regular users must match all supplied filters.
+
+  const values = [userBU, excludeUserId];
+  const baseWhere = `a.business_unit = $1::text AND a.is_active = true AND a.id != $2::uuid`;
+
+  // -- Branch 1: officers/admins (no targeting filters) --
+  let officerQuery = `
+    SELECT a.id::text AS user_id
     FROM v4.user_account_tbl a
     JOIN v4.user_profile_tbl p ON a.id = p.user_id
-    WHERE a.business_unit = $1::text
-      AND a.is_active = true
-      AND a.id != $2::uuid
+    WHERE ${baseWhere}
+      AND LOWER(p.user_type) IN ('officer', 'admin')
   `;
-  const values = [userBU, excludeUserId];
+
+  // -- Branch 2: regular users (all targeting filters applied) --
+  let regularQuery = `
+    SELECT a.id::text AS user_id
+    FROM v4.user_account_tbl a
+    JOIN v4.user_profile_tbl p ON a.id = p.user_id
+    WHERE ${baseWhere}
+      AND LOWER(p.user_type) NOT IN ('officer', 'admin')
+  `;
 
   if (company && Array.isArray(company) && company.length > 0) {
     values.push(company);
-    query += ` AND (p.company::uuid = ANY($${values.length}::uuid[]) OR p.company IS NULL)`;
+    regularQuery += ` AND (p.company::uuid = ANY($${values.length}::uuid[]) OR p.company IS NULL)`;
   }
 
   if (country && Array.isArray(country) && country.length > 0) {
     values.push(country);
-    query += ` AND p.country = ANY($${values.length}::text[])`;
+    regularQuery += ` AND p.country = ANY($${values.length}::text[])`;
   }
 
   if (sending_org) {
     values.push(sending_org);
-    query += ` AND p.sending_org = $${values.length}`;
+    regularQuery += ` AND p.sending_org = $${values.length}`;
   }
+
+  const query = `SELECT DISTINCT user_id FROM (${officerQuery} UNION ${regularQuery}) combined`;
 
   const { rows } = await getPool().query(query, values);
   return rows.map((r) => r.user_id);
@@ -269,35 +285,59 @@ export const findBatchesByCompany = async (companyId, userBU) => {
 };
 
 export const countAudience = async (businessUnit, company, batch_no, country, sending_org) => {
-  let query = `
-    SELECT
-      COUNT(DISTINCT a.id) AS count,
-      COUNT(DISTINCT CASE WHEN LOWER(p.user_type) NOT IN ('officer', 'admin') THEN a.id END) AS regular_count
+  // Officers/admins bypass all targeting filters (same as the feed query).
+  // Regular users must match all supplied filters.
+  // Use UNION to combine both sets before counting.
+
+  // -- Branch 1: officers/admins (no targeting filters applied) --
+  let officerQuery = `
+    SELECT a.id, p.user_type
     FROM v4.user_account_tbl a
     INNER JOIN v4.user_profile_tbl p ON a.id = p.user_id
     WHERE a.business_unit = $1 AND a.is_active = true
+      AND LOWER(p.user_type) IN ('officer', 'admin')
   `;
   const values = [businessUnit];
 
+  // -- Branch 2: regular users (all targeting filters applied) --
+  let regularQuery = `
+    SELECT a.id, p.user_type
+    FROM v4.user_account_tbl a
+    INNER JOIN v4.user_profile_tbl p ON a.id = p.user_id
+    WHERE a.business_unit = $1 AND a.is_active = true
+      AND LOWER(p.user_type) NOT IN ('officer', 'admin')
+  `;
+
   if (company && Array.isArray(company) && company.length > 0) {
     values.push(company);
-    query += ` AND p.company::uuid = ANY($${values.length}::uuid[])`;
+    regularQuery += ` AND p.company::uuid = ANY($${values.length}::uuid[])`;
   }
 
   if (batch_no && company && company.length === 1) {
     values.push(batch_no);
-    query += ` AND p.batch_no = $${values.length}`;
+    regularQuery += ` AND p.batch_no = $${values.length}`;
   }
 
   if (country && Array.isArray(country) && country.length > 0) {
     values.push(country);
-    query += ` AND p.country = ANY($${values.length}::text[])`;
+    regularQuery += ` AND p.country = ANY($${values.length}::text[])`;
   }
 
   if (sending_org) {
     values.push(sending_org);
-    query += ` AND p.sending_org = $${values.length}`;
+    regularQuery += ` AND p.sending_org = $${values.length}`;
   }
+
+  const query = `
+    SELECT
+      COUNT(DISTINCT id) AS count,
+      COUNT(DISTINCT CASE WHEN LOWER(user_type) NOT IN ('officer', 'admin') THEN id END) AS regular_count
+    FROM (
+      ${officerQuery}
+      UNION
+      ${regularQuery}
+    ) combined
+  `;
 
   const { rows } = await getPool().query(query, values);
   const count = parseInt(rows[0].count) || 0;
