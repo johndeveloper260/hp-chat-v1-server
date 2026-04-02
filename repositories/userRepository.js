@@ -241,6 +241,44 @@ export async function deleteUserById(userId, client) {
   return rowCount;
 }
 
+export async function anonymizeUser(userId, client) {
+  // Scrub account credentials and flag as deleted, but keep the row so
+  // foreign keys (owner_id, user_id, created_by) on all related records remain valid.
+  await db(client).query(
+    `UPDATE v4.user_account_tbl
+     SET email      = 'deleted_' || id || '@deleted.local',
+         password_hash = '',
+         otp_code   = NULL,
+         otp_expiry = NULL,
+         is_active  = false,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [userId],
+  );
+
+  await db(client).query(
+    `UPDATE v4.user_profile_tbl
+     SET first_name                = 'Deleted',
+         middle_name               = NULL,
+         last_name                 = 'User',
+         phone_number              = NULL,
+         postal_code               = NULL,
+         street_address            = NULL,
+         city                      = NULL,
+         state_province            = NULL,
+         country                   = NULL,
+         birthdate                 = NULL,
+         gender                    = NULL,
+         emergency_contact_name    = NULL,
+         emergency_contact_number  = NULL,
+         emergency_contact_address = NULL,
+         emergency_email           = NULL,
+         updated_at                = NOW()
+     WHERE user_id = $1`,
+    [userId],
+  );
+}
+
 export async function findUserInBusinessUnit(userId, businessUnit, client) {
   const { rows, rowCount } = await db(client).query(
     `SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2`,

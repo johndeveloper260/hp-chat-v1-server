@@ -221,10 +221,7 @@ export async function deleteOwnAccount(userId) {
   await userRepo.archiveUserBeforeDelete(userId, "SELF", "In-App Deletion");
   await getStreamChat().deleteUser(userId, { mark_messages_deleted: false, hard: false });
   await cleanupProfileAttachments(userId);
-  const rowCount = await userRepo.deleteUserById(userId);
-  if (rowCount === 0) {
-    throw new NotFoundError("user_not_found");
-  }
+  await userRepo.anonymizeUser(userId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -277,13 +274,9 @@ export async function finalizeDeletion({ email, otpCode, authenticatedUserId }) 
   }
 
   await userRepo.archiveUserBeforeDelete(targetId, "SELF", "In-App Deletion");
-  await getStreamChat().deleteUsers([String(targetId)], {
-    user: "hard",
-    messages: "hard",
-    conversations: "hard",
-  });
+  await getStreamChat().deleteUser(String(targetId), { mark_messages_deleted: false, hard: false });
   await cleanupProfileAttachments(targetId);
-  await userRepo.deleteUserById(targetId);
+  await userRepo.anonymizeUser(targetId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -309,11 +302,7 @@ export async function adminDeleteUser({ userId, officerId, officerBU }) {
   }
 
   await userRepo.archiveUserBeforeDelete(userId, officerId, "Officer-initiated deletion");
-  await getStreamChat().deleteUsers([String(userId)], {
-    user: "hard",
-    messages: "hard",
-    conversations: "hard",
-  });
+  await getStreamChat().deleteUser(String(userId), { mark_messages_deleted: false, hard: false });
   await cleanupProfileAttachments(userId);
-  await userRepo.deleteUserById(userId);
+  await userRepo.anonymizeUser(userId);
 }
