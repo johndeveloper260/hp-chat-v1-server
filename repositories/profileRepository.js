@@ -20,10 +20,10 @@ export const findUserLanguage = async (userId) => {
 
 // ── BU membership check ────────────────────────────────────────────────────────
 
-/** Returns the account row if the user belongs to the given business_unit, else null. */
+/** Returns the account row if the user belongs to the given business_unit and is active, else null. */
 export const findUserInBU = async (userId, businessUnit, client) => {
   const { rows } = await db(client).query(
-    "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+    "SELECT id FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2 AND is_active = true",
     [userId, businessUnit],
   );
   return rows[0] ?? null;
@@ -218,7 +218,7 @@ export const updateUserProfile = async (userId, data, businessUnit) => {
 
 export const findActiveStatus = async (userId, businessUnit) => {
   const { rows } = await getPool().query(
-    "SELECT id, is_active FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
+    "SELECT id, is_active FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2 AND is_active = true",
     [userId, businessUnit],
   );
   return rows[0] ?? null;
