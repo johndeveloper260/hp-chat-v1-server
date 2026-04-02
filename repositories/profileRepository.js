@@ -68,6 +68,7 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name 
     JOIN  v4.user_account_tbl a ON p.user_id = a.id
     LEFT JOIN v4.company_tbl  c ON p.company::uuid = c.company_id
     WHERE a.business_unit = $2
+      AND a.is_active = true
   `;
 
   if (company) {

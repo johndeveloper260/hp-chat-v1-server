@@ -36,7 +36,7 @@ export const findEmployeesByCompany = (companyId, businessUnit) =>
             (p.first_name || ' ' || p.last_name) AS full_name, a.email
      FROM v4.user_account_tbl a
      JOIN v4.user_profile_tbl p ON a.id = p.user_id
-     WHERE p.company = $1 AND a.business_unit = $2
+     WHERE p.company = $1 AND a.business_unit = $2 AND a.is_active = true
      ORDER BY p.first_name ASC`,
     [companyId, businessUnit],
   );
