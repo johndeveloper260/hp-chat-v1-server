@@ -85,8 +85,10 @@ export const updateUserProfile = async (userId, data, requestorBU) => {
   const member = await profileRepo.findUserInBU(userId, requestorBU);
   if (!member) throw new ForbiddenError();
 
-  const row = await profileRepo.updateUserProfile(userId, data);
-  await syncUserToStream(userId);
+  const row = await profileRepo.updateUserProfile(userId, data, requestorBU);
+  try { await syncUserToStream(userId); } catch (e) {
+    console.error("Stream sync after profile update failed:", e);
+  }
   return row;
 };
 

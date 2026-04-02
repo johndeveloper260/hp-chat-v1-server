@@ -161,21 +161,44 @@ export const findUserProfile = async (userId, businessUnit, lang) => {
 
 // ── Update profile ────────────────────────────────────────────────────────────
 
-export const updateUserProfile = async (userId, data) => {
+export const updateUserProfile = async (userId, data, businessUnit) => {
   const cleanDate = (d) => (d === "" ? null : d);
   const { rows } = await getPool().query(
-    `UPDATE v4.user_profile_tbl SET
-       first_name = $1,  middle_name = $2,  last_name = $3,
-       user_type = $4,   position = $5,     company = $6,
-       batch_no = $7,    company_branch = $8, phone_number = $9,
-       postal_code = $10, street_address = $11, city = $12,
-       state_province = $13, country = $14, sending_org = $15,
-       emergency_contact_name = $16,   emergency_contact_number = $17,
-       emergency_contact_address = $18, emergency_email = $19,
-       birthdate = $20,  gender = $21,      company_joining_date = $22,
-       updated_at = CURRENT_TIMESTAMP
-     WHERE user_id = $23 RETURNING *`,
+    `INSERT INTO v4.user_profile_tbl (
+       user_id, first_name, middle_name, last_name, user_type, position, company,
+       batch_no, company_branch, phone_number, postal_code, street_address, city,
+       state_province, country, sending_org, emergency_contact_name,
+       emergency_contact_number, emergency_contact_address, emergency_email,
+       birthdate, gender, company_joining_date, business_unit,
+       created_at, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,NOW(),NOW())
+     ON CONFLICT (user_id) DO UPDATE SET
+       first_name              = EXCLUDED.first_name,
+       middle_name             = EXCLUDED.middle_name,
+       last_name               = EXCLUDED.last_name,
+       user_type               = EXCLUDED.user_type,
+       position                = EXCLUDED.position,
+       company                 = EXCLUDED.company,
+       batch_no                = EXCLUDED.batch_no,
+       company_branch          = EXCLUDED.company_branch,
+       phone_number            = EXCLUDED.phone_number,
+       postal_code             = EXCLUDED.postal_code,
+       street_address          = EXCLUDED.street_address,
+       city                    = EXCLUDED.city,
+       state_province          = EXCLUDED.state_province,
+       country                 = EXCLUDED.country,
+       sending_org             = EXCLUDED.sending_org,
+       emergency_contact_name    = EXCLUDED.emergency_contact_name,
+       emergency_contact_number  = EXCLUDED.emergency_contact_number,
+       emergency_contact_address = EXCLUDED.emergency_contact_address,
+       emergency_email           = EXCLUDED.emergency_email,
+       birthdate               = EXCLUDED.birthdate,
+       gender                  = EXCLUDED.gender,
+       company_joining_date    = EXCLUDED.company_joining_date,
+       updated_at              = CURRENT_TIMESTAMP
+     RETURNING *`,
     [
+      userId,
       data.first_name,           data.middle_name,           data.last_name,
       data.user_type,            data.position,              data.company,
       data.batch_no,             data.company_branch,        data.phone_number,
@@ -185,7 +208,7 @@ export const updateUserProfile = async (userId, data) => {
       data.emergency_contact_address, data.emergency_email,
       cleanDate(data.birthdate), data.gender,
       cleanDate(data.company_joining_date),
-      userId,
+      businessUnit,
     ],
   );
   return rows[0] ?? null;
