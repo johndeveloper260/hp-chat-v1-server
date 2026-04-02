@@ -21,8 +21,8 @@ import {
 
 const router = express.Router();
 
-// ── any officer — used widely (dropdowns, audience targeting, etc.) ───────────
-router.get("/dropdown",              auth, requireOfficer,            getCompanyDropdown);
+// ── any authenticated user ────────────────────────────────────────────────────
+router.get("/dropdown",              auth,                            getCompanyDropdown);
 router.get("/coordinator-options",   auth, requireOfficer,               getCoordinatorOptions);
 router.get("/:companyId/employees",          auth, requireOfficer,             getEmployeesByCompany);
 router.get("/:companyId/registration-codes", auth, requireRole("company_read"), getRegistrationCodes);
