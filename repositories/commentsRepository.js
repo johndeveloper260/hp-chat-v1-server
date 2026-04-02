@@ -111,6 +111,14 @@ export const findInquiryRecipients = async (relationId, commenterId) => {
     const { owner_id, assigned_to, watcher } = inquiryRes.rows[0];
     recipients.push(owner_id, assigned_to, ...(watcher || []));
   }
+  const coordRes = await getPool().query(
+    `SELECT unnest(c.coordinators) AS user_id
+     FROM v4.inquiry_tbl i
+     JOIN v4.company_tbl c ON c.company_id = i.company AND c.business_unit = i.business_unit
+     WHERE i.ticket_id = $1 AND c.coordinators IS NOT NULL`,
+    [relationId],
+  );
+  recipients.push(...coordRes.rows.map((r) => r.user_id));
   const prevRes = await getPool().query(
     `SELECT DISTINCT user_id FROM v4.shared_comments
      WHERE relation_type = 'inquiries' AND relation_id = $1 AND user_id != $2`,
@@ -137,28 +145,25 @@ export const findAnnouncementRecipients = async (relationId, commenterId) => {
 export const findReturnHomeRecipients = async (relationId, commenterId) => {
   // Applicant on the record
   const appRes = await getPool().query(
-    "SELECT user_id FROM v4.return_home_tbl WHERE id = $1",
-    [relationId],
-  );
-  const recipients = appRes.rows[0] ? [appRes.rows[0].user_id] : [];
-
-  // Officers with flight_read or flight_write in the record's BU
-  const officerRes = await getPool().query(
-    `SELECT DISTINCT a.id AS user_id
+    `SELECT r.user_id, r.business_unit, p.company
      FROM v4.return_home_tbl r
-     JOIN v4.user_account_tbl a ON a.business_unit = r.business_unit
-     JOIN v4.user_profile_tbl p ON p.user_id = a.id
-     WHERE r.id = $1
-       AND p.user_type = 'OFFICER'
-       AND a.is_active = true
-       AND EXISTS (
-         SELECT 1 FROM v4.user_roles ur
-         WHERE ur.user_id = a.id
-           AND ur.role_name IN ('flight_read', 'flight_write')
-       )`,
+     JOIN v4.user_profile_tbl p ON p.user_id = r.user_id
+     WHERE r.id = $1`,
     [relationId],
   );
-  recipients.push(...officerRes.rows.map((r) => r.user_id));
+  const appRow = appRes.rows[0];
+  const recipients = appRow ? [appRow.user_id] : [];
+
+  // Company coordinators for the applicant's company
+  if (appRow?.company) {
+    const coordRes = await getPool().query(
+      `SELECT unnest(coordinators) AS user_id
+       FROM v4.company_tbl
+       WHERE company_id = $1 AND business_unit = $2 AND coordinators IS NOT NULL`,
+      [appRow.company, appRow.business_unit],
+    );
+    recipients.push(...coordRes.rows.map((r) => r.user_id));
+  }
 
   // Previous commenters on this record
   const prevRes = await getPool().query(
