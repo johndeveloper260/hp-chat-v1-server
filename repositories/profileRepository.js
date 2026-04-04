@@ -68,9 +68,9 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       p.gender,
       CASE WHEN p.birthdate IS NOT NULL THEN EXTRACT(YEAR FROM AGE(p.birthdate))::int ELSE NULL END AS age,
       s.descr AS sending_org_descr,
-      v.passport_expiry,
-      v.visa_expiry_date,
-      COALESCE(vl.descr ->> $1, vl.descr ->> 'en') AS visa_type_descr
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.passport_expiry    END AS passport_expiry,
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.visa_expiry_date   END AS visa_expiry_date,
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE COALESCE(vl.descr ->> $1, vl.descr ->> 'en') END AS visa_type_descr
     FROM v4.user_profile_tbl p
     JOIN  v4.user_account_tbl a  ON p.user_id = a.id
     LEFT JOIN v4.company_tbl  c  ON p.company::uuid = c.company_id
@@ -111,11 +111,11 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
   if (visa_type)    pushMulti('v.visa_type', visa_type);
   if (passport_expiry_within) {
     values.push(Number(passport_expiry_within));
-    parts.push(`AND v.passport_expiry IS NOT NULL AND v.passport_expiry <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
+    parts.push(`AND UPPER(p.user_type) NOT IN ('OFFICER','ADMIN') AND v.passport_expiry IS NOT NULL AND v.passport_expiry <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
   }
   if (visa_expiry_within) {
     values.push(Number(visa_expiry_within));
-    parts.push(`AND v.visa_expiry_date IS NOT NULL AND v.visa_expiry_date <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
+    parts.push(`AND UPPER(p.user_type) NOT IN ('OFFICER','ADMIN') AND v.visa_expiry_date IS NOT NULL AND v.visa_expiry_date <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
   }
 
   sql += ` ${parts.join(" ")} ORDER BY p.first_name ASC`;
