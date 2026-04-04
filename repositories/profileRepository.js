@@ -63,10 +63,20 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name 
       p.user_type,
       a.is_active,
       a.email,
-      a.last_seen
+      a.last_seen,
+      p.country,
+      p.gender,
+      CASE WHEN p.birthdate IS NOT NULL THEN EXTRACT(YEAR FROM AGE(p.birthdate))::int ELSE NULL END AS age,
+      s.descr AS sending_org_descr,
+      v.passport_expiry,
+      v.visa_expiry_date,
+      COALESCE(vl.descr ->> $1, vl.descr ->> 'en') AS visa_type_descr
     FROM v4.user_profile_tbl p
-    JOIN  v4.user_account_tbl a ON p.user_id = a.id
-    LEFT JOIN v4.company_tbl  c ON p.company::uuid = c.company_id
+    JOIN  v4.user_account_tbl a  ON p.user_id = a.id
+    LEFT JOIN v4.company_tbl  c  ON p.company::uuid = c.company_id
+    LEFT JOIN v4.sending_org_tbl s  ON s.code = p.sending_org AND s.business_unit = a.business_unit
+    LEFT JOIN v4.user_visa_info_tbl v  ON v.user_id = p.user_id
+    LEFT JOIN v4.visa_list_tbl vl  ON vl.code = v.visa_type AND vl.business_unit = a.business_unit
     WHERE a.business_unit = $2
       AND a.is_active = true
   `;
@@ -86,7 +96,7 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name 
     );
   }
 
-  sql += ` ${parts.join(" ")} ORDER BY p.first_name ASC LIMIT 50`;
+  sql += ` ${parts.join(" ")} ORDER BY p.first_name ASC`;
   const { rows } = await getPool().query(sql, values);
   return rows;
 };
