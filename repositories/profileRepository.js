@@ -42,7 +42,7 @@ export const getBUSettings = async (businessUnit) => {
 
 // ── Search users ──────────────────────────────────────────────────────────────
 
-export const searchUsers = async (lang, businessUnit, { company, batch_no, name } = {}) => {
+export const searchUsers = async (lang, businessUnit, { company, batch_no, name, country, sending_org, visa_type, passport_expiry_within, visa_expiry_within } = {}) => {
   const values = [lang, businessUnit];
   const parts  = [];
 
@@ -94,6 +94,26 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name 
     parts.push(
       `AND (p.first_name ILIKE $${values.length} OR p.last_name ILIKE $${values.length})`,
     );
+  }
+  if (country) {
+    values.push(country);
+    parts.push(`AND p.country = $${values.length}`);
+  }
+  if (sending_org) {
+    values.push(`%${sending_org}%`);
+    parts.push(`AND s.descr ILIKE $${values.length}`);
+  }
+  if (visa_type) {
+    values.push(visa_type);
+    parts.push(`AND v.visa_type = $${values.length}`);
+  }
+  if (passport_expiry_within) {
+    values.push(Number(passport_expiry_within));
+    parts.push(`AND v.passport_expiry IS NOT NULL AND v.passport_expiry <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
+  }
+  if (visa_expiry_within) {
+    values.push(Number(visa_expiry_within));
+    parts.push(`AND v.visa_expiry_date IS NOT NULL AND v.visa_expiry_date <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
   }
 
   sql += ` ${parts.join(" ")} ORDER BY p.first_name ASC`;
