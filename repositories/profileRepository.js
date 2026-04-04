@@ -81,10 +81,21 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       AND a.is_active = true
   `;
 
-  if (company) {
-    values.push(company);
-    parts.push(`AND p.company = $${values.length}`);
-  }
+  // Helper: push a single-or-array filter onto parts/values
+  const pushMulti = (field, param, transform = (v) => v) => {
+    if (!param) return;
+    const items = (Array.isArray(param) ? param : param.split(',')).map(transform).filter(Boolean);
+    if (!items.length) return;
+    if (items.length === 1) {
+      values.push(items[0]);
+      parts.push(`AND ${field} = $${values.length}`);
+    } else {
+      values.push(items);
+      parts.push(`AND ${field} = ANY($${values.length})`);
+    }
+  };
+
+  if (company)      pushMulti('p.company', company);
   if (batch_no) {
     values.push(batch_no);
     parts.push(`AND p.batch_no = $${values.length}`);
@@ -95,18 +106,9 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       `AND (p.first_name ILIKE $${values.length} OR p.last_name ILIKE $${values.length})`,
     );
   }
-  if (country) {
-    values.push(country);
-    parts.push(`AND p.country = $${values.length}`);
-  }
-  if (sending_org) {
-    values.push(`%${sending_org}%`);
-    parts.push(`AND s.descr ILIKE $${values.length}`);
-  }
-  if (visa_type) {
-    values.push(visa_type);
-    parts.push(`AND v.visa_type = $${values.length}`);
-  }
+  if (country)      pushMulti('LOWER(p.country)', country, (v) => v.toLowerCase());
+  if (sending_org)  pushMulti('p.sending_org', sending_org);
+  if (visa_type)    pushMulti('v.visa_type', visa_type);
   if (passport_expiry_within) {
     values.push(Number(passport_expiry_within));
     parts.push(`AND v.passport_expiry IS NOT NULL AND v.passport_expiry <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
