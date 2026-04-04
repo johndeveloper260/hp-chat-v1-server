@@ -64,12 +64,12 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       a.is_active,
       a.email,
       a.last_seen,
-      p.country,
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE p.country           END AS country,
       p.gender,
       CASE WHEN p.birthdate IS NOT NULL THEN EXTRACT(YEAR FROM AGE(p.birthdate))::int ELSE NULL END AS age,
-      s.descr AS sending_org_descr,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.passport_expiry    END AS passport_expiry,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.visa_expiry_date   END AS visa_expiry_date,
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE s.descr             END AS sending_org_descr,
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.passport_expiry   END AS passport_expiry,
+      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.visa_expiry_date  END AS visa_expiry_date,
       CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE COALESCE(vl.descr ->> $1, vl.descr ->> 'en') END AS visa_type_descr
     FROM v4.user_profile_tbl p
     JOIN  v4.user_account_tbl a  ON p.user_id = a.id
