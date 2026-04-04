@@ -106,7 +106,7 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       `AND (p.first_name ILIKE $${values.length} OR p.last_name ILIKE $${values.length})`,
     );
   }
-  if (country)      pushMulti('LOWER(p.country)', country, (v) => v.toLowerCase());
+  if (country)      pushMulti('UPPER(p.country)', country, (v) => v.toUpperCase());
   if (sending_org)  pushMulti('p.sending_org', sending_org);
   if (visa_type)    pushMulti('v.visa_type', visa_type);
   if (passport_expiry_within) {
