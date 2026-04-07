@@ -29,6 +29,7 @@ import sharepointRoutes from "./routes/sharepointRoutes.js";
 import returnHomeRoutes from "./routes/returnHomeRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
+import souserRoutes from "./routes/souserRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -114,6 +115,7 @@ app.use("/return-home", returnHomeRoutes);
 app.use("/leave", leaveRoutes);
 
 app.use("/audit", auditRoutes);
+app.use("/souser", souserRoutes);
 
 // ── Global Error Handler ──────────────────────────────────────────────────────
 // MUST be mounted AFTER all routes so Express recognises it as a 4-arg handler
