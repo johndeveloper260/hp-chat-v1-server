@@ -9,7 +9,7 @@ import { getPool } from "../config/getPool.js";
 
 export const findSendingOrgs = (countryOrigin, businessUnit) =>
   getPool().query(
-    `SELECT code AS value, descr AS label
+    `SELECT code AS value, descr AS label, country_origin
      FROM v4.sending_org_tbl
      WHERE active = true
        AND ($1::text IS NULL OR country_origin = $1)
