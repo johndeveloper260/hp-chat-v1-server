@@ -18,6 +18,7 @@ import { PutObjectCommand }  from "@aws-sdk/client-s3";
 import env                  from "../config/env.js";
 import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
 import { getS3Key }         from "../utils/getS3Key.js";
+import { clearAvatarCache } from "./profileService.js";
 import * as attachRepo      from "../repositories/attachmentRepository.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppError.js";
 
@@ -63,6 +64,7 @@ export const createAttachment = async ({
 
   // Sync profile pictures to GetStream (best-effort)
   if (relation_type === "profile") {
+    clearAvatarCache(relation_id);
     try {
       await syncProfilePictureToStream(relation_id, s3_key, s3_bucket);
     } catch (err) {
@@ -125,6 +127,7 @@ export const deleteAttachment = async (attachmentId, userBU) => {
 
   // Remove from Stream if this was a profile picture
   if (relation_type === "profile") {
+    clearAvatarCache(relation_id);
     try {
       await getStreamClient().partialUpdateUser({
         id: relation_id.toString(),
@@ -148,6 +151,7 @@ export const deleteProfilePicture = async (userId, userBU) => {
   await deleteFromS3(pic.s3_key);
   await attachRepo.deleteAttachmentById(pic.attachment_id);
 
+  clearAvatarCache(userId);
   try {
     await getStreamClient().partialUpdateUser({
       id: userId.toString(),
@@ -173,6 +177,7 @@ export const deleteAttachmentsByRelation = async (relationType, relationId, user
   await attachRepo.deleteAttachmentsByRelation(relationType, relationId);
 
   if (relationType === "profile") {
+    clearAvatarCache(relationId);
     try {
       await getStreamClient().partialUpdateUser({
         id: relationId.toString(),

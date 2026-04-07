@@ -152,12 +152,29 @@ export const updateNotificationPreference = async (userId, value) => {
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
+// Cache presigned avatar URLs per user. TTL is 55 min; the URL itself expires at 60 min.
+const _avatarCache = new Map(); // userId (string) → { url, expiresAt }
+const AVATAR_URL_TTL_MS = 55 * 60 * 1000;
+
+/** Evict a user's cached avatar URL — call when their profile picture changes. */
+export const clearAvatarCache = (userId) => {
+  _avatarCache.delete(String(userId));
+};
+
 /**
  * Returns a short-lived presigned S3 URL for the user's latest profile picture.
+ * Results are cached in-process for 55 minutes to avoid redundant S3 API calls.
  * Throws NotFoundError if no picture has been uploaded.
  */
 export const getUserAvatarUrl = async (userId) => {
+  const key = String(userId);
+  const cached = _avatarCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) return cached.url;
+
   const row = await profileRepo.findLatestAvatar(userId);
   if (!row) throw new NotFoundError("no_profile_picture");
-  return getPresignedUrl(row.s3_bucket, row.s3_key, 3600);
+
+  const url = await getPresignedUrl(row.s3_bucket, row.s3_key, 3600);
+  _avatarCache.set(key, { url, expiresAt: Date.now() + AVATAR_URL_TTL_MS });
+  return url;
 };
