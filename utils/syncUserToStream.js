@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 
 import { getPool } from "../config/getPool.js";
 import { formatDisplayName } from "./formatDisplayName.js";
+import env from "../config/env.js";
 
 dotenv.config();
 
@@ -76,11 +77,12 @@ export const syncUserToStream = async (userId, dbClient) => {
   const fullName = formatDisplayName(user.last_name, user.first_name, user.middle_name);
   const normalizedEmail = user.email.toLowerCase().trim();
 
-  // Use the permanent avatar proxy URL instead of a pre-signed S3 URL.
-  // The proxy endpoint generates a fresh signed URL on every load, so this
-  // URL never expires and is safe to store permanently in Stream Chat.
+  // Use CloudFront URL when available (permanent, no expiry, no backend hop).
+  // Fall back to the proxy URL which generates a fresh signed URL on each load.
   const profileImageUrl = user.profile_pic_s3_key
-    ? `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
+    ? env.aws.cloudfrontDomain
+      ? `https://${env.aws.cloudfrontDomain}/${user.profile_pic_s3_key}`
+      : `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
     : null;
 
   const streamUserData = {
