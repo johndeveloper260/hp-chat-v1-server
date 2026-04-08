@@ -73,6 +73,7 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     LEFT JOIN v4.user_profile_tbl requester ON requester.user_id = $2::uuid
+    LEFT JOIN v4.souser_tbl souser_req ON souser_req.id = $2::uuid
     LEFT JOIN LATERAL (
       SELECT attachment_id
       FROM v4.shared_attachments
@@ -95,9 +96,9 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
   if (isOfficer) {
     // Officers see everything in the BU — no extra targeting filters
   } else {
-    // Regular users: must match country and sending_org targeting
-    query += ` AND (a.country IS NULL OR cardinality(a.country) = 0 OR requester.country = ANY(a.country))`;
-    query += ` AND (a.sending_org IS NULL OR requester.sending_org = a.sending_org)`;
+    // Regular users: must match country and sending_org targeting (souser_tbl takes priority)
+    query += ` AND (a.country IS NULL OR cardinality(a.country) = 0 OR COALESCE(souser_req.country, requester.country) = ANY(a.country))`;
+    query += ` AND (a.sending_org IS NULL OR COALESCE(souser_req.sending_org, requester.sending_org) = a.sending_org)`;
 
     if (company_filter) {
       values.push(company_filter);
