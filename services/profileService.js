@@ -174,7 +174,11 @@ export const getUserAvatarUrl = async (userId) => {
   const row = await profileRepo.findLatestAvatar(userId);
   if (!row) throw new NotFoundError("no_profile_picture");
 
-  const url = await getPresignedUrl(row.s3_bucket, row.s3_key, 3600);
+  // Serve via CloudFront when available — cached at edge, no S3 egress per user.
+  const url = env.aws.cloudfrontDomain
+    ? `https://${env.aws.cloudfrontDomain}/${row.s3_key}`
+    : await getPresignedUrl(row.s3_bucket, row.s3_key, 3600);
+
   _avatarCache.set(key, { url, expiresAt: Date.now() + AVATAR_URL_TTL_MS });
   return url;
 };

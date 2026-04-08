@@ -49,6 +49,7 @@ const env = {
       process.env.REACT_APP_AWS_SECRET_ACCESS_KEY ||
       process.env.AWS_SECRET_ACCESS_KEY,
     bucket: process.env.S3_BUCKET_NAME || process.env.REACT_APP_AWS_BUCKET,
+    cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN, // e.g. xxxxxxxxxxxx.cloudfront.net
   },
 
   email: {

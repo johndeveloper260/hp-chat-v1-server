@@ -82,7 +82,9 @@ export const createAttachment = async ({
  * Re-exported for backward compatibility.
  */
 export const syncProfilePictureToStream = async (userId, s3Key, s3Bucket) => {
-  const profileImageUrl = await getDownloadUrl(s3Bucket, s3Key, 86400);
+  const profileImageUrl = env.aws.cloudfrontDomain
+    ? `https://${env.aws.cloudfrontDomain}/${s3Key}`
+    : await getDownloadUrl(s3Bucket, s3Key, 86400);
   await getStreamClient().partialUpdateUser({
     id: userId.toString(),
     set: { image: profileImageUrl },
@@ -99,6 +101,12 @@ export const getViewingUrl = async (attachmentId, userBU) => {
   const { relation_type, relation_id, s3_key, s3_bucket } = attachment;
   const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
+
+  // Announcements and profile pictures are public — serve via CloudFront so
+  // files are cached at the edge and S3 egress is only charged once per edge location.
+  if ((relation_type === "announcements" || relation_type === "profile") && env.aws.cloudfrontDomain) {
+    return `https://${env.aws.cloudfrontDomain}/${s3_key}`;
+  }
 
   return getDownloadUrl(s3_bucket, s3_key, 3600);
 };
