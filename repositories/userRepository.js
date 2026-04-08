@@ -104,8 +104,12 @@ export async function findUserByEmail(email, client) {
     SELECT
       a.id, a.email, a.password_hash, a.business_unit,
       a.is_active, a.preferred_language, a.notification, a.created_at AS account_created_at,
-      p.user_id, p.first_name, p.middle_name, p.last_name,
-      p.user_type, p.position, p.company, p.batch_no,
+      p.user_id,
+      COALESCE(p.first_name, su.first_name) AS first_name,
+      p.middle_name,
+      COALESCE(p.last_name, su.last_name) AS last_name,
+      COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END) AS user_type,
+      p.position, p.company, p.batch_no,
       p.company_branch, p.phone_number,
       p.postal_code, p.street_address, p.city, p.state_province,
       COALESCE(
@@ -138,6 +142,7 @@ export async function findUserByEmail(email, client) {
     LEFT JOIN v4.visa_list_tbl vl          ON v.visa_type = vl.code
                                           AND a.business_unit = vl.business_unit
     LEFT JOIN v4.business_unit_tbl bu      ON a.business_unit = bu.bu_code
+    LEFT JOIN v4.souser_tbl su             ON a.id = su.id
     LEFT JOIN LATERAL (
       SELECT attachment_id, s3_key, s3_bucket, display_name, file_type
       FROM   v4.shared_attachments
