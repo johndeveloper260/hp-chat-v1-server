@@ -15,7 +15,9 @@ const env = {
     port: Number(process.env.PORT) || 8010,
     nodeEnv: process.env.NODE_ENV || "development",
     backendUrl: process.env.BACKEND_URL || "http://localhost:8010",
-    frontendUrl: process.env.FRONTEND_URL || "https://forward-hp-ultra.horensoplus.com",
+    frontendUrl:
+      process.env.FRONTEND_URL ||
+      "https://hp-chat-web--dev-13u7zg05.web.app/login",
   },
 
   db: {
@@ -41,8 +43,11 @@ const env = {
 
   aws: {
     region: process.env.REACT_APP_AWS_REGION || process.env.AWS_REGION,
-    accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId:
+      process.env.REACT_APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey:
+      process.env.REACT_APP_AWS_SECRET_ACCESS_KEY ||
+      process.env.AWS_SECRET_ACCESS_KEY,
     bucket: process.env.S3_BUCKET_NAME || process.env.REACT_APP_AWS_BUCKET,
   },
 
@@ -78,20 +83,20 @@ const env = {
 // ─── Startup Validation ────────────────────────────────────────────────────
 // Add any variable here that will cause silent failures if missing.
 const REQUIRED = [
-  ["DB_HOST",          env.db.host],
-  ["DB_USER",          env.db.user],
-  ["DB_PASS",          env.db.password],
-  ["DB_DATABASE",      env.db.database],
-  ["SECRET_TOKEN",     env.jwt.secret],
-  ["STREAM_API_KEY",   env.stream.apiKey],
-  ["STREAM_API_SECRET",env.stream.apiSecret],
+  ["DB_HOST", env.db.host],
+  ["DB_USER", env.db.user],
+  ["DB_PASS", env.db.password],
+  ["DB_DATABASE", env.db.database],
+  ["SECRET_TOKEN", env.jwt.secret],
+  ["STREAM_API_KEY", env.stream.apiKey],
+  ["STREAM_API_SECRET", env.stream.apiSecret],
 ];
 
 for (const [name, value] of REQUIRED) {
   if (!value) {
     throw new Error(
       `[env] Missing required environment variable: ${name}\n` +
-      `Check your .env file and ensure it is loaded before this module.`
+        `Check your .env file and ensure it is loaded before this module.`,
     );
   }
 }

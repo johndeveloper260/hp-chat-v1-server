@@ -1,5 +1,23 @@
+import crypto from "crypto";
+import bcrypt from "bcrypt";
+import { StreamChat } from "stream-chat";
 import * as souserRepo from "../repositories/souserRepository.js";
 import { ConflictError, NotFoundError } from "../errors/AppError.js";
+import * as mailer from "../config/systemMailer.js";
+import env from "../config/env.js";
+
+const streamClient = StreamChat.getInstance(
+  process.env.STREAM_API_KEY,
+  process.env.STREAM_API_SECRET,
+);
+
+const syncBuListToStream = async (souserId) => {
+  const { rows } = await souserRepo.findActiveBuList(souserId);
+  await streamClient.partialUpdateUser({
+    id: souserId,
+    set: { bu_access: rows.map((r) => r.business_unit) },
+  });
+};
 
 export const getSousers = async (businessUnit) => {
   const { rows } = await souserRepo.findAllByBU(businessUnit);
@@ -20,7 +38,7 @@ export const createSouser = async (data, officer) => {
   }
 
   // 1. Create auth account (inactive until activation)
-  const { rows: [account] } = await souserRepo.insertUserAccount(data.email);
+  const { rows: [account] } = await souserRepo.insertUserAccount(data.email, officer.business_unit);
   const souserId = account.id;
 
   // 2. Create souser profile — primary_bu inherited from officer
@@ -46,13 +64,53 @@ export const createSouser = async (data, officer) => {
     );
   }
 
+  // 5. Generate temp password, activate account, send welcome email
+  const tempPassword = crypto.randomBytes(4).toString("hex");
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+  await souserRepo.setPasswordHash(souserId, passwordHash);
+
+  // 6. Sync to GetStream
+  try {
+    const buList = [officer.business_unit, ...(data.additional_bus || [])];
+    await streamClient.upsertUser({
+      id:            souserId,
+      name:          `${data.first_name} ${data.last_name}`.trim(),
+      email:         data.email.toLowerCase().trim(),
+      business_unit: officer.business_unit,
+      sending_org:   data.sending_org,
+      user_type:     "souser",
+      bu_access:     [...new Set(buList)],
+    });
+  } catch (streamErr) {
+    console.error("souserService.createSouser: Stream upsert failed", streamErr);
+  }
+
+  await mailer.souserActivation(
+    data.email,
+    "Your Sending Organisation User Account",
+    `${data.first_name} ${data.last_name}`,
+    tempPassword,
+    env.app.frontendUrl,
+  );
+
   return getSouserById(souserId);
 };
 
 export const updateSouser = async (id, data) => {
   const { rows } = await souserRepo.updateSouserById(id, data);
   if (!rows[0]) throw new NotFoundError("souser_not_found");
-  return rows[0];
+  const updated = rows[0];
+  try {
+    await streamClient.partialUpdateUser({
+      id,
+      set: {
+        name: updated.display_name || `${updated.first_name} ${updated.last_name}`.trim(),
+      },
+    });
+  } catch (streamErr) {
+    console.error("souserService.updateSouser: Stream update failed", streamErr);
+  }
+  return updated;
 };
 
 export const toggleSouserActive = async (id, updatedBy) => {
@@ -63,8 +121,29 @@ export const toggleSouserActive = async (id, updatedBy) => {
 
 export const grantBuAccess = async (souserId, businessUnit, grantedBy) => {
   await souserRepo.insertBuAccess(souserId, businessUnit, grantedBy);
+  try {
+    await syncBuListToStream(souserId);
+  } catch (streamErr) {
+    console.error("souserService.grantBuAccess: Stream sync failed", streamErr);
+  }
 };
 
 export const revokeBuAccess = async (souserId, businessUnit, revokedBy) => {
   await souserRepo.revokeBuAccess(souserId, businessUnit, revokedBy);
+  try {
+    await syncBuListToStream(souserId);
+  } catch (streamErr) {
+    console.error("souserService.revokeBuAccess: Stream sync failed", streamErr);
+  }
+};
+
+export const deleteSouser = async (id) => {
+  const { rows } = await souserRepo.findById(id);
+  if (!rows[0]) throw new NotFoundError("souser_not_found");
+  await souserRepo.deleteSouser(id);
+  try {
+    await streamClient.deleteUser(id, { mark_messages_deleted: false, hard: false });
+  } catch (streamErr) {
+    console.error("souserService.deleteSouser: Stream delete failed", streamErr);
+  }
 };

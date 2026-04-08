@@ -44,6 +44,13 @@ export const findById = (id) =>
     [id],
   );
 
+export const findActiveBuList = (id) =>
+  getPool().query(
+    `SELECT business_unit FROM v4.souser_bu_access_tbl
+     WHERE souser_id = $1 AND revoked_at IS NULL`,
+    [id],
+  );
+
 // ── Existence checks ───────────────────────────────────────────────────────────
 
 export const countByEmail = (email) =>
@@ -54,12 +61,12 @@ export const countByEmail = (email) =>
 
 // ── Create ─────────────────────────────────────────────────────────────────────
 
-export const insertUserAccount = (email) =>
+export const insertUserAccount = (email, businessUnit) =>
   getPool().query(
     `INSERT INTO v4.user_account_tbl (email, business_unit, is_active)
-     VALUES ($1, 'SO', false)
+     VALUES ($1, $2, false)
      RETURNING id`,
-    [email],
+    [email, businessUnit],
   );
 
 export const insertSouser = ({
@@ -127,6 +134,21 @@ export const toggleActive = (id, updatedBy) =>
   );
 
 // ── BU Access ──────────────────────────────────────────────────────────────────
+
+export const deleteSouser = async (id) => {
+  const pool = getPool();
+  await pool.query(`DELETE FROM v4.souser_bu_access_tbl WHERE souser_id = $1`, [id]);
+  await pool.query(`DELETE FROM v4.souser_tbl WHERE id = $1`, [id]);
+  await pool.query(`DELETE FROM v4.user_account_tbl WHERE id = $1`, [id]);
+};
+
+export const setPasswordHash = (id, passwordHash) =>
+  getPool().query(
+    `UPDATE v4.user_account_tbl
+     SET password_hash = $2, is_active = true
+     WHERE id = $1`,
+    [id, passwordHash],
+  );
 
 export const revokeBuAccess = (souser_id, business_unit, revoked_by) =>
   getPool().query(

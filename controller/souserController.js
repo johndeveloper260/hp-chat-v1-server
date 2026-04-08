@@ -1,5 +1,14 @@
 import * as souserService from "../services/souserService.js";
 
+export const deleteSouser = async (req, res, next) => {
+  try {
+    await souserService.deleteSouser(req.params.id);
+    res.json({ message: "SO User deleted." });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getSousers = async (req, res, next) => {
   try {
     const result = await souserService.getSousers(req.user.business_unit);

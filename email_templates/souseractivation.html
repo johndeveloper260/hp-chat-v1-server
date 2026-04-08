@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .email-body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            text-align: left;
+        }
+        h3 { color: #0275d8; margin-top: 0; }
+        hr { border: 0; border-top: 1px solid #eeeeee; margin: 20px 0; }
+        .info-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #ddd;
+            margin: 15px 0;
+        }
+        .password-box {
+            background-color: #fff8e1;
+            padding: 16px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #ffe082;
+            margin: 20px 0;
+        }
+        .btn-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0275d8;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .lang-section {
+            padding: 15px 0;
+            border-bottom: 1px dashed #eeeeee;
+        }
+        .lang-label {
+            font-size: 11px;
+            color: #0275d8;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .instruction {
+            font-size: 0.9rem;
+            color: #555;
+            margin: 0;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f4f4; margin: 0; padding: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+            <td align="center" style="padding: 20px;">
+                <div class="email-body">
+                    <h3>Welcome to HoRenSo+</h3>
+                    <hr>
+                    <p>Hi {{name}},</p>
+
+                    <p>Your Sending Organisation user account has been created. Use the temporary password below to sign in for the first time.</p>
+
+                    <div class="password-box">
+                        <p style="margin: 0 0 6px 0; font-size: 0.85rem; color: #888;">Temporary Password / 仮パスワード</p>
+                        <p style="margin: 0; font-size: 1.6rem; font-weight: bold; letter-spacing: 0.15em; color: #333; font-family: monospace;">{{password}}</p>
+                        <p style="margin: 10px 0 0 0; font-size: 0.78rem; color: #aaa;">Please change your password after your first login.</p>
+                    </div>
+
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="{{homeurl}}" class="btn-link">Sign In Now / 今すぐサインイン</a>
+                    </div>
+
+                    <div class="lang-section">
+                        <span class="lang-label">English</span>
+                        <p class="instruction">Welcome to HoRenSo+! We are excited to have you on board.</p>
+                    </div>
+
+                    <div class="lang-section">
+                        <span class="lang-label">日本語</span>
+                        <p class="instruction">HoRenSo+へようこそ！ご利用いただけることを心より歓迎いたします。</p>
+                    </div>
+
+                    <div class="lang-section" style="border-bottom: none;">
+                        <span class="lang-label">Bahasa Indonesia / Tiếng Việt</span>
+                        <p class="instruction">Selamat datang di HoRenSo+! / Chào mừng bạn đến với HoRenSo+!</p>
+                    </div>
+
+                    <p style="margin-top: 25px; border-top: 1px solid #eeeeee; padding-top: 10px;">
+                        HoRenSo+ Team
+                    </p>
+                </div>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

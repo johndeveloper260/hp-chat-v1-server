@@ -74,6 +74,11 @@ export const newRegistration = async (
   await sendEmail(emailId, emailTitle, html);
 };
 
+export const souserActivation = async (emailId, emailTitle, name, password, homeurl) => {
+  const html = await renderTemplate("souseractivation", { name, password, homeurl });
+  await sendEmail(emailId, emailTitle, html);
+};
+
 export const additionalRegistration = async (
   emailId,
   emailTitle,

@@ -8,6 +8,7 @@ import {
   getSouserById,
   createSouser,
   updateSouser,
+  deleteSouser,
   toggleSouserActive,
   grantBuAccess,
   revokeBuAccess,
@@ -25,5 +26,6 @@ router.patch( "/:id",            auth, requireRole("souser_write"), validate(upd
 router.patch( "/:id/toggle",     auth, requireRole("souser_write"), toggleSouserActive);
 router.post(  "/:id/bu-access",  auth, requireRole("souser_write"), grantBuAccess);
 router.delete("/:id/bu-access/:bu", auth, requireRole("souser_write"), revokeBuAccess);
+router.delete("/:id",               auth, requireRole("souser_write"), deleteSouser);
 
 export default router;
