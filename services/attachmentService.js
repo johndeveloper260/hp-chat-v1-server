@@ -102,9 +102,8 @@ export const getViewingUrl = async (attachmentId, userBU) => {
   const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
-  // Announcements and profile pictures are public — serve via CloudFront so
-  // files are cached at the edge and S3 egress is only charged once per edge location.
-  if ((relation_type === "announcements" || relation_type === "profile") && env.aws.cloudfrontDomain) {
+  // Serve via CloudFront when configured — cached at the edge, reduces S3 egress.
+  if ((relation_type === "announcements" || relation_type === "profile" || relation_type === "inquiries" || relation_type === "return_home") && env.aws.cloudfrontDomain) {
     return `https://${env.aws.cloudfrontDomain}/${s3_key}`;
   }
 
