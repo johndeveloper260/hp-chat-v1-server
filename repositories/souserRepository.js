@@ -163,8 +163,7 @@ export const updateBuAccessPermissions = (souser_id, business_unit, announcement
   getPool().query(
     `UPDATE v4.souser_bu_access_tbl
      SET announcements_read = $3,
-         announcements_write = $4,
-         updated_at = CURRENT_TIMESTAMP
+         announcements_write = $4
      WHERE souser_id = $1 AND business_unit = $2 AND revoked_at IS NULL`,
     [souser_id, business_unit, announcements_read, announcements_write],
   );
