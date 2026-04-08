@@ -130,6 +130,11 @@ export async function findUserByEmail(email, client) {
       ) AS visa_type_descr,
       bu.lock_screen_expire,
       bu.souser_enabled,
+      su.country       AS souser_country,
+      su.sending_org   AS souser_sending_org,
+      su.primary_bu    AS souser_primary_bu,
+      sba.announcements_read  AS souser_announcements_read,
+      sba.announcements_write AS souser_announcements_write,
       sa.attachment_id AS profile_pic_id,
       sa.s3_key        AS profile_pic_s3_key,
       sa.s3_bucket     AS profile_pic_s3_bucket,
@@ -143,6 +148,9 @@ export async function findUserByEmail(email, client) {
                                           AND a.business_unit = vl.business_unit
     LEFT JOIN v4.business_unit_tbl bu      ON a.business_unit = bu.bu_code
     LEFT JOIN v4.souser_tbl su             ON a.id = su.id
+    LEFT JOIN v4.souser_bu_access_tbl sba  ON sba.souser_id = a.id
+                                          AND sba.business_unit = a.business_unit
+                                          AND sba.revoked_at IS NULL
     LEFT JOIN LATERAL (
       SELECT attachment_id, s3_key, s3_bucket, display_name, file_type
       FROM   v4.shared_attachments

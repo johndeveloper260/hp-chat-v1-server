@@ -11,7 +11,7 @@ export const findAllByBU = (businessUnit) =>
        u.email,
        COALESCE(
          json_agg(
-           json_build_object('business_unit', b.business_unit, 'granted_at', b.granted_at)
+           json_build_object('business_unit', b.business_unit, 'granted_at', b.granted_at, 'announcements_read', b.announcements_read, 'announcements_write', b.announcements_write)
            ORDER BY b.granted_at
          ) FILTER (WHERE b.business_unit IS NOT NULL AND b.revoked_at IS NULL),
          '[]'
@@ -31,7 +31,7 @@ export const findById = (id) =>
        s.*, u.email,
        COALESCE(
          json_agg(
-           json_build_object('business_unit', b.business_unit, 'granted_at', b.granted_at)
+           json_build_object('business_unit', b.business_unit, 'granted_at', b.granted_at, 'announcements_read', b.announcements_read, 'announcements_write', b.announcements_write)
            ORDER BY b.granted_at
          ) FILTER (WHERE b.business_unit IS NOT NULL AND b.revoked_at IS NULL),
          '[]'
@@ -157,4 +157,14 @@ export const revokeBuAccess = (souser_id, business_unit, revoked_by) =>
          revoked_by = $3
      WHERE souser_id = $1 AND business_unit = $2 AND revoked_at IS NULL`,
     [souser_id, business_unit, revoked_by],
+  );
+
+export const updateBuAccessPermissions = (souser_id, business_unit, announcements_read, announcements_write) =>
+  getPool().query(
+    `UPDATE v4.souser_bu_access_tbl
+     SET announcements_read = $3,
+         announcements_write = $4,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE souser_id = $1 AND business_unit = $2 AND revoked_at IS NULL`,
+    [souser_id, business_unit, announcements_read, announcements_write],
   );

@@ -71,3 +71,13 @@ export const revokeBuAccess = async (req, res, next) => {
     next(err);
   }
 };
+
+export const updateBuAccessPermissions = async (req, res, next) => {
+  try {
+    const { announcements_read, announcements_write } = req.body;
+    await souserService.updateBuAccessPermissions(req.params.id, req.params.bu, announcements_read, announcements_write);
+    res.json({ message: "Permissions updated." });
+  } catch (err) {
+    next(err);
+  }
+};

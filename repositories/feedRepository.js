@@ -15,9 +15,12 @@ export const findPosters = async (businessUnit) => {
   const { rows } = await getPool().query(
     `SELECT DISTINCT
        a.created_by AS value,
-       p.first_name AS fn, p.middle_name AS mn, p.last_name AS ln
+       COALESCE(p.first_name, s.first_name) AS fn,
+       p.middle_name AS mn,
+       COALESCE(p.last_name, s.last_name) AS ln
      FROM v4.announcement_tbl a
-     JOIN v4.user_profile_tbl p ON a.created_by = p.user_id
+     LEFT JOIN v4.user_profile_tbl p ON a.created_by = p.user_id
+     LEFT JOIN v4.souser_tbl s ON a.created_by::uuid = s.id
      WHERE a.business_unit = $1`,
     [businessUnit],
   );
@@ -58,7 +61,9 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
-      u.first_name AS cb_fn, u.middle_name AS cb_mn, u.last_name AS cb_ln,
+      COALESCE(u.first_name, creator_souser.first_name) AS cb_fn,
+      u.middle_name AS cb_mn,
+      COALESCE(u.last_name, creator_souser.last_name) AS cb_ln,
       sa.attachment_id AS author_profile_pic_id,
       COALESCE(
         (
@@ -72,6 +77,7 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
       ) AS attachments
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
+    LEFT JOIN v4.souser_tbl creator_souser ON a.created_by::uuid = creator_souser.id
     LEFT JOIN v4.user_profile_tbl requester ON requester.user_id = $2::uuid
     LEFT JOIN v4.souser_tbl souser_req ON souser_req.id = $2::uuid
     LEFT JOIN LATERAL (
@@ -96,9 +102,22 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
   if (isOfficer) {
     // Officers see everything in the BU — no extra targeting filters
   } else {
-    // Regular users: must match country and sending_org targeting (souser_tbl takes priority)
-    query += ` AND (a.country IS NULL OR cardinality(a.country) = 0 OR COALESCE(souser_req.country, requester.country) = ANY(a.country))`;
-    query += ` AND (a.sending_org IS NULL OR COALESCE(souser_req.sending_org, requester.sending_org) = a.sending_org)`;
+    // Sousers: strict match — announcement must explicitly target their country and sending_org
+    // Regular users: null/empty fields on the announcement mean "global" (shown to all)
+    query += ` AND (
+      CASE
+        WHEN souser_req.id IS NOT NULL
+        THEN (a.country IS NOT NULL AND cardinality(a.country) > 0 AND souser_req.country = ANY(a.country))
+        ELSE (a.country IS NULL OR cardinality(a.country) = 0 OR requester.country = ANY(a.country))
+      END
+    )`;
+    query += ` AND (
+      CASE
+        WHEN souser_req.id IS NOT NULL
+        THEN (a.sending_org IS NOT NULL AND souser_req.sending_org = a.sending_org)
+        ELSE (a.sending_org IS NULL OR requester.sending_org = a.sending_org)
+      END
+    )`;
 
     if (company_filter) {
       values.push(company_filter);
@@ -150,12 +169,25 @@ export const findAnnouncementById = async (rowId, userBU, client) => {
 
 /** Returns the display name for a user, or "Someone" if not found. */
 export const findUserName = async (userId, client) => {
-  const { rows } = await db(client).query(
+  // First try to find in user_profile_tbl
+  const { rows: userRows } = await db(client).query(
     `SELECT first_name, middle_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1::uuid`,
     [userId],
   );
-  if (!rows[0]) return "Someone";
-  return formatDisplayName(rows[0].last_name, rows[0].first_name, rows[0].middle_name);
+  if (userRows[0]) {
+    return formatDisplayName(userRows[0].last_name, userRows[0].first_name, userRows[0].middle_name);
+  }
+
+  // If not found, try to find in souser_tbl
+  const { rows: souserRows } = await db(client).query(
+    `SELECT first_name, last_name FROM v4.souser_tbl WHERE id = $1::uuid`,
+    [userId],
+  );
+  if (souserRows[0]) {
+    return formatDisplayName(souserRows[0].last_name, souserRows[0].first_name, null);
+  }
+
+  return "Someone";
 };
 
 /**

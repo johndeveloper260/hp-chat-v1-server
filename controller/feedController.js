@@ -37,8 +37,17 @@ export const getAnnouncements = async (req, res, next) => {
 
 export const createAnnouncement = async (req, res, next) => {
   try {
-    const { id: userId, business_unit: userBU } = req.user;
-    const announcement = await feedService.createAnnouncement({ body: req.body, userId, userBU });
+    const { id: userId, business_unit: userBU, userType, souser_country, souser_sending_org, souser_primary_bu } = req.user;
+    const isSouser = (userType || "").toUpperCase() === "SOUSER";
+    const announcement = await feedService.createAnnouncement({
+      body: req.body,
+      userId,
+      userBU,
+      isSouser,
+      souserCountry: souser_country,
+      souserSendingOrg: souser_sending_org,
+      souserPrimaryBu: souser_primary_bu,
+    });
     res.status(201).json(announcement);
   } catch (err) {
     next(err);

@@ -33,8 +33,15 @@ export const getAnnouncements = async ({ company_filter, userId, userBU, userTyp
 
 // ─── 3. Create announcement ───────────────────────────────────────────────────
 
-export const createAnnouncement = async ({ body, userId, userBU }) => {
-  const { company, batch_no, country, sending_org, title, content_text, date_from, date_to, active, comments_on } = body;
+export const createAnnouncement = async ({ body, userId, userBU, isSouser, souserCountry, souserSendingOrg, souserPrimaryBu }) => {
+  let { company, batch_no, country, sending_org, title, content_text, date_from, date_to, active, comments_on } = body;
+
+  // Sousers: default/override country, sending_org, and business_unit to their own values
+  if (isSouser) {
+    country = souserCountry ? [souserCountry] : country;
+    sending_org = souserSendingOrg ?? sending_org;
+    userBU = souserPrimaryBu ?? userBU;
+  }
 
   const newAnnouncement = await feedRepo.insertAnnouncement({
     userBU, company, batch_no, country, sending_org, title, content_text,

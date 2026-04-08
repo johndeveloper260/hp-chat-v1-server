@@ -37,6 +37,23 @@ export const requireRole = (requiredRole) => {
     // ADMIN: always pass
     if (userType === "ADMIN") return next();
 
+    // SOUSER: check specific announcement flags from JWT
+    if (userType === "SOUSER") {
+      const parts = requiredRole.split("_");
+      const level = parts[parts.length - 1];
+      const module = parts.slice(0, -1).join("_");
+
+      if (module === "announcements") {
+        if (level === "read" && (req.user.souser_announcements_read || req.user.souser_announcements_write)) return next();
+        if (level === "write" && req.user.souser_announcements_write) return next();
+      }
+
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You do not have permission to access this resource.",
+      });
+    }
+
     // Non-officer (USER): always blocked on officer routes
     if (!FULL_ACCESS_TYPES.includes(userType)) {
       return res.status(403).json({

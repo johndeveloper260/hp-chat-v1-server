@@ -93,6 +93,11 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
     batch_no: user.batch_no,
     preferred_language: user.preferred_language || "en",
     roles,
+    souser_country: user.souser_country ?? null,
+    souser_sending_org: user.souser_sending_org ?? null,
+    souser_primary_bu: user.souser_primary_bu ?? null,
+    souser_announcements_read: user.souser_announcements_read ?? false,
+    souser_announcements_write: user.souser_announcements_write ?? false,
   };
 
   const token = jwt.sign(payload, env.jwt.secret.trim(), {
@@ -145,6 +150,11 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       passportExpiry: user.passport_expiry,
       lockScreenExpire: user.lock_screen_expire ?? false,
       bu_souser_enabled: user.souser_enabled ?? false,
+      souser_country: user.souser_country ?? null,
+      souser_sending_org: user.souser_sending_org ?? null,
+      souser_primary_bu: user.souser_primary_bu ?? null,
+      announcements_read: user.souser_announcements_read ?? false,
+      announcements_write: user.souser_announcements_write ?? false,
       accountCreatedAt: user.account_created_at,
       profilePicId: user.profile_pic_id,
       profilePictureUrl,

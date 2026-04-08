@@ -147,3 +147,7 @@ export const deleteSouser = async (id) => {
     console.error("souserService.deleteSouser: Stream delete failed", streamErr);
   }
 };
+
+export const updateBuAccessPermissions = async (souserId, businessUnit, announcements_read, announcements_write) => {
+  await souserRepo.updateBuAccessPermissions(souserId, businessUnit, announcements_read, announcements_write);
+};

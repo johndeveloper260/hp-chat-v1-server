@@ -12,6 +12,7 @@ import {
   toggleSouserActive,
   grantBuAccess,
   revokeBuAccess,
+  updateBuAccessPermissions,
 } from "../controller/souserController.js";
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.post(  "/create",         auth, requireRole("souser_write"), validate(cre
 router.patch( "/:id",            auth, requireRole("souser_write"), validate(updateSouserSchema), updateSouser);
 router.patch( "/:id/toggle",     auth, requireRole("souser_write"), toggleSouserActive);
 router.post(  "/:id/bu-access",  auth, requireRole("souser_write"), grantBuAccess);
+router.patch( "/:id/bu-access/:bu/permissions", auth, requireRole("souser_write"), updateBuAccessPermissions);
 router.delete("/:id/bu-access/:bu", auth, requireRole("souser_write"), revokeBuAccess);
 router.delete("/:id",               auth, requireRole("souser_write"), deleteSouser);
 
