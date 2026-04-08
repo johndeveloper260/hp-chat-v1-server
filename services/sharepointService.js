@@ -151,10 +151,14 @@ export const confirmFileUpload = async ({
   });
 };
 
-/** Returns a 1-hour presigned GET URL for viewing a file. */
+/** Returns a URL for viewing a file — CloudFront when configured, S3 presigned otherwise. */
 export const getFileViewUrl = async ({ id, businessUnit }) => {
   const file = await spRepo.findFileWithFolderBU(id, businessUnit);
   if (!file) throw new NotFoundError("record_not_found");
+
+  if (env.aws.cloudfrontDomain) {
+    return `https://${env.aws.cloudfrontDomain}/${file.s3_key}`;
+  }
 
   return getPresignedUrl(file.s3_bucket, file.s3_key, 3600);
 };
