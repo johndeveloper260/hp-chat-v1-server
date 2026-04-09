@@ -28,3 +28,16 @@ export const updateSouserSchema = z.object({
   country:        z.string().min(2).max(5).optional(),
   position_title: z.string().max(200).nullable().optional(),
 });
+
+// ── PATCH /souser/:id/reset-password ─────────────────────────────────────────
+export const resetSouserPasswordSchema = z.object({
+  new_password: z.string().min(6).max(128),
+});
+
+// ── PATCH /souser/me ──────────────────────────────────────────────────────────
+export const updateSouserSelfSchema = z.object({
+  first_name:     z.string().min(1).max(100).optional(),
+  last_name:      z.string().min(1).max(100).optional(),
+  display_name:   z.string().max(100).nullable().optional(),
+  position_title: z.string().max(200).nullable().optional(),
+});

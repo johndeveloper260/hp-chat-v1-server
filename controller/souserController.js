@@ -81,3 +81,30 @@ export const updateBuAccessPermissions = async (req, res, next) => {
     next(err);
   }
 };
+
+export const resetSouserPassword = async (req, res, next) => {
+  try {
+    await souserService.resetSouserPassword(req.params.id, req.body.new_password);
+    res.json({ message: "Password reset successfully." });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSouserSelf = async (req, res, next) => {
+  try {
+    const result = await souserService.getSouserById(req.user.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateSouserSelf = async (req, res, next) => {
+  try {
+    const record = await souserService.updateSouserSelf(req.user.id, req.body);
+    res.json({ message: "Profile updated.", record });
+  } catch (err) {
+    next(err);
+  }
+};

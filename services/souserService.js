@@ -151,3 +151,27 @@ export const deleteSouser = async (id) => {
 export const updateBuAccessPermissions = async (souserId, businessUnit, announcements_read, announcements_write) => {
   await souserRepo.updateBuAccessPermissions(souserId, businessUnit, announcements_read, announcements_write);
 };
+
+export const resetSouserPassword = async (id, newPassword) => {
+  const { rows } = await souserRepo.findById(id);
+  if (!rows[0]) throw new NotFoundError("souser_not_found");
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await souserRepo.updatePasswordHash(id, passwordHash);
+};
+
+export const updateSouserSelf = async (id, data) => {
+  const { rows } = await souserRepo.updateSouserById(id, data);
+  if (!rows[0]) throw new NotFoundError("souser_not_found");
+  const updated = rows[0];
+  try {
+    await streamClient.partialUpdateUser({
+      id,
+      set: {
+        name: updated.display_name || `${updated.first_name} ${updated.last_name}`.trim(),
+      },
+    });
+  } catch (streamErr) {
+    console.error("souserService.updateSouserSelf: Stream update failed", streamErr);
+  }
+  return updated;
+};

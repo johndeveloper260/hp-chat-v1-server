@@ -16,6 +16,7 @@ import {
   createAnnouncement,
   updateAnnouncement,
   toggleReaction,
+  toggleFavorite,
   getCompaniesWithUsers,
   getBatchesByCompany,
   previewAudience,
@@ -31,6 +32,7 @@ const router = express.Router();
 // ── All authenticated users ────────────────────────────────────────────────────
 router.get("/getAnnouncements",  auth, getAnnouncements);
 router.post("/:rowId/react",     auth, validate(toggleReactionSchema), toggleReaction);
+router.post("/:rowId/favorite",  auth, toggleFavorite);
 router.get("/reactions/:rowId",  auth, getReactions);
 router.post("/:rowId/mark-seen", auth, markAsSeen);
 

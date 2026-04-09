@@ -188,7 +188,13 @@ export const getViewers = async ({ rowId, userId, userBU }) => {
   return feedRepo.findViewers(rowId, lang, userBU);
 };
 
-// ─── 9. Delete (atomic cascade) ───────────────────────────────────────────────
+// ─── 9. Toggle favorite ───────────────────────────────────────────────────────
+
+export const toggleFavorite = async ({ rowId, userId }) => {
+  return feedRepo.toggleFavorite(rowId, userId);
+};
+
+// ─── 10. Delete (atomic cascade) ──────────────────────────────────────────────
 
 export const deleteAnnouncement = async ({ rowId, userBU }) => {
   const client = await getPool().connect();

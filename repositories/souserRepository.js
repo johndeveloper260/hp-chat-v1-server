@@ -8,7 +8,7 @@ export const findAllByBU = (businessUnit) =>
        s.id, s.first_name, s.last_name, s.display_name,
        s.sending_org, s.country, s.position_title, s.primary_bu,
        s.is_active, s.created_at,
-       u.email,
+       u.email, u.last_seen,
        COALESCE(
          json_agg(
            json_build_object('business_unit', b.business_unit, 'granted_at', b.granted_at, 'announcements_read', b.announcements_read, 'announcements_write', b.announcements_write)
@@ -20,7 +20,7 @@ export const findAllByBU = (businessUnit) =>
      JOIN v4.user_account_tbl u ON u.id = s.id
      LEFT JOIN v4.souser_bu_access_tbl b ON b.souser_id = s.id AND b.revoked_at IS NULL
      WHERE s.primary_bu = $1
-     GROUP BY s.id, u.email
+     GROUP BY s.id, u.email, u.last_seen
      ORDER BY s.last_name, s.first_name`,
     [businessUnit],
   );
@@ -146,6 +146,14 @@ export const setPasswordHash = (id, passwordHash) =>
   getPool().query(
     `UPDATE v4.user_account_tbl
      SET password_hash = $2, is_active = true
+     WHERE id = $1`,
+    [id, passwordHash],
+  );
+
+export const updatePasswordHash = (id, passwordHash) =>
+  getPool().query(
+    `UPDATE v4.user_account_tbl
+     SET password_hash = $2
      WHERE id = $1`,
     [id, passwordHash],
   );

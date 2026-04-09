@@ -58,6 +58,8 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
        WHERE announcement_id = a.row_id::integer) AS view_count,
       EXISTS(SELECT 1 FROM v4.announcement_views
              WHERE announcement_id = a.row_id::integer AND user_id = $2::uuid) AS has_viewed,
+      EXISTS(SELECT 1 FROM v4.announcement_favorites
+             WHERE row_id = a.row_id AND user_id = $2::uuid) AS is_favorited,
       a.comments_on,
       a.created_by,
       to_char(a.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at,
@@ -423,6 +425,27 @@ export const findViewers = async (rowId, lang, userBU) => {
   return rows.map(({ fn, mn, ln, ...rest }) => ({ ...rest, name: formatDisplayName(ln, fn, mn) }));
 };
 
+// ─── Favorites ────────────────────────────────────────────────────────────────
+
+export const toggleFavorite = async (rowId, userId) => {
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM v4.announcement_favorites WHERE row_id = $1::integer AND user_id = $2::uuid`,
+    [rowId, userId],
+  );
+  if (rows.length > 0) {
+    await getPool().query(
+      `DELETE FROM v4.announcement_favorites WHERE row_id = $1::integer AND user_id = $2::uuid`,
+      [rowId, userId],
+    );
+    return { is_favorited: false };
+  }
+  await getPool().query(
+    `INSERT INTO v4.announcement_favorites (row_id, user_id) VALUES ($1::integer, $2::uuid)`,
+    [rowId, userId],
+  );
+  return { is_favorited: true };
+};
+
 // ─── Delete (cascade) ─────────────────────────────────────────────────────────
 
 export const findAnnouncementAttachmentKeys = async (rowId, userBU, client) => {
@@ -435,6 +458,10 @@ export const findAnnouncementAttachmentKeys = async (rowId, userBU, client) => {
 };
 
 export const cascadeDeleteAnnouncement = async (rowId, userBU, client) => {
+  await db(client).query(
+    `DELETE FROM v4.announcement_favorites WHERE row_id = $1::integer`,
+    [rowId],
+  );
   await db(client).query(
     `DELETE FROM v4.announcement_views
      WHERE announcement_id = $1::integer AND business_unit = $2`,

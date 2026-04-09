@@ -145,6 +145,19 @@ export const previewAudience = async (req, res, next) => {
   }
 };
 
+// ─── Favorites ────────────────────────────────────────────────────────────────
+
+export const toggleFavorite = async (req, res, next) => {
+  try {
+    const { rowId } = req.params;
+    const { id: userId } = req.user;
+    const result = await feedService.toggleFavorite({ rowId, userId });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── Views ────────────────────────────────────────────────────────────────────
 
 export const markAsSeen = async (req, res, next) => {
