@@ -52,15 +52,24 @@ const slidingExpiration = (req, res, next) => {
           return next();
         }
 
-        // Generate a new token with fresh 30-day expiration
+        // Generate a new token with fresh 30-day expiration.
+        // Carry over ALL fields from the verified token so nothing is lost
+        // (roles, souser flags, visa info, etc.).
         const newPayload = {
           id: verified.id,
           user_type: verified.user_type,
           business_unit: verified.business_unit,
           company: verified.company,
           company_name: verified.company_name,
+          visa_type_descr: verified.visa_type_descr ?? null,
           batch_no: verified.batch_no,
           preferred_language: verified.preferred_language || "en",
+          roles: verified.roles ?? [],
+          souser_country: verified.souser_country ?? null,
+          souser_sending_org: verified.souser_sending_org ?? null,
+          souser_primary_bu: verified.souser_primary_bu ?? null,
+          souser_announcements_read: verified.souser_announcements_read ?? false,
+          souser_announcements_write: verified.souser_announcements_write ?? false,
         };
 
         const newToken = jwt.sign(newPayload, process.env.SECRET_TOKEN.trim(), {
