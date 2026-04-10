@@ -149,6 +149,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       visaExpiry: user.visa_expiry_date,
       passportExpiry: user.passport_expiry,
       lockScreenExpire: user.lock_screen_expire ?? false,
+      lockScreenExpireDays: user.lock_screen_expire_days ?? 14,
       bu_souser_enabled: user.souser_enabled ?? false,
       task_enabled: user.task_enabled ?? false,
       souser_country: user.souser_country ?? null,

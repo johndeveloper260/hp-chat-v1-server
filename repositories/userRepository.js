@@ -129,6 +129,7 @@ export async function findUserByEmail(email, client) {
         (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
       ) AS visa_type_descr,
       bu.lock_screen_expire,
+      bu.lock_screen_expire_days,
       bu.souser_enabled,
       bu.task_enabled,
       su.country       AS souser_country,

@@ -26,6 +26,7 @@ export const getBUSettings = async (businessUnit) => {
   const row = await profileRepo.getBUSettings(businessUnit);
   return {
     lockScreenExpire: row?.lock_screen_expire ?? false,
+    lockScreenExpireDays: row?.lock_screen_expire_days ?? 14,
   };
 };
 
