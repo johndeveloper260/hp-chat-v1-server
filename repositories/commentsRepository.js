@@ -174,6 +174,50 @@ export const findReturnHomeRecipients = async (relationId, commenterId) => {
   return [...recipients, ...prevRes.rows.map((r) => r.user_id)];
 };
 
+// ── Task-specific helpers ─────────────────────────────────────────────────────
+
+export const checkTaskBU = async (rowId, businessUnit) => {
+  const { rowCount } = await getPool().query(
+    "SELECT row_id FROM v4.tasks WHERE row_id = $1 AND business_unit = $2",
+    [rowId, businessUnit],
+  );
+  return rowCount > 0;
+};
+
+/**
+ * Returns user_ids of all team members on the task's team, excluding commenterId.
+ * taskRowId is the integer row_id (used as shared_comments.relation_id).
+ * Returns [] when the task has no team (personal board tasks).
+ */
+export const findTaskRecipients = async (taskRowId, commenterId) => {
+  const { rows } = await getPool().query(
+    `SELECT m.user_id
+     FROM v4.tasks t
+     JOIN v4.task_team_members m ON m.team_id = t.team_id
+     WHERE t.row_id = $1
+       AND t.team_id IS NOT NULL
+       AND m.user_id::text != $2::text`,
+    [taskRowId, commenterId],
+  );
+  return rows.map((r) => r.user_id);
+};
+
+/**
+ * Same as findTaskRecipients but looks up by UUID id (used for attachment notifications).
+ */
+export const findTaskRecipientsByUUID = async (taskId, uploaderUserId) => {
+  const { rows } = await getPool().query(
+    `SELECT m.user_id
+     FROM v4.tasks t
+     JOIN v4.task_team_members m ON m.team_id = t.team_id
+     WHERE t.id = $1::uuid
+       AND t.team_id IS NOT NULL
+       AND m.user_id::text != $2::text`,
+    [taskId, uploaderUserId],
+  );
+  return rows.map((r) => r.user_id);
+};
+
 // ── Edit ──────────────────────────────────────────────────────────────────────
 
 export const checkCommentExists = async (commentId) => {

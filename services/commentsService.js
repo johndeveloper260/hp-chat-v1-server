@@ -25,6 +25,8 @@ const assertParentBU = async (relationType, relationId, businessUnit) => {
     ok = await commentsRepo.checkAnnouncementBU(relationId, businessUnit);
   } else if (relationType === "return_home") {
     ok = await commentsRepo.checkReturnHomeBU(relationId, businessUnit);
+  } else if (relationType === "task") {
+    ok = await commentsRepo.checkTaskBU(relationId, businessUnit);
   }
   if (!ok) throw new NotFoundError("record_not_found");
 };
@@ -71,6 +73,8 @@ export const addComment = async (body, userId, userBU) => {
     rawRecipients = await commentsRepo.findAnnouncementRecipients(relation_id, userId);
   } else if (relation_type === "return_home") {
     rawRecipients = await commentsRepo.findReturnHomeRecipients(relation_id, userId);
+  } else if (relation_type === "task") {
+    rawRecipients = await commentsRepo.findTaskRecipients(relation_id, userId);
   }
 
   const recipients = [...new Set(rawRecipients)].filter(
@@ -79,12 +83,11 @@ export const addComment = async (body, userId, userBU) => {
 
   // 4. Fan-out notifications
   if (recipients.length > 0) {
-    const titleKey =
-      relation_type === "inquiries"
-        ? "comment_on_inquiry"
-        : relation_type === "return_home"
-          ? "comment_on_return_home"
-          : "comment_on_announcement";
+    let titleKey;
+    if (relation_type === "inquiries") titleKey = "comment_on_inquiry";
+    else if (relation_type === "return_home") titleKey = "comment_on_return_home";
+    else if (relation_type === "task") titleKey = "comment_on_task";
+    else titleKey = "comment_on_announcement";
 
     const commentPreview =
       content_text.length > 50
@@ -100,19 +103,23 @@ export const addComment = async (body, userId, userBU) => {
           bodyParams: { name: commenterName, comment: commentPreview },
           data: {
             type:   relation_type,
-            rowId:  relation_id,
+            rowId:  relation_type === "task" ? null : relation_id,
             screen:
               relation_type === "inquiries"
                 ? "Inquiry"
                 : relation_type === "return_home"
                   ? "ReturnHome"
-                  : "Home",
+                  : relation_type === "task"
+                    ? "Tasks"
+                    : "Home",
             params:
               relation_type === "inquiries"
                 ? { ticketId: relation_id }
                 : relation_type === "return_home"
                   ? { id: relation_id }
-                  : { rowId: relation_id },
+                  : relation_type === "task"
+                    ? { taskId: relation_id }
+                    : { rowId: relation_id },
           },
         }),
       ),

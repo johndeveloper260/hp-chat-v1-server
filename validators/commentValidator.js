@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const addCommentSchema = z.object({
-  relation_type:     z.enum(["inquiries", "announcements", "return_home"]),
+  relation_type:     z.enum(["inquiries", "announcements", "return_home", "task"]),
   relation_id:       z.coerce.string().min(1),
   content_text:      z.string().min(1),
   parent_comment_id: z.coerce.string().optional().nullable(),

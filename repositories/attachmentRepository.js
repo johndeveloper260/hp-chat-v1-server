@@ -43,6 +43,13 @@ export const checkParentBU = async (relationType, relationId, userBU, client) =>
     );
     return rowCount;
   }
+  if (relationType === "task") {
+    const { rowCount } = await db(client).query(
+      "SELECT id FROM v4.tasks WHERE id = $1::uuid AND business_unit = $2",
+      [relationId, userBU],
+    );
+    return rowCount;
+  }
   return 0; // unknown relation type
 };
 

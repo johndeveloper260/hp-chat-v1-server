@@ -20,6 +20,8 @@ import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "..
 import { getS3Key }         from "../utils/getS3Key.js";
 import { clearAvatarCache } from "./profileService.js";
 import * as attachRepo      from "../repositories/attachmentRepository.js";
+import * as commentsRepo    from "../repositories/commentsRepository.js";
+import { createNotification } from "./notificationService.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppError.js";
 
 // ── Stream singleton ──────────────────────────────────────────────────────────
@@ -50,7 +52,7 @@ export const generateUploadUrl = async (fileName, fileType, businessUnit, relati
 
 export const createAttachment = async ({
   relation_type, relation_id, s3_key, s3_bucket,
-  display_name, file_type, userBU,
+  display_name, file_type, userBU, uploaderUserId,
 }) => {
   if (!relation_id) throw new ValidationError("missing_relation_id");
 
@@ -69,6 +71,31 @@ export const createAttachment = async ({
       await syncProfilePictureToStream(relation_id, s3_key, s3_bucket);
     } catch (err) {
       console.error("Stream sync failed but attachment saved:", err);
+    }
+  }
+
+  // Notify task team members when a file is uploaded to a team task (best-effort)
+  if (relation_type === "task" && uploaderUserId) {
+    try {
+      const recipients = await commentsRepo.findTaskRecipientsByUUID(relation_id, uploaderUserId);
+      if (recipients.length > 0) {
+        const filePreview = display_name.length > 50
+          ? `${display_name.substring(0, 50)}...`
+          : display_name;
+        await Promise.all(
+          recipients.map((recipientId) =>
+            createNotification({
+              userId: recipientId,
+              titleKey:   "file_on_task",
+              bodyKey:    "file_body",
+              bodyParams: { file: filePreview },
+              data: { type: "task", rowId: null, screen: "Tasks", params: { taskId: relation_id } },
+            }),
+          ),
+        );
+      }
+    } catch (err) {
+      console.error("Task file notification failed:", err);
     }
   }
 
@@ -103,7 +130,7 @@ export const getViewingUrl = async (attachmentId, userBU) => {
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   // Serve via CloudFront when configured — cached at the edge, reduces S3 egress.
-  if ((relation_type === "announcements" || relation_type === "profile" || relation_type === "inquiries" || relation_type === "return_home") && env.aws.cloudfrontDomain) {
+  if ((relation_type === "announcements" || relation_type === "profile" || relation_type === "inquiries" || relation_type === "return_home" || relation_type === "task") && env.aws.cloudfrontDomain) {
     return `https://${env.aws.cloudfrontDomain}/${s3_key}`;
   }
 

@@ -156,6 +156,39 @@ const pushMessages = {
     th: "มีความคิดเห็นใหม่ในใบสมัครกลับบ้าน",
     ne: "घर फर्कने आवेदनमा नयाँ टिप्पणी",
   },
+  comment_on_task: {
+    en: "New comment on Task",
+    ja: "タスクに新しいコメント",
+    id: "Komentar baru pada Tugas",
+    vi: "Bình luận mới về Nhiệm vụ",
+    my: "တာဝန်တွင် မှတ်ချက်အသစ်",
+    km: "មតិយោបល់ថ្មីលើភារកិច្ច",
+    bn: "কাজে নতুন মন্তব্য",
+    th: "ความคิดเห็นใหม่เกี่ยวกับงาน",
+    ne: "कार्यमा नयाँ टिप्पणी",
+  },
+  file_on_task: {
+    en: "New file on Task",
+    ja: "タスクに新しいファイル",
+    id: "File baru pada Tugas",
+    vi: "File mới về Nhiệm vụ",
+    my: "တာဝန်တွင် ဖိုင်အသစ်",
+    km: "ឯកសារថ្មីលើភារកិច្ច",
+    bn: "কাজে নতুন ফাইল",
+    th: "ไฟล์ใหม่เกี่ยวกับงาน",
+    ne: "कार्यमा नयाँ फाइल",
+  },
+  file_body: {
+    en: "{{file}}",
+    ja: "{{file}}",
+    id: "{{file}}",
+    vi: "{{file}}",
+    my: "{{file}}",
+    km: "{{file}}",
+    bn: "{{file}}",
+    th: "{{file}}",
+    ne: "{{file}}",
+  },
   comment_body: {
     en: "{{name}}: {{comment}}",
     ja: "{{name}}: {{comment}}",
@@ -1426,6 +1459,14 @@ const apiMessages = {
     th: "การแปลล้มเหลวบนเซิร์ฟเวอร์",
     ne: "सर्भरमा अनुवाद असफल भयो।",
   },
+
+  // ── HoRenSo Tasks ────────────────────────────────────────────────────────
+  task_not_found: { en: "Task not found", ja: "タスクが見つかりません", vi: "Không tìm thấy nhiệm vụ", id: "Tugas tidak ditemukan", th: "ไม่พบงาน", km: "រកមិនឃើញការងារ", bn: "কাজ পাওয়া যায়নি", my: "တာဝန်မတွေ့ပါ", ne: "कार्य फेला परेन" },
+  cannot_access_task: { en: "You do not have access to this task", ja: "このタスクにアクセスできません", vi: "Bạn không có quyền truy cập nhiệm vụ này", id: "Anda tidak memiliki akses ke tugas ini", th: "คุณไม่มีสิทธิ์เข้าถึงงานนี้", km: "អ្នកមិនអាចចូលប្រើការងារនេះ", bn: "এই কাজে আপনার অ্যাক্সেস নেই", my: "ဤတာဝန်ကိုဝင်ရောက်ခွင့်မရှိပါ", ne: "यो कार्यमा तपाईंको पहुँच छैन" },
+  cannot_update_task: { en: "You cannot update this task", ja: "このタスクを更新できません", vi: "Bạn không thể cập nhật nhiệm vụ này", id: "Anda tidak dapat memperbarui tugas ini", th: "คุณไม่สามารถอัปเดตงานนี้ได้", km: "អ្នកមិនអាចធ្វើបច្ចុប្បន្នភាពការងារនេះ", bn: "আপনি এই কাজ আপডেট করতে পারবেন না", my: "ဤတာဝန်ကိုအပ်ဒိတ်လုပ်၍မရပါ", ne: "तपाईं यो कार्य अपडेट गर्न सक्नुहुन्न" },
+  cannot_delete_task: { en: "Only the task creator can delete it", ja: "タスクの作成者のみ削除できます", vi: "Chỉ người tạo nhiệm vụ mới có thể xóa", id: "Hanya pembuat tugas yang dapat menghapusnya", th: "เฉพาะผู้สร้างงานเท่านั้นที่สามารถลบได้", km: "តែអ្នកបង្កើតការងារប៉ុណ្ណោះអាចលុបបាន", bn: "শুধুমাত্র কাজের নির্মাতা এটি মুছতে পারবেন", my: "တာဝန်ဖန်တီးသူသာဖျက်နိုင်သည်", ne: "कार्य सिर्जनाकर्ताले मात्र मेटाउन सक्छ" },
+  team_not_found: { en: "Team not found", ja: "チームが見つかりません", vi: "Không tìm thấy nhóm", id: "Tim tidak ditemukan", th: "ไม่พบทีม", km: "រកមិនឃើញក្រុម", bn: "দল পাওয়া যায়নি", my: "အဖွဲ့မတွေ့ပါ", ne: "टीम फेला परेन" },
+  column_not_found: { en: "Column not found", ja: "カラムが見つかりません", vi: "Không tìm thấy cột", id: "Kolom tidak ditemukan", th: "ไม่พบคอลัมน์", km: "រកមិនឃើញជួរ", bn: "কলাম পাওয়া যায়নি", my: "ကော်လံမတွေ့ပါ", ne: "स्तम्भ फेला परेन" },
 
   // ── Generic ───────────────────────────────────────────────────────────────
   internal_server_error: {

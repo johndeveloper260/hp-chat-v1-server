@@ -42,7 +42,7 @@ export const createAttachment = async (req, res, next) => {
 
     const attachment = await attachService.createAttachment({
       relation_type, relation_id, s3_key, s3_bucket,
-      display_name, file_type, userBU,
+      display_name, file_type, userBU, uploaderUserId: req.user.id,
     });
     res.json(attachment);
   } catch (err) {

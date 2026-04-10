@@ -42,7 +42,7 @@ export const getBUSettings = async (businessUnit) => {
 
 // ── Search users ──────────────────────────────────────────────────────────────
 
-export const searchUsers = async (lang, businessUnit, { company, batch_no, name, country, sending_org, visa_type, passport_expiry_within, visa_expiry_within } = {}) => {
+export const searchUsers = async (lang, businessUnit, { company, batch_no, name, country, sending_org, visa_type, passport_expiry_within, visa_expiry_within, user_type } = {}) => {
   const values = [lang, businessUnit];
   const parts  = [];
 
@@ -51,6 +51,7 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       p.user_id,
       p.first_name,
       p.last_name,
+      p.middle_name,
       p.company,
       COALESCE(
         c.company_name ->> $1,
@@ -60,19 +61,20 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
       ) AS company_name,
       p.batch_no,
       p.position,
-      p.user_type,
+      COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END) AS user_type,
       a.is_active,
       a.email,
       a.last_seen,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE p.country           END AS country,
+      CASE WHEN UPPER(COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END)) IN ('OFFICER','ADMIN') THEN NULL ELSE p.country           END AS country,
       p.gender,
       CASE WHEN p.birthdate IS NOT NULL THEN EXTRACT(YEAR FROM AGE(p.birthdate))::int ELSE NULL END AS age,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE s.descr             END AS sending_org_descr,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.passport_expiry   END AS passport_expiry,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE v.visa_expiry_date  END AS visa_expiry_date,
-      CASE WHEN UPPER(p.user_type) IN ('OFFICER','ADMIN') THEN NULL ELSE COALESCE(vl.descr ->> $1, vl.descr ->> 'en') END AS visa_type_descr
+      CASE WHEN UPPER(COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END)) IN ('OFFICER','ADMIN') THEN NULL ELSE s.descr             END AS sending_org_descr,
+      CASE WHEN UPPER(COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END)) IN ('OFFICER','ADMIN') THEN NULL ELSE v.passport_expiry   END AS passport_expiry,
+      CASE WHEN UPPER(COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END)) IN ('OFFICER','ADMIN') THEN NULL ELSE v.visa_expiry_date  END AS visa_expiry_date,
+      CASE WHEN UPPER(COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END)) IN ('OFFICER','ADMIN') THEN NULL ELSE COALESCE(vl.descr ->> $1, vl.descr ->> 'en') END AS visa_type_descr
     FROM v4.user_profile_tbl p
     JOIN  v4.user_account_tbl a  ON p.user_id = a.id
+    LEFT JOIN v4.souser_tbl   su ON su.id = a.id
     LEFT JOIN v4.company_tbl  c  ON p.company::uuid = c.company_id
     LEFT JOIN v4.sending_org_tbl s  ON s.code = p.sending_org AND s.business_unit = a.business_unit
     LEFT JOIN v4.user_visa_info_tbl v  ON v.user_id = p.user_id
@@ -109,6 +111,13 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
   if (country)      pushMulti('UPPER(p.country)', country, (v) => v.toUpperCase());
   if (sending_org)  pushMulti('p.sending_org', sending_org);
   if (visa_type)    pushMulti('v.visa_type', visa_type);
+  if (user_type) {
+    const types = (Array.isArray(user_type) ? user_type : user_type.split(',')).map((t) => t.trim().toUpperCase()).filter(Boolean);
+    if (types.length) {
+      values.push(types);
+      parts.push(`AND UPPER(COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END)) = ANY($${values.length})`);
+    }
+  }
   if (passport_expiry_within) {
     values.push(Number(passport_expiry_within));
     parts.push(`AND UPPER(p.user_type) NOT IN ('OFFICER','ADMIN') AND v.passport_expiry IS NOT NULL AND v.passport_expiry <= CURRENT_DATE + ($${values.length}::int * INTERVAL '1 day')`);
