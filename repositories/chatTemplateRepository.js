@@ -13,7 +13,7 @@ const db = (client) => client ?? getPool();
 /** Used by the chat sidebar — active templates only, minimal columns. */
 export const findAllActive = (businessUnit) =>
   getPool().query(
-    `SELECT id, title, body, category, sort_order
+    `SELECT id, row_id, title, body, category, sort_order
      FROM v4.chat_message_templates
      WHERE business_unit = $1
        AND is_active = true
@@ -25,13 +25,28 @@ export const findAllActive = (businessUnit) =>
 /** Used by the admin setup page — all non-deleted templates. */
 export const findAll = (businessUnit) =>
   getPool().query(
-    `SELECT id, title, body, category, sort_order, is_active, created_at, updated_at
+    `SELECT id, row_id, title, body, category, sort_order, is_active, created_at, updated_at
      FROM v4.chat_message_templates
      WHERE business_unit = $1
        AND deleted_at IS NULL
      ORDER BY sort_order ASC, title ASC`,
     [businessUnit],
   );
+
+/** Fetch all attachments for a list of template row_ids in one query. */
+export const findAttachmentsByRowIds = (rowIds) => {
+  if (!rowIds.length) return Promise.resolve({ rows: [] });
+  const placeholders = rowIds.map((_, i) => `$${i + 1}`).join(", ");
+  return getPool().query(
+    `SELECT attachment_id, relation_id::int AS row_id,
+            display_name, file_type, file_size, created_at
+     FROM v4.shared_attachments
+     WHERE relation_type = 'chat_template'
+       AND relation_id::int IN (${placeholders})
+     ORDER BY created_at ASC`,
+    rowIds,
+  );
+};
 
 export const findById = (id, businessUnit) =>
   getPool().query(

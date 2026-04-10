@@ -13,8 +13,8 @@
  *       The shared "download" presigned URL (GetObjectCommand) lives in utils/s3Client.js.
  */
 import { StreamChat } from "stream-chat";
-import { getSignedUrl }     from "@aws-sdk/s3-request-presigner";
-import { PutObjectCommand }  from "@aws-sdk/client-s3";
+import { getSignedUrl }                    from "@aws-sdk/s3-request-presigner";
+import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import env                  from "../config/env.js";
 import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
 import { getS3Key }         from "../utils/getS3Key.js";
@@ -228,7 +228,33 @@ export const deleteAttachmentsByRelation = async (relationType, relationId, user
   return { count: rows.length };
 };
 
-// ─── 9. Rename attachment ─────────────────────────────────────────────────────
+// ─── 9. Proxy-stream attachment bytes (for cross-origin download) ─────────────
+
+/**
+ * Validates ownership then returns the S3 object stream + metadata so the
+ * controller can pipe it straight to the HTTP response.
+ * The caller is responsible for setting Content-Type and piping Body.
+ */
+export const streamAttachment = async (attachmentId, userBU) => {
+  const attachment = await attachRepo.findAttachmentById(attachmentId);
+  if (!attachment) throw new NotFoundError("record_not_found");
+
+  const { relation_type, relation_id, s3_key, s3_bucket } = attachment;
+  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
+  if (parentExists === 0) throw new ForbiddenError("forbidden");
+
+  const command = new GetObjectCommand({ Bucket: s3_bucket || env.aws.bucket, Key: s3_key });
+  const s3Resp = await getS3Client().send(command);
+
+  return {
+    body: s3Resp.Body,                              // Node.js Readable stream
+    contentType: attachment.file_type || s3Resp.ContentType || "application/octet-stream",
+    contentLength: s3Resp.ContentLength,
+    displayName: attachment.display_name,
+  };
+};
+
+// ─── 10. Rename attachment ─────────────────────────────────────────────────────
 
 export const renameAttachment = async (attachmentId, displayName, userBU) => {
   if (!displayName || displayName.trim() === "") {

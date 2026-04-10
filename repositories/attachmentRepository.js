@@ -50,6 +50,13 @@ export const checkParentBU = async (relationType, relationId, userBU, client) =>
     );
     return rowCount;
   }
+  if (relationType === "chat_template") {
+    const { rowCount } = await db(client).query(
+      "SELECT row_id FROM v4.chat_message_templates WHERE row_id = $1::int AND business_unit = $2 AND deleted_at IS NULL",
+      [relationId, userBU],
+    );
+    return rowCount;
+  }
   return 0; // unknown relation type
 };
 

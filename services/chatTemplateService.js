@@ -7,6 +7,21 @@
 import * as repo from "../repositories/chatTemplateRepository.js";
 import { NotFoundError } from "../errors/AppError.js";
 
+/** Attach attachments[] to each template in-place. */
+const embedAttachments = async (templates) => {
+  if (!templates.length) return templates;
+  const rowIds = templates.map((t) => t.row_id).filter(Boolean);
+  const { rows: attachments } = await repo.findAttachmentsByRowIds(rowIds);
+  // BIGSERIAL is returned as string by node-postgres; normalise both sides to string
+  const byRowId = new Map();
+  for (const a of attachments) {
+    const key = String(a.row_id);
+    if (!byRowId.has(key)) byRowId.set(key, []);
+    byRowId.get(key).push(a);
+  }
+  return templates.map((t) => ({ ...t, attachments: byRowId.get(String(t.row_id)) ?? [] }));
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Queries
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,13 +29,13 @@ import { NotFoundError } from "../errors/AppError.js";
 /** Active templates for the chat sidebar (all authenticated users). */
 export const getActiveTemplates = async (businessUnit) => {
   const { rows } = await repo.findAllActive(businessUnit);
-  return rows;
+  return embedAttachments(rows);
 };
 
 /** All non-deleted templates for the admin setup page. */
 export const getAllTemplates = async (businessUnit) => {
   const { rows } = await repo.findAll(businessUnit);
-  return rows;
+  return embedAttachments(rows);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

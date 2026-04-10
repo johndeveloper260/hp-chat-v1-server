@@ -13,6 +13,7 @@ import {
   generateUploadUrl,
   createAttachment,
   getViewingUrl,
+  proxyAttachment,
   getAttachmentsByRelation,
   deleteAttachment,
   deleteProfilePicture,
@@ -30,6 +31,9 @@ router.post("/confirm", auth, validate(createAttachmentSchema), createAttachment
 
 // ── 3. View single attachment (returns 1-hour signed GET URL) ─────────────────
 router.get("/view/:id", auth, getViewingUrl);
+
+// ── 3b. Proxy-stream attachment bytes (avoids S3 CORS for in-browser fetch) ───
+router.get("/proxy/:id", auth, proxyAttachment);
 
 // ── 4. Get all attachments for a relation ─────────────────────────────────────
 router.get("/:relationType/:relationId", auth, getAttachmentsByRelation);

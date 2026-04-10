@@ -113,7 +113,27 @@ export const deleteAttachmentsByRelation = async (req, res, next) => {
   }
 };
 
-// ─── 8. Rename attachment ─────────────────────────────────────────────────────
+// ─── 8. Proxy-stream attachment (avoids browser CORS on S3 presigned URLs) ────
+
+export const proxyAttachment = async (req, res, next) => {
+  try {
+    const { body, contentType, contentLength, displayName } =
+      await attachService.streamAttachment(req.params.id, req.user.business_unit);
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${encodeURIComponent(displayName)}"`,
+    );
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+
+    body.pipe(res);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── 9. Rename attachment ─────────────────────────────────────────────────────
 
 export const renameAttachment = async (req, res, next) => {
   try {
