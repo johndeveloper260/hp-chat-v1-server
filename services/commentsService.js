@@ -94,6 +94,12 @@ export const addComment = async (body, userId, userBU) => {
         ? `${content_text.substring(0, 50)}...`
         : content_text;
 
+    // For task comments: relation_id is the integer row_id; look up the UUID for navigation
+    let taskUUID = null;
+    if (relation_type === "task") {
+      taskUUID = await commentsRepo.findTaskIdByRowId(relation_id);
+    }
+
     await Promise.all(
       recipients.map((recipientId) =>
         createNotification({
@@ -102,8 +108,9 @@ export const addComment = async (body, userId, userBU) => {
           bodyKey:    "comment_body",
           bodyParams: { name: commenterName, comment: commentPreview },
           data: {
-            type:   relation_type,
-            rowId:  relation_type === "task" ? null : relation_id,
+            type:       relation_type,
+            rowId:      relation_id,
+            relationId: relation_type === "task" ? taskUUID : undefined,
             screen:
               relation_type === "inquiries"
                 ? "Inquiry"
@@ -118,7 +125,7 @@ export const addComment = async (body, userId, userBU) => {
                 : relation_type === "return_home"
                   ? { id: relation_id }
                   : relation_type === "task"
-                    ? { taskId: relation_id }
+                    ? { taskId: taskUUID }
                     : { rowId: relation_id },
           },
         }),

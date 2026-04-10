@@ -170,7 +170,7 @@ export const createNotification = async ({
     console.log(`📤 Sending notification in ${userLanguage}:`, { title: finalTitle, body });
 
     await notifRepo.insertNotificationHistory(
-      userId, finalTitle, body, data?.type, data?.rowId, businessUnit,
+      userId, finalTitle, body, data?.type, data?.relationId ?? data?.rowId, businessUnit,
     );
 
     return sendNotificationToUser(userId, finalTitle, body, data, businessUnit);

@@ -63,12 +63,12 @@ export const findTasks = async (bu, filters = {}) => {
       (
         SELECT COUNT(*)
         FROM v4.shared_comments
-        WHERE relation_type = 'task' AND relation_id::text = t.id::text
+        WHERE relation_type = 'task' AND relation_id::integer = t.row_id
       )::int AS comment_count,
       (
         SELECT COUNT(*)
         FROM v4.shared_attachments
-        WHERE relation_type = 'task' AND relation_id::text = t.id::text
+        WHERE relation_type = 'task' AND relation_id = t.id::text
       )::int AS attachment_count
     FROM v4.tasks t
     LEFT JOIN v4.user_profile_tbl p_creator ON t.created_by = p_creator.user_id
@@ -177,12 +177,12 @@ export const findTaskById = async (id, bu, client) => {
        (
          SELECT COUNT(*)
          FROM v4.shared_comments
-         WHERE relation_type = 'task' AND relation_id::text = t.id::text
+         WHERE relation_type = 'task' AND relation_id::integer = t.row_id
        )::int AS comment_count,
        (
          SELECT COUNT(*)
          FROM v4.shared_attachments
-         WHERE relation_type = 'task' AND relation_id::text = t.id::text
+         WHERE relation_type = 'task' AND relation_id = t.id::text
        )::int AS attachment_count
      FROM v4.tasks t
      LEFT JOIN v4.user_profile_tbl p_creator ON t.created_by = p_creator.user_id

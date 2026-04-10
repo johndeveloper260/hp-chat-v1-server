@@ -130,6 +130,7 @@ export async function findUserByEmail(email, client) {
       ) AS visa_type_descr,
       bu.lock_screen_expire,
       bu.souser_enabled,
+      bu.task_enabled,
       su.country       AS souser_country,
       su.sending_org   AS souser_sending_org,
       su.primary_bu    AS souser_primary_bu,

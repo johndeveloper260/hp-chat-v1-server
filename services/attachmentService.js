@@ -77,7 +77,10 @@ export const createAttachment = async ({
   // Notify task team members when a file is uploaded to a team task (best-effort)
   if (relation_type === "task" && uploaderUserId) {
     try {
-      const recipients = await commentsRepo.findTaskRecipientsByUUID(relation_id, uploaderUserId);
+      const [recipients, taskRowId] = await Promise.all([
+        commentsRepo.findTaskRecipientsByUUID(relation_id, uploaderUserId),
+        commentsRepo.findTaskRowIdByUUID(relation_id),
+      ]);
       if (recipients.length > 0) {
         const filePreview = display_name.length > 50
           ? `${display_name.substring(0, 50)}...`
@@ -89,7 +92,7 @@ export const createAttachment = async ({
               titleKey:   "file_on_task",
               bodyKey:    "file_body",
               bodyParams: { file: filePreview },
-              data: { type: "task", rowId: null, screen: "Tasks", params: { taskId: relation_id } },
+              data: { type: "task", rowId: taskRowId, relationId: relation_id, screen: "Tasks", params: { taskId: relation_id } },
             }),
           ),
         );

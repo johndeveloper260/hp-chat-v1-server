@@ -218,6 +218,24 @@ export const findTaskRecipientsByUUID = async (taskId, uploaderUserId) => {
   return rows.map((r) => r.user_id);
 };
 
+/** Get task UUID from integer row_id (for comment notifications). */
+export const findTaskIdByRowId = async (rowId) => {
+  const { rows } = await getPool().query(
+    `SELECT id FROM v4.tasks WHERE row_id = $1`,
+    [rowId],
+  );
+  return rows[0]?.id ?? null;
+};
+
+/** Get task integer row_id from UUID (for attachment notifications). */
+export const findTaskRowIdByUUID = async (taskId) => {
+  const { rows } = await getPool().query(
+    `SELECT row_id FROM v4.tasks WHERE id = $1::uuid`,
+    [taskId],
+  );
+  return rows[0]?.row_id ?? null;
+};
+
 // ── Edit ──────────────────────────────────────────────────────────────────────
 
 export const checkCommentExists = async (commentId) => {
