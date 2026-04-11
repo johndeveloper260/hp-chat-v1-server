@@ -32,6 +32,7 @@ import auditRoutes from "./routes/auditRoutes.js";
 import souserRoutes from "./routes/souserRoutes.js";
 import chatTemplateRoutes from "./routes/chatTemplateRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
+import bulkUserRoutes from "./routes/bulkUserRoutes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -120,6 +121,7 @@ app.use("/audit", auditRoutes);
 app.use("/souser", souserRoutes);
 app.use("/chat-templates", chatTemplateRoutes);
 app.use("/tasks", taskRoutes);
+app.use("/bulk-users", bulkUserRoutes);
 
 // ── Global Error Handler ──────────────────────────────────────────────────────
 // MUST be mounted AFTER all routes so Express recognises it as a 4-arg handler
