@@ -42,20 +42,11 @@ const env = {
   },
 
   aws: {
-    region: process.env.REACT_APP_AWS_REGION || process.env.AWS_REGION,
-    accessKeyId:
-      process.env.REACT_APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey:
-      process.env.REACT_APP_AWS_SECRET_ACCESS_KEY ||
-      process.env.AWS_SECRET_ACCESS_KEY,
-    bucket: process.env.S3_BUCKET_NAME || process.env.REACT_APP_AWS_BUCKET,
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    bucket: process.env.S3_BUCKET_NAME,
     cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN, // e.g. xxxxxxxxxxxx.cloudfront.net
-  },
-
-  email: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
   },
 
   google: {
