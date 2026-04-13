@@ -23,6 +23,9 @@ const STREAM_SYNC_QUERY = `
     p.company,
     p.batch_no,
     p.user_type,
+    p.sending_org,
+    p.country,
+    v.visa_type,
     COALESCE(
       c.company_name ->> 'ja',
       c.company_name ->> 'en',
@@ -38,7 +41,7 @@ const STREAM_SYNC_QUERY = `
   FROM v4.user_account_tbl a
   LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
   LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-  LEFT JOIN v4.user_visa_info_tbl v ON a.id = v.user_id
+  LEFT JOIN v4.user_visa_info_tbl  v  ON a.id = v.user_id
   LEFT JOIN v4.visa_list_tbl vl ON (
     v.visa_type = vl.code
     AND a.business_unit = vl.business_unit
@@ -95,6 +98,9 @@ export const syncUserToStream = async (userId, dbClient) => {
     batch_no: user.batch_no,
     business_unit: user.business_unit,
     user_type: user.user_type,
+    ...(user.sending_org  && { sending_org:  user.sending_org }),
+    ...(user.visa_type    && { visa_type:     user.visa_type }),
+    ...(user.country      && { country:       user.country }),
   };
 
   if (profileImageUrl) {

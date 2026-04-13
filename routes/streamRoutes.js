@@ -9,6 +9,7 @@ import express from "express";
 import auth from "../middleware/auth.js";
 import { getStreamToken, addChannelMember } from "../controller/streamController.js";
 import { handleChatWebhook } from "../controller/streamChatWebhookController.js";
+import { runStreamSync } from "../jobs/streamSyncJob.js";
 
 const router = express.Router();
 
@@ -22,5 +23,15 @@ router.post("/channel/add-member", express.json(), auth, addChannelMember);
 
 // Webhook — raw body required for HMAC signature verification (no auth middleware)
 router.post("/webhook/chat", express.raw({ type: "application/json" }), handleChatWebhook);
+
+// Manual sync trigger — admin/officer only
+router.post("/sync/run", express.json(), auth, async (req, res, next) => {
+  try {
+    const result = await runStreamSync();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

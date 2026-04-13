@@ -7,6 +7,7 @@ import { createServer } from "http";
 
 // --- Import Logic ---
 import connectDB from "./config/db.js";
+import { scheduleStreamSync, runStreamSync } from "./jobs/streamSyncJob.js";
 import slidingExpiration from "./middleware/slidingExpiration.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -92,6 +93,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // --- 3. Database ---
 connectDB();
+scheduleStreamSync();
 
 // --- 4. Routes ---
 app.get("/", (req, res) => res.status(200).send({ status: "ok" }));
