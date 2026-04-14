@@ -191,6 +191,19 @@ export const checkTaskBU = async (rowId, businessUnit) => {
 };
 
 /**
+ * Subtask existence check (no assignee membership required).
+ * Used when a privileged user (OFFICER/ADMIN) fetches all comments for a subtask.
+ */
+export const checkSubtaskBUOnly = async (rowId, businessUnit) => {
+  const { rowCount } = await getPool().query(
+    `SELECT row_id FROM v4.tasks
+     WHERE row_id = $1 AND business_unit = $2 AND parent_task_id IS NOT NULL`,
+    [rowId, businessUnit],
+  );
+  return rowCount > 0;
+};
+
+/**
  * Subtask access check: user must be in task_assignees for this subtask.
  * rowId is the integer row_id (used as shared_comments.relation_id).
  */

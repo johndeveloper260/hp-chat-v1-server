@@ -67,7 +67,7 @@ export const getAttachmentsByRelation = async (req, res, next) => {
   try {
     const { relationType, relationId } = req.params;
     const attachments = await attachService.getAttachmentsByRelation(
-      relationType, relationId, req.user.business_unit, req.user.id,
+      relationType, relationId, req.user.business_unit, req.user.id, req.user.userType,
     );
     res.json({ attachments });
   } catch (err) {
@@ -118,7 +118,7 @@ export const deleteAttachmentsByRelation = async (req, res, next) => {
 export const proxyAttachment = async (req, res, next) => {
   try {
     const { body, contentType, contentLength, displayName } =
-      await attachService.streamAttachment(req.params.id, req.user.business_unit, req.user.id);
+      await attachService.streamAttachment(req.params.id, req.user.business_unit, req.user.id, req.user.userType);
 
     res.setHeader("Content-Type", contentType);
     res.setHeader(

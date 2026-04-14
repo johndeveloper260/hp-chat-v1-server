@@ -17,7 +17,10 @@ const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
  * Verify that the parent record belongs to the requestor's business_unit.
  * Throws NotFoundError when the check fails.
  */
-const assertParentBU = async (relationType, relationId, businessUnit, userId = null) => {
+const isPrivileged = (userType) =>
+  ELEVATED_ROLES.includes((userType || "").toUpperCase());
+
+const assertParentBU = async (relationType, relationId, businessUnit, userId = null, userType = null) => {
   let ok = true;
   if (relationType === "inquiries") {
     ok = await commentsRepo.checkInquiryBU(relationId, businessUnit);
@@ -28,16 +31,25 @@ const assertParentBU = async (relationType, relationId, businessUnit, userId = n
   } else if (relationType === "task") {
     ok = await commentsRepo.checkTaskBU(relationId, businessUnit);
   } else if (relationType === "subtask") {
-    ok = await commentsRepo.checkSubtaskBU(relationId, businessUnit, userId);
+    // Privileged users (OFFICER/ADMIN) are not assignees but must still be able
+    // to read all comments for the Responses tab — use a plain BU existence check.
+    if (isPrivileged(userType)) {
+      ok = await commentsRepo.checkSubtaskBUOnly(relationId, businessUnit);
+    } else {
+      ok = await commentsRepo.checkSubtaskBU(relationId, businessUnit, userId);
+    }
   }
   if (!ok) throw new NotFoundError("record_not_found");
 };
 
 // ── Fetch ──────────────────────────────────────────────────────────────────────
 
-export const getComments = async (type, id, userBU, userId = null) => {
-  await assertParentBU(type, id, userBU, userId);
-  return commentsRepo.findComments(type, id, userId);
+export const getComments = async (type, id, userBU, userId = null, userType = null) => {
+  await assertParentBU(type, id, userBU, userId, userType);
+  // Privileged users fetching subtask comments need all members' comments,
+  // not just their own — pass null so no user_id filter is applied.
+  const effectiveUserId = (type === "subtask" && isPrivileged(userType)) ? null : userId;
+  return commentsRepo.findComments(type, id, effectiveUserId);
 };
 
 // ── Add ────────────────────────────────────────────────────────────────────────

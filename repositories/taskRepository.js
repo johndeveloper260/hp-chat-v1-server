@@ -256,6 +256,7 @@ export const findSubtasksByParent = async (parentId, bu) => {
   const { rows } = await getPool().query(
     `SELECT
        t.id,
+       t.row_id,
        t.title,
        t.description,
        t.deadline,

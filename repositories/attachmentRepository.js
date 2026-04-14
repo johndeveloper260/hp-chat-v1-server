@@ -98,20 +98,39 @@ export const findAttachmentById = async (attachmentId, client) => {
   return rows[0] ?? null;
 };
 
+/**
+ * Verify a subtask exists and belongs to the given business_unit (no assignee check).
+ * Used when a privileged user (OFFICER/ADMIN) fetches all attachments for a subtask.
+ */
+export const checkSubtaskExistsBU = async (subtaskId, userBU, client) => {
+  return db(client).query(
+    `SELECT id FROM v4.tasks
+     WHERE id = $1::uuid AND business_unit = $2 AND parent_task_id IS NOT NULL`,
+    [subtaskId, userBU],
+  );
+};
+
 export const findAttachmentsByRelation = async (relationType, relationId, client, userId = null) => {
   const params = [relationType, relationId.toString()];
   let userFilter = "";
   if (relationType === "subtask" && userId) {
     params.push(userId);
-    userFilter = ` AND created_by = $${params.length}::uuid`;
+    userFilter = ` AND a.created_by = $${params.length}::uuid`;
   }
   const { rows } = await db(client).query(
-    `SELECT attachment_id, relation_type, relation_id,
-            s3_key, s3_bucket, display_name, file_type, file_size,
-            created_at, updated_at
-     FROM v4.shared_attachments
-     WHERE relation_type = $1 AND relation_id = $2${userFilter}
-     ORDER BY created_at DESC`,
+    `SELECT a.attachment_id, a.relation_type, a.relation_id,
+            a.s3_key, a.s3_bucket, a.display_name, a.file_type, a.file_size,
+            a.created_at, a.updated_at, a.created_by,
+            p.first_name, p.middle_name, p.last_name,
+            (
+              SELECT pic.attachment_id FROM v4.shared_attachments pic
+              WHERE pic.relation_type = 'profile' AND pic.relation_id::text = a.created_by::text
+              ORDER BY pic.created_at DESC LIMIT 1
+            ) AS profile_pic_id
+     FROM v4.shared_attachments a
+     LEFT JOIN v4.user_profile_tbl p ON p.user_id = a.created_by
+     WHERE a.relation_type = $1 AND a.relation_id = $2${userFilter}
+     ORDER BY a.created_at DESC`,
     params,
   );
   return rows;

@@ -169,7 +169,20 @@ export const getViewingUrl = async (attachmentId, userBU, userId = null) => {
 
 // ─── 5. Get all attachments for a relation ────────────────────────────────────
 
-export const getAttachmentsByRelation = async (relationType, relationId, userBU, userId = null) => {
+const isPrivileged = (userType) =>
+  ["OFFICER", "ADMIN"].includes((userType || "").toUpperCase());
+
+export const getAttachmentsByRelation = async (relationType, relationId, userBU, userId = null, userType = null) => {
+  // Privileged users (OFFICER/ADMIN) viewing subtask attachments need to see ALL
+  // attachments from every assignee, not just their own. The standard checkParentBU
+  // for "subtask" enforces an assignee membership check which admins would fail.
+  if (relationType === "subtask" && isPrivileged(userType)) {
+    const { rowCount } = await attachRepo.checkSubtaskExistsBU(relationId, userBU);
+    if (!rowCount) throw new NotFoundError("record_not_found");
+    // Pass null for userId so no created_by filter is applied — return all attachments.
+    return attachRepo.findAttachmentsByRelation(relationType, relationId, null, null);
+  }
+
   const parentExists = await attachRepo.checkParentBU(relationType, relationId, userBU, null, userId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
 
@@ -262,13 +275,21 @@ export const deleteAttachmentsByRelation = async (relationType, relationId, user
  * controller can pipe it straight to the HTTP response.
  * The caller is responsible for setting Content-Type and piping Body.
  */
-export const streamAttachment = async (attachmentId, userBU, userId = null) => {
+export const streamAttachment = async (attachmentId, userBU, userId = null, userType = null) => {
   const attachment = await attachRepo.findAttachmentById(attachmentId);
   if (!attachment) throw new NotFoundError("record_not_found");
 
   const { relation_type, relation_id, s3_key, s3_bucket } = attachment;
-  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
-  if (parentExists === 0) throw new ForbiddenError("forbidden");
+
+  // Privileged users (OFFICER/ADMIN) can download any attachment in their BU,
+  // including subtask attachments uploaded by mobile workers they aren't assigned to.
+  if (relation_type === "subtask" && isPrivileged(userType)) {
+    const { rowCount } = await attachRepo.checkSubtaskExistsBU(relation_id, userBU);
+    if (!rowCount) throw new ForbiddenError("forbidden");
+  } else {
+    const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
+    if (parentExists === 0) throw new ForbiddenError("forbidden");
+  }
 
   const command = new GetObjectCommand({ Bucket: s3_bucket || env.aws.bucket, Key: s3_key });
   const s3Resp = await getS3Client().send(command);
