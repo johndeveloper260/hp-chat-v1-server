@@ -37,7 +37,7 @@ const assertParentBU = async (relationType, relationId, businessUnit, userId = n
 
 export const getComments = async (type, id, userBU, userId = null) => {
   await assertParentBU(type, id, userBU, userId);
-  return commentsRepo.findComments(type, id);
+  return commentsRepo.findComments(type, id, userId);
 };
 
 // ── Add ────────────────────────────────────────────────────────────────────────

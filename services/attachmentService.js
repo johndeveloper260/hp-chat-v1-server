@@ -61,7 +61,7 @@ export const createAttachment = async ({
 
   const attachment = await attachRepo.insertSharedAttachment({
     relation_type, relation_id, s3_key, s3_bucket,
-    display_name, file_type, business_unit: userBU,
+    display_name, file_type, business_unit: userBU, created_by: uploaderUserId ?? null,
   });
 
   // Sync profile pictures to GetStream (best-effort)
@@ -173,7 +173,7 @@ export const getAttachmentsByRelation = async (relationType, relationId, userBU,
   const parentExists = await attachRepo.checkParentBU(relationType, relationId, userBU, null, userId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
 
-  return attachRepo.findAttachmentsByRelation(relationType, relationId);
+  return attachRepo.findAttachmentsByRelation(relationType, relationId, null, userId);
 };
 
 // ─── 6. Delete single attachment ──────────────────────────────────────────────

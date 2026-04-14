@@ -75,15 +75,15 @@ export const checkParentBU = async (relationType, relationId, userBU, client, us
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export const insertSharedAttachment = async (
-  { relation_type, relation_id, s3_key, s3_bucket, display_name, file_type, business_unit },
+  { relation_type, relation_id, s3_key, s3_bucket, display_name, file_type, business_unit, created_by },
   client,
 ) => {
   const { rows } = await db(client).query(
     `INSERT INTO v4.shared_attachments
-       (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type, business_unit)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (relation_type, relation_id, s3_key, s3_bucket, display_name, file_type, business_unit, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [relation_type, relation_id.toString(), s3_key, s3_bucket, display_name, file_type, business_unit],
+    [relation_type, relation_id.toString(), s3_key, s3_bucket, display_name, file_type, business_unit, created_by ?? null],
   );
   return rows[0];
 };
@@ -98,15 +98,21 @@ export const findAttachmentById = async (attachmentId, client) => {
   return rows[0] ?? null;
 };
 
-export const findAttachmentsByRelation = async (relationType, relationId, client) => {
+export const findAttachmentsByRelation = async (relationType, relationId, client, userId = null) => {
+  const params = [relationType, relationId.toString()];
+  let userFilter = "";
+  if (relationType === "subtask" && userId) {
+    params.push(userId);
+    userFilter = ` AND created_by = $${params.length}::uuid`;
+  }
   const { rows } = await db(client).query(
     `SELECT attachment_id, relation_type, relation_id,
             s3_key, s3_bucket, display_name, file_type, file_size,
             created_at, updated_at
      FROM v4.shared_attachments
-     WHERE relation_type = $1 AND relation_id = $2
+     WHERE relation_type = $1 AND relation_id = $2${userFilter}
      ORDER BY created_at DESC`,
-    [relationType, relationId.toString()],
+    params,
   );
   return rows;
 };

@@ -35,7 +35,13 @@ export const checkReturnHomeBU = async (id, businessUnit) => {
 
 // ── Fetch comments ────────────────────────────────────────────────────────────
 
-export const findComments = async (type, id) => {
+export const findComments = async (type, id, userId = null) => {
+  const params = [type, id];
+  let userFilter = "";
+  if (type === "subtask" && userId) {
+    params.push(userId);
+    userFilter = ` AND c.user_id = $${params.length}::uuid`;
+  }
   const { rows } = await getPool().query(
     `SELECT
        c.comment_id, c.user_id, c.content_text, c.created_at,
@@ -53,9 +59,9 @@ export const findComments = async (type, id) => {
        ORDER BY created_at DESC
        LIMIT 1
      ) sa ON true
-     WHERE c.relation_type = $1 AND c.relation_id = $2
+     WHERE c.relation_type = $1 AND c.relation_id = $2${userFilter}
      ORDER BY c.created_at ASC`,
-    [type, id],
+    params,
   );
   return rows.map((r) => ({ ...r, user_name: formatDisplayName(r.last_name, r.first_name, r.middle_name) }));
 };
