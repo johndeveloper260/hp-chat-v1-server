@@ -6,6 +6,7 @@
  * Auto-seeds 4 default columns if the owner has none.
  */
 import * as columnRepo from "../repositories/taskColumnRepository.js";
+import * as taskRepo   from "../repositories/taskRepository.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
 
 // ─── List (auto-seed defaults) ─────────────────────────────────────────────────
@@ -47,6 +48,9 @@ export const reorderColumns = async ({ ids, ownerType, ownerId, bu }) => {
 export const deleteColumn = async ({ id, ownerType, ownerId, bu }) => {
   const existing = await columnRepo.findColumnById(id, bu);
   if (!existing) throw new NotFoundError("column_not_found");
+
+  const taskCount = await taskRepo.countTasksByColumn(id, bu);
+  if (taskCount > 0) throw new ValidationError("column_has_tasks");
 
   await columnRepo.deleteColumn(id, ownerType, ownerId, bu);
 };

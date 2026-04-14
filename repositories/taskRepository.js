@@ -521,6 +521,14 @@ export const moveTask = async (id, columnId, colOrder, bu, client) => {
   return rows[0] ?? null;
 };
 
+export const countTasksByColumn = async (columnId, bu) => {
+  const { rows } = await getPool().query(
+    `SELECT COUNT(*)::int AS count FROM v4.tasks WHERE column_id = $1::uuid AND business_unit = $2 AND parent_task_id IS NULL`,
+    [columnId, bu],
+  );
+  return rows[0].count;
+};
+
 // ─── Delete ────────────────────────────────────────────────────────────────────
 
 export const deleteTask = async (id, bu, client) => {
