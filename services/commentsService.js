@@ -164,7 +164,7 @@ export const deleteComment = async (commentId, userId, userBU, userRole) => {
   const relation = await commentsRepo.findCommentRelation(commentId);
   if (!relation) throw new NotFoundError("comment_not_found");
 
-  await assertParentBU(relation.relation_type, relation.relation_id, userBU);
+  await assertParentBU(relation.relation_type, relation.relation_id, userBU, userId);
 
   const isElevated = ELEVATED_ROLES.includes(
     (userRole || "").toUpperCase(),
