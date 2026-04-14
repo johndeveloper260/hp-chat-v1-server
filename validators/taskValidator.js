@@ -40,15 +40,17 @@ export const addMemberSchema = z.object({
 // ─── Tasks ─────────────────────────────────────────────────────────────────────
 
 export const createTaskSchema = z.object({
-  title:        z.string().min(1).max(500),
-  description:  z.string().max(5000).optional().nullable(),
-  category:     z.string().max(100).optional().nullable(),
-  column_id:    z.string().uuid().optional().nullable(),
-  deadline:     z.coerce.date().optional().nullable(),
-  remind_at:    z.coerce.date().optional().nullable(),
-  assignee_ids: z.array(z.string().uuid()).optional().default([]),
-  team_id:      z.string().uuid().optional().nullable(),
-  col_order:    z.coerce.number().int().min(0).optional().default(0),
+  title:             z.string().min(1).max(500),
+  description:       z.string().max(5000).optional().nullable(),
+  category:          z.string().max(100).optional().nullable(),
+  column_id:         z.string().uuid().optional().nullable(),
+  deadline:          z.coerce.date().optional().nullable(),
+  remind_at:         z.coerce.date().optional().nullable(),
+  assignee_ids:      z.array(z.string().uuid()).optional().default([]),
+  team_id:           z.string().uuid().optional().nullable(),
+  col_order:         z.coerce.number().int().min(0).optional().default(0),
+  source_message_id: z.string().max(255).optional().nullable(),
+  source_channel_id: z.string().max(255).optional().nullable(),
 });
 
 export const updateTaskSchema = z.object({
@@ -66,4 +68,13 @@ export const updateTaskSchema = z.object({
 export const moveTaskSchema = z.object({
   column_id: z.string().uuid().optional().nullable(),
   col_order: z.coerce.number().int().min(0).default(0),
+});
+
+// ─── Sub-tasks ─────────────────────────────────────────────────────────────────
+
+export const createSubtaskSchema = z.object({
+  title:        z.string().min(1).max(500),
+  description:  z.string().max(5000).optional().nullable(),
+  deadline:     z.coerce.date().optional().nullable(),
+  assignee_ids: z.array(z.string().uuid()).min(1, "At least one assignee is required"),
 });

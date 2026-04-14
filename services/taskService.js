@@ -1,31 +1,47 @@
 /**
  * Task Service
  *
- * Business logic for HoRenSo tasks.
+ * Business logic for HoRenSo tasks and sub-tasks.
+ *
  * Access control:
  *   - listTasks: regular users see tasks they created/are assigned to/are team members of;
  *                OFFICER and ADMIN see all tasks in BU.
  *   - getTask: creator, assignee, team member, or OFFICER/ADMIN.
  *   - createTask: any authenticated user.
+ *   - createSubtask: OFFICER/ADMIN only.
  *   - updateTask: creator or assignee (or OFFICER/ADMIN).
  *   - moveTask: any user with access to the task.
  *   - deleteTask: creator only.
+ *   - completeSubtask: only the assigned user (or OFFICER/ADMIN to reset).
  */
 import { getPool } from "../config/getPool.js";
 import * as taskRepo from "../repositories/taskRepository.js";
+import * as notifRepo from "../repositories/notificationRepository.js";
+import { sendNotificationToUser } from "./notificationService.js";
+import { formatNotification } from "../utils/notificationTranslations.js";
 import { NotFoundError, ForbiddenError } from "../errors/AppError.js";
 
 const isPrivileged = (userType) =>
   ["OFFICER", "ADMIN"].includes((userType || "").toUpperCase());
 
-// ─── List ──────────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+const getUserLanguage = async (userId, bu) => {
+  const { rows } = await getPool().query(
+    `SELECT language FROM v4.user_account_tbl WHERE id = $1 AND business_unit = $2`,
+    [userId, bu],
+  );
+  return rows[0]?.language ?? "en";
+};
+
+// ─── List (Kanban board — parent tasks only) ──────────────────────────────────
 
 export const listTasks = async ({ bu, filters, userId, userType }) => {
   const userOnly = !isPrivileged(userType);
   return taskRepo.findTasks(bu, { ...filters, userOnly, userId });
 };
 
-// ─── Get single ────────────────────────────────────────────────────────────────
+// ─── Get single task ──────────────────────────────────────────────────────────
 
 export const getTask = async ({ id, bu, userId, userType }) => {
   const task = await taskRepo.findTaskById(id, bu);
@@ -41,7 +57,7 @@ export const getTask = async ({ id, bu, userId, userType }) => {
   return task;
 };
 
-// ─── Create ────────────────────────────────────────────────────────────────────
+// ─── Create parent task ───────────────────────────────────────────────────────
 
 export const createTask = async ({ body, userId, bu }) => {
   const { assignee_ids = [], ...taskData } = body;
@@ -61,7 +77,6 @@ export const createTask = async ({ body, userId, bu }) => {
 
     await client.query("COMMIT");
 
-    // Return task with full assignee details
     return taskRepo.findTaskById(task.id, bu);
   } catch (err) {
     await client.query("ROLLBACK");
@@ -71,7 +86,176 @@ export const createTask = async ({ body, userId, bu }) => {
   }
 };
 
-// ─── Update ────────────────────────────────────────────────────────────────────
+// ─── Create sub-task ──────────────────────────────────────────────────────────
+
+export const createSubtask = async ({ parentId, body, userId, bu, userType }) => {
+  if (!isPrivileged(userType)) {
+    throw new ForbiddenError("only_officers_can_create_subtasks");
+  }
+
+  const parent = await taskRepo.findTaskById(parentId, bu);
+  if (!parent) throw new NotFoundError("task_not_found");
+
+  const { assignee_ids, ...taskData } = body;
+
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+
+    const subtask = await taskRepo.insertTask(
+      {
+        ...taskData,
+        created_by: userId,
+        business_unit: bu,
+        parent_task_id: parentId,
+        column_id: null,
+        team_id: parent.team_id ?? null,
+        col_order: 0,
+      },
+      client,
+    );
+
+    await taskRepo.insertTaskAssignees(subtask.id, assignee_ids, client);
+
+    await client.query("COMMIT");
+
+    // Notify assignees (best-effort, outside transaction)
+    setImmediate(() => _notifySubtaskAssigned(assignee_ids, subtask, parent, bu));
+
+    return taskRepo.findTaskById(subtask.id, bu);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+const _notifySubtaskAssigned = async (assigneeIds, subtask, parent, bu) => {
+  for (const uid of assigneeIds) {
+    try {
+      const lang  = await getUserLanguage(uid, bu);
+      const title = formatNotification("subtask_assigned_title", lang);
+      const body  = formatNotification("subtask_assigned_body", lang, { title: subtask.title });
+
+      await notifRepo.insertNotificationHistory(uid, title, body, "tasks", subtask.id, bu);
+      await sendNotificationToUser(uid, title, body, {
+        type: "tasks",
+        taskId: subtask.id,
+        parentTaskId: parent.id,
+        parentTaskTitle: parent.title,
+      }, bu);
+    } catch (err) {
+      console.error(`Subtask assign notification failed for user ${uid}:`, err);
+    }
+  }
+};
+
+// ─── List sub-tasks for a parent ──────────────────────────────────────────────
+
+export const listSubtasks = async ({ parentId, bu, userId, userType }) => {
+  const parent = await taskRepo.findTaskById(parentId, bu);
+  if (!parent) throw new NotFoundError("task_not_found");
+
+  if (!isPrivileged(userType)) {
+    const relation = await taskRepo.isUserRelatedToTask(parentId, userId);
+    if (!relation || (!relation.is_creator && !relation.is_assignee && !relation.is_team_member)) {
+      throw new ForbiddenError("cannot_access_task");
+    }
+  }
+
+  return taskRepo.findSubtasksByParent(parentId, bu);
+};
+
+// ─── My sub-tasks (for RN App members) ───────────────────────────────────────
+
+export const getMySubtasks = async ({ userId, bu }) => {
+  return taskRepo.findMySubtasks(userId, bu);
+};
+
+// ─── User search for assignee picker (officer only) ──────────────────────────
+
+export const searchTaskUsers = async ({ bu, filters, userType }) => {
+  if (!isPrivileged(userType)) {
+    throw new ForbiddenError("only_officers_can_search_users");
+  }
+  return taskRepo.searchTaskUsers(bu, filters);
+};
+
+// ─── Complete / uncomplete sub-task ──────────────────────────────────────────
+
+export const completeSubtask = async ({ id, userId, bu, userType }) => {
+  const subtask = await taskRepo.findTaskById(id, bu);
+  if (!subtask) throw new NotFoundError("task_not_found");
+  if (!subtask.parent_task_id) throw new ForbiddenError("not_a_subtask");
+
+  if (!isPrivileged(userType)) {
+    const relation = await taskRepo.isUserRelatedToTask(id, userId);
+    if (!relation?.is_assignee) {
+      throw new ForbiddenError("only_assignee_can_complete");
+    }
+  }
+
+  const updated = await taskRepo.completeSubtask(id, userId, bu);
+  if (!updated) throw new NotFoundError("task_not_found");
+
+  if (updated.completed_at) {
+    setImmediate(() => _notifySubtaskCompletion(updated, userId, bu));
+  }
+
+  return taskRepo.findTaskById(id, bu);
+};
+
+const _notifySubtaskCompletion = async (updated, completerId, bu) => {
+  try {
+    const parentId = updated.parent_task_id;
+    const parent   = await taskRepo.findTaskById(parentId, bu);
+    if (!parent) return;
+
+    const { rows: userRows } = await getPool().query(
+      `SELECT first_name, last_name FROM v4.user_profile_tbl WHERE user_id = $1`,
+      [completerId],
+    );
+    const completerName = userRows[0]
+      ? `${userRows[0].first_name} ${userRows[0].last_name}`
+      : "Someone";
+
+    const creatorId = parent.created_by;
+    const lang      = await getUserLanguage(creatorId, bu);
+
+    const title = formatNotification("subtask_completed_title", lang);
+    const body  = formatNotification("subtask_completed_body", lang, {
+      name:  completerName,
+      title: updated.title,
+    });
+
+    await notifRepo.insertNotificationHistory(creatorId, title, body, "tasks", parentId, bu);
+    await sendNotificationToUser(creatorId, title, body, {
+      type: "tasks",
+      taskId: updated.id,
+      parentTaskId: parentId,
+    }, bu);
+
+    // Check if all subtasks are now complete
+    const progress = await taskRepo.getParentProgress(parentId, bu);
+    if (progress.total > 0 && progress.completed === progress.total) {
+      const allDoneTitle = formatNotification("all_subtasks_done_title", lang);
+      const allDoneBody  = formatNotification("all_subtasks_done_body", lang, {
+        title: parent.title,
+      });
+      await notifRepo.insertNotificationHistory(creatorId, allDoneTitle, allDoneBody, "tasks", parentId, bu);
+      await sendNotificationToUser(creatorId, allDoneTitle, allDoneBody, {
+        type: "tasks",
+        parentTaskId: parentId,
+        allDone: true,
+      }, bu);
+    }
+  } catch (err) {
+    console.error("Subtask completion notification failed:", err);
+  }
+};
+
+// ─── Update ───────────────────────────────────────────────────────────────────
 
 export const updateTask = async ({ id, body, userId, bu, userType }) => {
   const task = await taskRepo.findTaskById(id, bu);
@@ -119,7 +303,7 @@ export const updateTask = async ({ id, body, userId, bu, userType }) => {
   }
 };
 
-// ─── Move ──────────────────────────────────────────────────────────────────────
+// ─── Move ─────────────────────────────────────────────────────────────────────
 
 export const moveTask = async ({ id, body, userId, bu, userType }) => {
   const task = await taskRepo.findTaskById(id, bu);
@@ -139,7 +323,7 @@ export const moveTask = async ({ id, body, userId, bu, userType }) => {
   return taskRepo.findTaskById(id, bu);
 };
 
-// ─── Delete ────────────────────────────────────────────────────────────────────
+// ─── Delete ───────────────────────────────────────────────────────────────────
 
 export const deleteTask = async ({ id, userId, bu }) => {
   const task = await taskRepo.findTaskById(id, bu);
@@ -153,7 +337,17 @@ export const deleteTask = async ({ id, userId, bu }) => {
   try {
     await client.query("BEGIN");
 
-    // Cascade: remove assignees, then delete task
+    // Cascade: remove assignees from subtasks, delete subtasks, then parent
+    await client.query(
+      `DELETE FROM v4.task_assignees WHERE task_id IN (
+         SELECT id FROM v4.tasks WHERE parent_task_id = $1::uuid
+       )`,
+      [id],
+    );
+    await client.query(
+      `DELETE FROM v4.tasks WHERE parent_task_id = $1::uuid`,
+      [id],
+    );
     await taskRepo.deleteTaskAssignees(id, client);
     await taskRepo.deleteTask(id, bu, client);
 

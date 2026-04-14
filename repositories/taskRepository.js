@@ -8,12 +8,38 @@ import { getPool } from "../config/getPool.js";
 
 const db = (client) => client ?? getPool();
 
-// ─── List ──────────────────────────────────────────────────────────────────────
+// ─── Shared assignee sub-select (reused in multiple queries) ──────────────────
+
+const assigneesSubselect = `
+  COALESCE(
+    (
+      SELECT json_agg(
+        json_build_object(
+          'user_id', ta.user_id,
+          'first_name', up.first_name,
+          'middle_name', up.middle_name,
+          'last_name', up.last_name,
+          'profile_pic_id', (
+            SELECT attachment_id FROM v4.shared_attachments
+            WHERE relation_type = 'profile' AND relation_id::text = ta.user_id::text
+            ORDER BY created_at DESC LIMIT 1
+          )
+        ) ORDER BY up.first_name ASC
+      )
+      FROM v4.task_assignees ta
+      JOIN v4.user_profile_tbl up ON ta.user_id = up.user_id
+      WHERE ta.task_id = t.id
+    ),
+    '[]'::json
+  ) AS assignees
+`;
+
+// ─── List (Kanban board — parent tasks only) ──────────────────────────────────
 
 /**
- * findTasks — returns tasks with assignees array, comment_count, attachment_count.
- * filters: { column_id?, team_id?, category?, assignee_id?, userOnly?, userId? }
- * userOnly=true restricts to tasks created by or assigned to userId.
+ * findTasks — returns parent tasks (parent_task_id IS NULL) for the Kanban board.
+ * Sub-tasks are intentionally excluded from this query.
+ * filters: { column_id?, team_id?, category?, assignee_id?, userOnly?, userId?, personalOnly? }
  */
 export const findTasks = async (bu, filters = {}) => {
   const { column_id, team_id, category, assignee_id, userOnly, userId, personalOnly } = filters;
@@ -35,31 +61,13 @@ export const findTasks = async (bu, filters = {}) => {
       t.col_order,
       t.created_at,
       t.updated_at,
+      t.source_message_id,
+      t.source_channel_id,
       p_creator.first_name AS creator_first_name,
       p_creator.middle_name AS creator_middle_name,
       p_creator.last_name AS creator_last_name,
       creator_pic.attachment_id AS creator_pic_id,
-      COALESCE(
-        (
-          SELECT json_agg(
-            json_build_object(
-              'user_id', ta.user_id,
-              'first_name', up.first_name,
-              'middle_name', up.middle_name,
-              'last_name', up.last_name,
-              'profile_pic_id', (
-                SELECT attachment_id FROM v4.shared_attachments
-                WHERE relation_type = 'profile' AND relation_id::text = ta.user_id::text
-                ORDER BY created_at DESC LIMIT 1
-              )
-            ) ORDER BY up.first_name ASC
-          )
-          FROM v4.task_assignees ta
-          JOIN v4.user_profile_tbl up ON ta.user_id = up.user_id
-          WHERE ta.task_id = t.id
-        ),
-        '[]'::json
-      ) AS assignees,
+      ${assigneesSubselect},
       (
         SELECT COUNT(*)
         FROM v4.shared_comments
@@ -69,7 +77,14 @@ export const findTasks = async (bu, filters = {}) => {
         SELECT COUNT(*)
         FROM v4.shared_attachments
         WHERE relation_type = 'task' AND relation_id = t.id::text
-      )::int AS attachment_count
+      )::int AS attachment_count,
+      (
+        SELECT COUNT(*)::int FROM v4.tasks st WHERE st.parent_task_id = t.id
+      ) AS subtask_count,
+      (
+        SELECT COUNT(*)::int FROM v4.tasks st
+        WHERE st.parent_task_id = t.id AND st.completed_at IS NOT NULL
+      ) AS subtask_completed_count
     FROM v4.tasks t
     LEFT JOIN v4.user_profile_tbl p_creator ON t.created_by = p_creator.user_id
     LEFT JOIN LATERAL (
@@ -78,6 +93,7 @@ export const findTasks = async (bu, filters = {}) => {
       ORDER BY created_at DESC LIMIT 1
     ) creator_pic ON true
     WHERE t.business_unit = $1
+      AND t.parent_task_id IS NULL
   `;
 
   if (column_id) {
@@ -130,7 +146,7 @@ export const findTasks = async (bu, filters = {}) => {
   return rows;
 };
 
-// ─── Single Task ───────────────────────────────────────────────────────────────
+// ─── Single Task (with subtasks + completion %) ───────────────────────────────
 
 export const findTaskById = async (id, bu, client) => {
   const { rows } = await db(client).query(
@@ -149,31 +165,16 @@ export const findTaskById = async (id, bu, client) => {
        t.col_order,
        t.created_at,
        t.updated_at,
+       t.parent_task_id,
+       t.completed_at,
+       t.completed_by,
+       t.source_message_id,
+       t.source_channel_id,
        p_creator.first_name AS creator_first_name,
        p_creator.middle_name AS creator_middle_name,
        p_creator.last_name AS creator_last_name,
        creator_pic.attachment_id AS creator_pic_id,
-       COALESCE(
-         (
-           SELECT json_agg(
-             json_build_object(
-               'user_id', ta.user_id,
-               'first_name', up.first_name,
-               'middle_name', up.middle_name,
-               'last_name', up.last_name,
-               'profile_pic_id', (
-                 SELECT attachment_id FROM v4.shared_attachments
-                 WHERE relation_type = 'profile' AND relation_id::text = ta.user_id::text
-                 ORDER BY created_at DESC LIMIT 1
-               )
-             ) ORDER BY up.first_name ASC
-           )
-           FROM v4.task_assignees ta
-           JOIN v4.user_profile_tbl up ON ta.user_id = up.user_id
-           WHERE ta.task_id = t.id
-         ),
-         '[]'::json
-       ) AS assignees,
+       ${assigneesSubselect},
        (
          SELECT COUNT(*)
          FROM v4.shared_comments
@@ -183,7 +184,59 @@ export const findTaskById = async (id, bu, client) => {
          SELECT COUNT(*)
          FROM v4.shared_attachments
          WHERE relation_type = 'task' AND relation_id = t.id::text
-       )::int AS attachment_count
+       )::int AS attachment_count,
+       (
+         SELECT COUNT(*)::int FROM v4.tasks st WHERE st.parent_task_id = t.id
+       ) AS subtask_count,
+       (
+         SELECT COUNT(*)::int FROM v4.tasks st
+         WHERE st.parent_task_id = t.id AND st.completed_at IS NOT NULL
+       ) AS subtask_completed_count,
+       CASE
+         WHEN (SELECT COUNT(*) FROM v4.tasks st WHERE st.parent_task_id = t.id) = 0 THEN NULL
+         ELSE ROUND(
+           (SELECT COUNT(*)::numeric FROM v4.tasks st WHERE st.parent_task_id = t.id AND st.completed_at IS NOT NULL)
+           / (SELECT COUNT(*)::numeric FROM v4.tasks st WHERE st.parent_task_id = t.id)
+           * 100
+         )
+       END AS completion_percentage,
+       COALESCE(
+         (
+           SELECT json_agg(
+             json_build_object(
+               'id', st.id,
+               'title', st.title,
+               'description', st.description,
+               'deadline', st.deadline,
+               'completed_at', st.completed_at,
+               'completed_by', st.completed_by,
+               'created_at', st.created_at,
+               'assignees', COALESCE(
+                 (
+                   SELECT json_agg(json_build_object(
+                     'user_id', ta.user_id,
+                     'first_name', up.first_name,
+                     'middle_name', up.middle_name,
+                     'last_name', up.last_name,
+                     'profile_pic_id', (
+                       SELECT attachment_id FROM v4.shared_attachments
+                       WHERE relation_type = 'profile' AND relation_id::text = ta.user_id::text
+                       ORDER BY created_at DESC LIMIT 1
+                     )
+                   ) ORDER BY up.first_name ASC)
+                   FROM v4.task_assignees ta
+                   JOIN v4.user_profile_tbl up ON ta.user_id = up.user_id
+                   WHERE ta.task_id = st.id
+                 ),
+                 '[]'::json
+               )
+             ) ORDER BY st.created_at ASC
+           )
+           FROM v4.tasks st
+           WHERE st.parent_task_id = t.id
+         ),
+         '[]'::json
+       ) AS subtasks
      FROM v4.tasks t
      LEFT JOIN v4.user_profile_tbl p_creator ON t.created_by = p_creator.user_id
      LEFT JOIN LATERAL (
@@ -195,6 +248,157 @@ export const findTaskById = async (id, bu, client) => {
     [id, bu],
   );
   return rows[0] ?? null;
+};
+
+// ─── Sub-tasks ─────────────────────────────────────────────────────────────────
+
+export const findSubtasksByParent = async (parentId, bu) => {
+  const { rows } = await getPool().query(
+    `SELECT
+       t.id,
+       t.title,
+       t.description,
+       t.deadline,
+       t.completed_at,
+       t.completed_by,
+       t.created_at,
+       t.parent_task_id,
+       t.business_unit,
+       ${assigneesSubselect}
+     FROM v4.tasks t
+     WHERE t.parent_task_id = $1::uuid AND t.business_unit = $2
+     ORDER BY t.created_at ASC`,
+    [parentId, bu],
+  );
+  return rows;
+};
+
+/**
+ * findMySubtasks — all sub-tasks assigned to a specific user (for RN App).
+ * Returns subtask + parent task title for context.
+ */
+export const findMySubtasks = async (userId, bu) => {
+  const { rows } = await getPool().query(
+    `SELECT
+       t.id,
+       t.title,
+       t.description,
+       t.deadline,
+       t.completed_at,
+       t.completed_by,
+       t.created_at,
+       t.updated_at,
+       t.parent_task_id,
+       t.business_unit,
+       pt.title AS parent_task_title,
+       p_creator.first_name AS creator_first_name,
+       p_creator.last_name  AS creator_last_name
+     FROM v4.tasks t
+     JOIN v4.task_assignees ta ON ta.task_id = t.id AND ta.user_id = $1::uuid
+     JOIN v4.tasks pt ON pt.id = t.parent_task_id
+     LEFT JOIN v4.user_profile_tbl p_creator ON pt.created_by = p_creator.user_id
+     WHERE t.parent_task_id IS NOT NULL
+       AND t.business_unit = $2
+     ORDER BY
+       t.completed_at IS NOT NULL ASC,
+       t.deadline ASC NULLS LAST,
+       t.created_at DESC`,
+    [userId, bu],
+  );
+  return rows;
+};
+
+/**
+ * completeSubtask — toggles completed_at / completed_by.
+ * Returns the updated row.
+ */
+export const completeSubtask = async (taskId, userId, bu, client) => {
+  const { rows } = await db(client).query(
+    `UPDATE v4.tasks
+     SET
+       completed_at = CASE WHEN completed_at IS NULL THEN NOW() ELSE NULL END,
+       completed_by = CASE WHEN completed_at IS NULL THEN $2::uuid ELSE NULL END,
+       updated_at   = NOW()
+     WHERE id = $1::uuid AND business_unit = $3 AND parent_task_id IS NOT NULL
+     RETURNING *`,
+    [taskId, userId, bu],
+  );
+  return rows[0] ?? null;
+};
+
+/**
+ * getParentProgress — returns total/completed subtask counts for a parent.
+ */
+export const getParentProgress = async (parentId, bu) => {
+  const { rows } = await getPool().query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::int AS completed
+     FROM v4.tasks
+     WHERE parent_task_id = $1::uuid AND business_unit = $2`,
+    [parentId, bu],
+  );
+  return rows[0] ?? { total: 0, completed: 0 };
+};
+
+// ─── User search for subtask assignee picker ──────────────────────────────────
+
+export const searchTaskUsers = async (bu, filters = {}) => {
+  const { user_type, country, sending_org, company, batch_no, search } = filters;
+  const values = [bu];
+  const parts  = [];
+
+  if (user_type) {
+    values.push(user_type.toUpperCase());
+    parts.push(`AND UPPER(p.user_type) = $${values.length}`);
+  }
+  if (country) {
+    values.push(country);
+    parts.push(`AND p.country = $${values.length}`);
+  }
+  if (sending_org) {
+    values.push(sending_org);
+    parts.push(`AND p.sending_org = $${values.length}`);
+  }
+  if (company) {
+    values.push(company);
+    parts.push(`AND p.company::text = $${values.length}`);
+  }
+  if (batch_no) {
+    values.push(batch_no);
+    parts.push(`AND p.batch_no = $${values.length}`);
+  }
+  if (search) {
+    values.push(`%${search.toLowerCase()}%`);
+    parts.push(`AND LOWER(p.first_name || ' ' || p.last_name) LIKE $${values.length}`);
+  }
+
+  const { rows } = await getPool().query(
+    `SELECT
+       p.user_id,
+       p.first_name,
+       p.middle_name,
+       p.last_name,
+       p.user_type,
+       p.company::text AS company,
+       p.batch_no,
+       p.country,
+       p.sending_org,
+       (
+         SELECT attachment_id FROM v4.shared_attachments
+         WHERE relation_type = 'profile' AND relation_id::text = p.user_id::text
+         ORDER BY created_at DESC LIMIT 1
+       ) AS profile_pic_id
+     FROM v4.user_profile_tbl p
+     JOIN v4.user_account_tbl a ON a.id = p.user_id
+     WHERE a.business_unit = $1
+       AND a.is_active = true
+       ${parts.join(" ")}
+     ORDER BY p.last_name ASC, p.first_name ASC
+     LIMIT 100`,
+    values,
+  );
+  return rows;
 };
 
 // ─── Check access ──────────────────────────────────────────────────────────────
@@ -224,15 +428,17 @@ export const isUserRelatedToTask = async (taskId, userId) => {
 
 export const insertTask = async (data, client) => {
   const {
-    title, description, category, column_id, deadline,
-    remind_at, created_by, team_id, business_unit, col_order,
+    title, description, category, column_id, deadline, remind_at,
+    created_by, team_id, business_unit, col_order,
+    parent_task_id, source_message_id, source_channel_id,
   } = data;
 
   const { rows } = await db(client).query(
     `INSERT INTO v4.tasks
        (title, description, category, column_id, deadline, remind_at,
-        created_by, team_id, business_unit, col_order)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8, $9, $10)
+        created_by, team_id, business_unit, col_order,
+        parent_task_id, source_message_id, source_channel_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8, $9, $10, $11, $12, $13)
      RETURNING *`,
     [
       title,
@@ -245,6 +451,9 @@ export const insertTask = async (data, client) => {
       team_id ?? null,
       business_unit,
       col_order ?? 0,
+      parent_task_id ?? null,
+      source_message_id ?? null,
+      source_channel_id ?? null,
     ],
   );
   return rows[0];

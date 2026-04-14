@@ -1,9 +1,11 @@
 /**
  * Task Controller
  *
- * Thin HTTP adapters for task CRUD.
+ * Thin HTTP adapters for task CRUD, sub-tasks, and user search.
  */
 import * as taskService from "../services/taskService.js";
+
+// ─── Parent Tasks ─────────────────────────────────────────────────────────────
 
 // GET /tasks
 export const listTasks = async (req, res, next) => {
@@ -82,6 +84,73 @@ export const deleteTask = async (req, res, next) => {
     const { id: userId, business_unit: bu } = req.user;
     await taskService.deleteTask({ id, userId, bu });
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── Sub-tasks ────────────────────────────────────────────────────────────────
+
+// POST /tasks/:id/subtasks
+export const createSubtask = async (req, res, next) => {
+  try {
+    const { id: parentId } = req.params;
+    const { id: userId, business_unit: bu, userType } = req.user;
+    const subtask = await taskService.createSubtask({ parentId, body: req.body, userId, bu, userType });
+    res.status(201).json(subtask);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /tasks/:id/subtasks
+export const listSubtasks = async (req, res, next) => {
+  try {
+    const { id: parentId } = req.params;
+    const { id: userId, business_unit: bu, userType } = req.user;
+    const subtasks = await taskService.listSubtasks({ parentId, bu, userId, userType });
+    res.json(subtasks);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /tasks/my-subtasks
+export const getMySubtasks = async (req, res, next) => {
+  try {
+    const { id: userId, business_unit: bu } = req.user;
+    const subtasks = await taskService.getMySubtasks({ userId, bu });
+    res.json(subtasks);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /tasks/:id/complete
+export const completeSubtask = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { id: userId, business_unit: bu, userType } = req.user;
+    const subtask = await taskService.completeSubtask({ id, userId, bu, userType });
+    res.json(subtask);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── User search ──────────────────────────────────────────────────────────────
+
+// GET /tasks/users/search
+export const searchTaskUsers = async (req, res, next) => {
+  try {
+    const { business_unit: bu, userType } = req.user;
+    const { user_type, country, sending_org, company, batch_no, search } = req.query;
+    const users = await taskService.searchTaskUsers({
+      bu,
+      userType,
+      filters: { user_type, country, sending_org, company, batch_no, search },
+    });
+    res.json(users);
   } catch (err) {
     next(err);
   }

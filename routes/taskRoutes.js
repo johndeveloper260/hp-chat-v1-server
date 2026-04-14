@@ -7,12 +7,17 @@
  *   /tasks/teams   → taskTeamRoutes
  *
  * Direct task routes:
+ *   GET    /tasks/my-subtasks         — member's assigned sub-tasks (RN App)
+ *   GET    /tasks/users/search        — user search for assignee picker (officer)
  *   GET    /tasks
  *   GET    /tasks/:id
  *   POST   /tasks
  *   PATCH  /tasks/:id
  *   PATCH  /tasks/:id/move
+ *   PATCH  /tasks/:id/complete        — toggle sub-task completion
  *   DELETE /tasks/:id
+ *   POST   /tasks/:id/subtasks        — create sub-task under parent
+ *   GET    /tasks/:id/subtasks        — list sub-tasks of parent
  */
 import express from "express";
 import auth from "../middleware/auth.js";
@@ -21,6 +26,7 @@ import {
   createTaskSchema,
   updateTaskSchema,
   moveTaskSchema,
+  createSubtaskSchema,
 } from "../validators/taskValidator.js";
 import {
   listTasks,
@@ -29,6 +35,11 @@ import {
   updateTask,
   moveTask,
   deleteTask,
+  createSubtask,
+  listSubtasks,
+  getMySubtasks,
+  completeSubtask,
+  searchTaskUsers,
 } from "../controller/taskController.js";
 
 import columnRoutes from "./taskColumnRoutes.js";
@@ -40,12 +51,21 @@ const router = express.Router();
 router.use("/columns", columnRoutes);
 router.use("/teams",   teamRoutes);
 
-// ── Task routes ────────────────────────────────────────────────────────────────
+// ── Static path routes (must come before /:id to avoid param clash) ───────────
+router.get("/my-subtasks",    auth, getMySubtasks);
+router.get("/users/search",   auth, searchTaskUsers);
+
+// ── Task CRUD ──────────────────────────────────────────────────────────────────
 router.get("/",           auth, listTasks);
 router.get("/:id",        auth, getTask);
 router.post("/",          auth, validate(createTaskSchema),  createTask);
-router.patch("/:id/move", auth, validate(moveTaskSchema),    moveTask);
-router.patch("/:id",      auth, validate(updateTaskSchema),  updateTask);
-router.delete("/:id",     auth, deleteTask);
+router.patch("/:id/move",     auth, validate(moveTaskSchema),     moveTask);
+router.patch("/:id/complete", auth,                               completeSubtask);
+router.patch("/:id",          auth, validate(updateTaskSchema),   updateTask);
+router.delete("/:id",         auth, deleteTask);
+
+// ── Sub-task routes ────────────────────────────────────────────────────────────
+router.post("/:id/subtasks", auth, validate(createSubtaskSchema), createSubtask);
+router.get("/:id/subtasks",  auth, listSubtasks);
 
 export default router;
