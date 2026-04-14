@@ -185,6 +185,52 @@ export const checkTaskBU = async (rowId, businessUnit) => {
 };
 
 /**
+ * Subtask access check: user must be in task_assignees for this subtask.
+ * rowId is the integer row_id (used as shared_comments.relation_id).
+ */
+export const checkSubtaskBU = async (rowId, businessUnit, userId) => {
+  const { rowCount } = await getPool().query(
+    `SELECT t.row_id
+     FROM v4.tasks t
+     JOIN v4.task_assignees ta ON ta.task_id = t.id AND ta.user_id = $3::uuid
+     WHERE t.row_id = $1 AND t.business_unit = $2 AND t.parent_task_id IS NOT NULL`,
+    [rowId, businessUnit, userId],
+  );
+  return rowCount > 0;
+};
+
+/**
+ * Returns user_ids of all assignees of a subtask, excluding the commenter.
+ * rowId is the integer row_id.
+ */
+export const findSubtaskRecipients = async (taskRowId, commenterId) => {
+  const { rows } = await getPool().query(
+    `SELECT ta.user_id
+     FROM v4.tasks t
+     JOIN v4.task_assignees ta ON ta.task_id = t.id
+     WHERE t.row_id = $1
+       AND ta.user_id::text != $2::text`,
+    [taskRowId, commenterId],
+  );
+  return rows.map((r) => r.user_id);
+};
+
+/**
+ * Returns user_ids of all assignees of a subtask (by UUID), excluding uploader.
+ * Used for attachment notifications.
+ */
+export const findSubtaskRecipientsByUUID = async (taskId, uploaderUserId) => {
+  const { rows } = await getPool().query(
+    `SELECT ta.user_id
+     FROM v4.task_assignees ta
+     WHERE ta.task_id = $1::uuid
+       AND ta.user_id::text != $2::text`,
+    [taskId, uploaderUserId],
+  );
+  return rows.map((r) => r.user_id);
+};
+
+/**
  * Returns user_ids of all team members on the task's team, excluding commenterId.
  * taskRowId is the integer row_id (used as shared_comments.relation_id).
  * Returns [] when the task has no team (personal board tasks).

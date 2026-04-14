@@ -102,6 +102,33 @@ export const createAttachment = async ({
     }
   }
 
+  if (relation_type === "subtask" && uploaderUserId) {
+    try {
+      const [recipients, taskRowId] = await Promise.all([
+        commentsRepo.findSubtaskRecipientsByUUID(relation_id, uploaderUserId),
+        commentsRepo.findTaskRowIdByUUID(relation_id),
+      ]);
+      if (recipients.length > 0) {
+        const filePreview = display_name.length > 50
+          ? `${display_name.substring(0, 50)}...`
+          : display_name;
+        await Promise.all(
+          recipients.map((recipientId) =>
+            createNotification({
+              userId: recipientId,
+              titleKey:   "file_on_task",
+              bodyKey:    "file_body",
+              bodyParams: { file: filePreview },
+              data: { type: "subtask", rowId: taskRowId, relationId: relation_id, screen: "MyTasks", params: { taskId: relation_id } },
+            }),
+          ),
+        );
+      }
+    } catch (err) {
+      console.error("Subtask file notification failed:", err);
+    }
+  }
+
   return attachment;
 };
 
@@ -133,7 +160,7 @@ export const getViewingUrl = async (attachmentId, userBU) => {
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   // Serve via CloudFront when configured — cached at the edge, reduces S3 egress.
-  if ((relation_type === "announcements" || relation_type === "profile" || relation_type === "inquiries" || relation_type === "return_home" || relation_type === "task") && env.aws.cloudfrontDomain) {
+  if ((relation_type === "announcements" || relation_type === "profile" || relation_type === "inquiries" || relation_type === "return_home" || relation_type === "task" || relation_type === "subtask") && env.aws.cloudfrontDomain) {
     return `https://${env.aws.cloudfrontDomain}/${s3_key}`;
   }
 

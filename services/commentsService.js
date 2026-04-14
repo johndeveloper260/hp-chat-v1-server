@@ -17,7 +17,7 @@ const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
  * Verify that the parent record belongs to the requestor's business_unit.
  * Throws NotFoundError when the check fails.
  */
-const assertParentBU = async (relationType, relationId, businessUnit) => {
+const assertParentBU = async (relationType, relationId, businessUnit, userId = null) => {
   let ok = true;
   if (relationType === "inquiries") {
     ok = await commentsRepo.checkInquiryBU(relationId, businessUnit);
@@ -27,14 +27,16 @@ const assertParentBU = async (relationType, relationId, businessUnit) => {
     ok = await commentsRepo.checkReturnHomeBU(relationId, businessUnit);
   } else if (relationType === "task") {
     ok = await commentsRepo.checkTaskBU(relationId, businessUnit);
+  } else if (relationType === "subtask") {
+    ok = await commentsRepo.checkSubtaskBU(relationId, businessUnit, userId);
   }
   if (!ok) throw new NotFoundError("record_not_found");
 };
 
 // ── Fetch ──────────────────────────────────────────────────────────────────────
 
-export const getComments = async (type, id, userBU) => {
-  await assertParentBU(type, id, userBU);
+export const getComments = async (type, id, userBU, userId = null) => {
+  await assertParentBU(type, id, userBU, userId);
   return commentsRepo.findComments(type, id);
 };
 
@@ -49,7 +51,7 @@ export const addComment = async (body, userId, userBU) => {
     metadata,
   } = body;
 
-  await assertParentBU(relation_type, relation_id, userBU);
+  await assertParentBU(relation_type, relation_id, userBU, userId);
 
   // 1. Insert the comment
   const newComment = await commentsRepo.insertComment({
@@ -75,6 +77,8 @@ export const addComment = async (body, userId, userBU) => {
     rawRecipients = await commentsRepo.findReturnHomeRecipients(relation_id, userId);
   } else if (relation_type === "task") {
     rawRecipients = await commentsRepo.findTaskRecipients(relation_id, userId);
+  } else if (relation_type === "subtask") {
+    rawRecipients = await commentsRepo.findSubtaskRecipients(relation_id, userId);
   }
 
   const recipients = [...new Set(rawRecipients)].filter(
@@ -87,6 +91,7 @@ export const addComment = async (body, userId, userBU) => {
     if (relation_type === "inquiries") titleKey = "comment_on_inquiry";
     else if (relation_type === "return_home") titleKey = "comment_on_return_home";
     else if (relation_type === "task") titleKey = "comment_on_task";
+    else if (relation_type === "subtask") titleKey = "comment_on_task";
     else titleKey = "comment_on_announcement";
 
     const commentPreview =
@@ -94,9 +99,9 @@ export const addComment = async (body, userId, userBU) => {
         ? `${content_text.substring(0, 50)}...`
         : content_text;
 
-    // For task comments: relation_id is the integer row_id; look up the UUID for navigation
+    // For task/subtask comments: relation_id is the integer row_id; look up the UUID for navigation
     let taskUUID = null;
-    if (relation_type === "task") {
+    if (relation_type === "task" || relation_type === "subtask") {
       taskUUID = await commentsRepo.findTaskIdByRowId(relation_id);
     }
 
@@ -110,21 +115,21 @@ export const addComment = async (body, userId, userBU) => {
           data: {
             type:       relation_type,
             rowId:      relation_id,
-            relationId: relation_type === "task" ? taskUUID : undefined,
+            relationId: (relation_type === "task" || relation_type === "subtask") ? taskUUID : undefined,
             screen:
               relation_type === "inquiries"
                 ? "Inquiry"
                 : relation_type === "return_home"
                   ? "ReturnHome"
-                  : relation_type === "task"
-                    ? "Tasks"
+                  : (relation_type === "task" || relation_type === "subtask")
+                    ? "MyTasks"
                     : "Home",
             params:
               relation_type === "inquiries"
                 ? { ticketId: relation_id }
                 : relation_type === "return_home"
                   ? { id: relation_id }
-                  : relation_type === "task"
+                  : (relation_type === "task" || relation_type === "subtask")
                     ? { taskId: taskUUID }
                     : { rowId: relation_id },
           },

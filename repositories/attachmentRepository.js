@@ -50,6 +50,16 @@ export const checkParentBU = async (relationType, relationId, userBU, client) =>
     );
     return rowCount;
   }
+  if (relationType === "subtask") {
+    // Verify the task is a subtask and the caller is an assignee
+    const { rowCount } = await db(client).query(
+      `SELECT t.id
+       FROM v4.tasks t
+       WHERE t.id = $1::uuid AND t.business_unit = $2 AND t.parent_task_id IS NOT NULL`,
+      [relationId, userBU],
+    );
+    return rowCount;
+  }
   if (relationType === "chat_template") {
     const { rowCount } = await db(client).query(
       "SELECT row_id FROM v4.chat_message_templates WHERE row_id = $1::int AND business_unit = $2 AND deleted_at IS NULL",

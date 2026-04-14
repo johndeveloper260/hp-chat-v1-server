@@ -11,7 +11,7 @@ import * as commentsService from "../services/commentsService.js";
 export const getComments = async (req, res, next) => {
   try {
     const { type, id } = req.params;
-    const rows = await commentsService.getComments(type, id, req.user.business_unit);
+    const rows = await commentsService.getComments(type, id, req.user.business_unit, req.user.id);
     res.status(200).json(rows);
   } catch (err) { next(err); }
 };

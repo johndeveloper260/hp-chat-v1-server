@@ -281,6 +281,7 @@ export const findMySubtasks = async (userId, bu) => {
   const { rows } = await getPool().query(
     `SELECT
        t.id,
+       t.row_id,
        t.title,
        t.description,
        t.deadline,
