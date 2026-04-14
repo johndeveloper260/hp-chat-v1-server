@@ -56,7 +56,7 @@ export const createAttachment = async ({
 }) => {
   if (!relation_id) throw new ValidationError("missing_relation_id");
 
-  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
+  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, uploaderUserId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
 
   const attachment = await attachRepo.insertSharedAttachment({
@@ -151,12 +151,12 @@ export const syncProfilePictureToStream = async (userId, s3Key, s3Bucket) => {
 
 // ─── 4. Generate presigned GET URL (viewing) ──────────────────────────────────
 
-export const getViewingUrl = async (attachmentId, userBU) => {
+export const getViewingUrl = async (attachmentId, userBU, userId = null) => {
   const attachment = await attachRepo.findAttachmentById(attachmentId);
   if (!attachment) throw new NotFoundError("record_not_found");
 
   const { relation_type, relation_id, s3_key, s3_bucket } = attachment;
-  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
+  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   // Serve via CloudFront when configured — cached at the edge, reduces S3 egress.
@@ -169,8 +169,8 @@ export const getViewingUrl = async (attachmentId, userBU) => {
 
 // ─── 5. Get all attachments for a relation ────────────────────────────────────
 
-export const getAttachmentsByRelation = async (relationType, relationId, userBU) => {
-  const parentExists = await attachRepo.checkParentBU(relationType, relationId, userBU);
+export const getAttachmentsByRelation = async (relationType, relationId, userBU, userId = null) => {
+  const parentExists = await attachRepo.checkParentBU(relationType, relationId, userBU, null, userId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
 
   return attachRepo.findAttachmentsByRelation(relationType, relationId);
@@ -178,12 +178,12 @@ export const getAttachmentsByRelation = async (relationType, relationId, userBU)
 
 // ─── 6. Delete single attachment ──────────────────────────────────────────────
 
-export const deleteAttachment = async (attachmentId, userBU) => {
+export const deleteAttachment = async (attachmentId, userBU, userId = null) => {
   const attachment = await attachRepo.findAttachmentById(attachmentId);
   if (!attachment) throw new NotFoundError("record_not_found");
 
   const { s3_key, relation_type, relation_id } = attachment;
-  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
+  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   await deleteFromS3(s3_key);
@@ -230,8 +230,8 @@ export const deleteProfilePicture = async (userId, userBU) => {
 
 // ─── 8. Batch delete all attachments for a relation ──────────────────────────
 
-export const deleteAttachmentsByRelation = async (relationType, relationId, userBU) => {
-  const parentExists = await attachRepo.checkParentBU(relationType, relationId, userBU);
+export const deleteAttachmentsByRelation = async (relationType, relationId, userBU, userId = null) => {
+  const parentExists = await attachRepo.checkParentBU(relationType, relationId, userBU, null, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   const rows = await attachRepo.findAttachmentKeysByRelation(relationType, relationId, userBU);
@@ -262,12 +262,12 @@ export const deleteAttachmentsByRelation = async (relationType, relationId, user
  * controller can pipe it straight to the HTTP response.
  * The caller is responsible for setting Content-Type and piping Body.
  */
-export const streamAttachment = async (attachmentId, userBU) => {
+export const streamAttachment = async (attachmentId, userBU, userId = null) => {
   const attachment = await attachRepo.findAttachmentById(attachmentId);
   if (!attachment) throw new NotFoundError("record_not_found");
 
   const { relation_type, relation_id, s3_key, s3_bucket } = attachment;
-  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU);
+  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   const command = new GetObjectCommand({ Bucket: s3_bucket || env.aws.bucket, Key: s3_key });

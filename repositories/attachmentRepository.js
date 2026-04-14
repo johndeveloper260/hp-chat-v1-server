@@ -14,7 +14,7 @@ const db = (client) => client ?? getPool();
  * Verify a parent record exists and belongs to the given business_unit.
  * Returns rowCount (0 = not found / unauthorized).
  */
-export const checkParentBU = async (relationType, relationId, userBU, client) => {
+export const checkParentBU = async (relationType, relationId, userBU, client, userId = null) => {
   if (relationType === "inquiries") {
     const { rowCount } = await db(client).query(
       "SELECT ticket_id FROM v4.inquiry_tbl WHERE ticket_id = $1 AND business_unit = $2",
@@ -52,11 +52,13 @@ export const checkParentBU = async (relationType, relationId, userBU, client) =>
   }
   if (relationType === "subtask") {
     // Verify the task is a subtask and the caller is an assignee
+    if (!userId) return 0;
     const { rowCount } = await db(client).query(
       `SELECT t.id
        FROM v4.tasks t
+       JOIN v4.task_assignees ta ON ta.task_id = t.id AND ta.user_id = $3::uuid
        WHERE t.id = $1::uuid AND t.business_unit = $2 AND t.parent_task_id IS NOT NULL`,
-      [relationId, userBU],
+      [relationId, userBU, userId],
     );
     return rowCount;
   }

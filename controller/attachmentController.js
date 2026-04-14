@@ -54,7 +54,7 @@ export const createAttachment = async (req, res, next) => {
 
 export const getViewingUrl = async (req, res, next) => {
   try {
-    const url = await attachService.getViewingUrl(req.params.id, req.user.business_unit);
+    const url = await attachService.getViewingUrl(req.params.id, req.user.business_unit, req.user.id);
     res.json({ url });
   } catch (err) {
     next(err);
@@ -67,7 +67,7 @@ export const getAttachmentsByRelation = async (req, res, next) => {
   try {
     const { relationType, relationId } = req.params;
     const attachments = await attachService.getAttachmentsByRelation(
-      relationType, relationId, req.user.business_unit,
+      relationType, relationId, req.user.business_unit, req.user.id,
     );
     res.json({ attachments });
   } catch (err) {
@@ -79,7 +79,7 @@ export const getAttachmentsByRelation = async (req, res, next) => {
 
 export const deleteAttachment = async (req, res, next) => {
   try {
-    await attachService.deleteAttachment(req.params.id, req.user.business_unit);
+    await attachService.deleteAttachment(req.params.id, req.user.business_unit, req.user.id);
     res.json({ message: "Attachment deleted successfully from S3 and DB" });
   } catch (err) {
     next(err);
@@ -105,7 +105,7 @@ export const deleteAttachmentsByRelation = async (req, res, next) => {
   try {
     const { relationType, relationId } = req.params;
     const { count } = await attachService.deleteAttachmentsByRelation(
-      relationType, relationId, req.user.business_unit,
+      relationType, relationId, req.user.business_unit, req.user.id,
     );
     res.json({ message: `Successfully deleted ${count} attachment(s)`, count });
   } catch (err) {
@@ -118,7 +118,7 @@ export const deleteAttachmentsByRelation = async (req, res, next) => {
 export const proxyAttachment = async (req, res, next) => {
   try {
     const { body, contentType, contentLength, displayName } =
-      await attachService.streamAttachment(req.params.id, req.user.business_unit);
+      await attachService.streamAttachment(req.params.id, req.user.business_unit, req.user.id);
 
     res.setHeader("Content-Type", contentType);
     res.setHeader(
