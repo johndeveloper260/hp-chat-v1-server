@@ -97,7 +97,8 @@ export const createSubtask = async ({ parentId, body, userId, bu, userType }) =>
   const parent = await taskRepo.findTaskById(parentId, bu);
   if (!parent) throw new NotFoundError("task_not_found");
 
-  const { assignee_ids, ...taskData } = body;
+  const { assignee_ids: raw_assignee_ids, ...taskData } = body;
+  const assignee_ids = [...new Set(raw_assignee_ids)];
 
   const client = await getPool().connect();
   try {

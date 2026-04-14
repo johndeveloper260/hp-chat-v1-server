@@ -299,12 +299,11 @@ export const findMySubtasks = async (userId, bu) => {
      JOIN v4.tasks pt ON pt.id = t.parent_task_id
      LEFT JOIN v4.user_profile_tbl p_creator ON pt.created_by = p_creator.user_id
      WHERE t.parent_task_id IS NOT NULL
-       AND t.business_unit = $2
      ORDER BY
        t.completed_at IS NOT NULL ASC,
        t.deadline ASC NULLS LAST,
        t.created_at DESC`,
-    [userId, bu],
+    [userId],
   );
   return rows;
 };
