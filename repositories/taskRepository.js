@@ -285,8 +285,8 @@ export const findMySubtasks = async (userId, bu) => {
        t.title,
        t.description,
        t.deadline,
-       t.completed_at,
-       t.completed_by,
+       smc.completed_at,
+       smc.user_id AS completed_by,
        t.created_at,
        t.updated_at,
        t.parent_task_id,
@@ -298,9 +298,10 @@ export const findMySubtasks = async (userId, bu) => {
      JOIN v4.task_assignees ta ON ta.task_id = t.id AND ta.user_id = $1::uuid
      JOIN v4.tasks pt ON pt.id = t.parent_task_id
      LEFT JOIN v4.user_profile_tbl p_creator ON pt.created_by = p_creator.user_id
+     LEFT JOIN v4.subtask_member_completions smc ON smc.subtask_id = t.id AND smc.user_id = $1::uuid
      WHERE t.parent_task_id IS NOT NULL
      ORDER BY
-       t.completed_at IS NOT NULL ASC,
+       smc.completed_at IS NOT NULL ASC,
        t.deadline ASC NULLS LAST,
        t.created_at DESC`,
     [userId],
@@ -309,21 +310,46 @@ export const findMySubtasks = async (userId, bu) => {
 };
 
 /**
- * completeSubtask — toggles completed_at / completed_by.
- * Returns the updated row.
+ * completeSubtask — toggles per-user completion in subtask_member_completions.
+ * Returns the task row with the calling user's completed_at overlaid.
  */
 export const completeSubtask = async (taskId, userId, bu, client) => {
-  const { rows } = await db(client).query(
-    `UPDATE v4.tasks
-     SET
-       completed_at = CASE WHEN completed_at IS NULL THEN NOW() ELSE NULL END,
-       completed_by = CASE WHEN completed_at IS NULL THEN $2::uuid ELSE NULL END,
-       updated_at   = NOW()
-     WHERE id = $1::uuid AND business_unit = $3 AND parent_task_id IS NOT NULL
-     RETURNING *`,
-    [taskId, userId, bu],
+  // Verify the task exists and is a subtask in this business unit.
+  const { rows: taskRows } = await db(client).query(
+    `SELECT id, parent_task_id, title FROM v4.tasks
+     WHERE id = $1::uuid AND business_unit = $2 AND parent_task_id IS NOT NULL`,
+    [taskId, bu],
   );
-  return rows[0] ?? null;
+  if (!taskRows[0]) return null;
+
+  // Check if this user already has a completion record.
+  const { rows: existing } = await db(client).query(
+    `SELECT id FROM v4.subtask_member_completions
+     WHERE subtask_id = $1::uuid AND user_id = $2::uuid`,
+    [taskId, userId],
+  );
+
+  let completedAt = null;
+  if (existing[0]) {
+    // Already completed — toggle off.
+    await db(client).query(
+      `DELETE FROM v4.subtask_member_completions
+       WHERE subtask_id = $1::uuid AND user_id = $2::uuid`,
+      [taskId, userId],
+    );
+  } else {
+    // Not yet completed — mark complete.
+    const { rows: inserted } = await db(client).query(
+      `INSERT INTO v4.subtask_member_completions (subtask_id, user_id)
+       VALUES ($1::uuid, $2::uuid)
+       RETURNING completed_at`,
+      [taskId, userId],
+    );
+    completedAt = inserted[0]?.completed_at ?? null;
+  }
+
+  // Return the task row with this user's completion state attached.
+  return { ...taskRows[0], completed_at: completedAt, completed_by: completedAt ? userId : null };
 };
 
 /**

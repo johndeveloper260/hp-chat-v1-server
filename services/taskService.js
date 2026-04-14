@@ -205,7 +205,11 @@ export const completeSubtask = async ({ id, userId, bu, userType }) => {
     setImmediate(() => _notifySubtaskCompletion(updated, userId, bu));
   }
 
-  return taskRepo.findTaskById(id, bu);
+  // findTaskById returns global completed_at; overlay with this user's value.
+  const task = await taskRepo.findTaskById(id, bu);
+  task.completed_at = updated.completed_at ?? null;
+  task.completed_by = updated.completed_by ?? null;
+  return task;
 };
 
 const _notifySubtaskCompletion = async (updated, completerId, bu) => {
