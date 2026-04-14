@@ -20,6 +20,7 @@ import * as notifRepo from "../repositories/notificationRepository.js";
 import { sendNotificationToUser } from "./notificationService.js";
 import { formatNotification } from "../utils/notificationTranslations.js";
 import { NotFoundError, ForbiddenError } from "../errors/AppError.js";
+import { deleteFromS3 } from "../utils/s3Client.js";
 
 const isPrivileged = (userType) =>
   ["OFFICER", "ADMIN"].includes((userType || "").toUpperCase());
@@ -333,22 +334,65 @@ export const deleteTask = async ({ id, userId, bu }) => {
     throw new ForbiddenError("cannot_delete_task");
   }
 
-  const client = await getPool().connect();
+  const pool = getPool();
+
+  // Collect S3 keys before the transaction — S3 deletes can't be rolled back,
+  // so we gather the keys first and delete from S3 only after a successful commit.
+  const { rows: subtaskAttRows } = await pool.query(
+    `SELECT sa.s3_key
+     FROM v4.shared_attachments sa
+     WHERE sa.relation_type = 'subtask'
+       AND sa.relation_id IN (
+         SELECT t.id::text FROM v4.tasks t WHERE t.parent_task_id = $1::uuid
+       )`,
+    [id],
+  );
+  const { rows: taskAttRows } = await pool.query(
+    `SELECT s3_key FROM v4.shared_attachments
+     WHERE relation_type = 'task' AND relation_id = $1::text`,
+    [id],
+  );
+  const s3Keys = [...subtaskAttRows, ...taskAttRows].map((r) => r.s3_key);
+
+  const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // Cascade: remove assignees from subtasks, delete subtasks, then parent
+    // ── Subtask cascade ──────────────────────────────────────────────────────
     await client.query(
-      `DELETE FROM v4.task_assignees WHERE task_id IN (
-         SELECT id FROM v4.tasks WHERE parent_task_id = $1::uuid
-       )`,
+      `DELETE FROM v4.task_assignees
+       WHERE task_id IN (SELECT id FROM v4.tasks WHERE parent_task_id = $1::uuid)`,
+      [id],
+    );
+    await client.query(
+      `DELETE FROM v4.shared_comments
+       WHERE relation_type = 'subtask'
+         AND relation_id IN (SELECT row_id FROM v4.tasks WHERE parent_task_id = $1::uuid)`,
+      [id],
+    );
+    await client.query(
+      `DELETE FROM v4.shared_attachments
+       WHERE relation_type = 'subtask'
+         AND relation_id IN (SELECT id::text FROM v4.tasks WHERE parent_task_id = $1::uuid)`,
       [id],
     );
     await client.query(
       `DELETE FROM v4.tasks WHERE parent_task_id = $1::uuid`,
       [id],
     );
+
+    // ── Parent task cascade ──────────────────────────────────────────────────
     await taskRepo.deleteTaskAssignees(id, client);
+    await client.query(
+      `DELETE FROM v4.shared_comments
+       WHERE relation_type = 'task' AND relation_id = $1`,
+      [task.row_id],
+    );
+    await client.query(
+      `DELETE FROM v4.shared_attachments
+       WHERE relation_type = 'task' AND relation_id = $1::text`,
+      [id],
+    );
     await taskRepo.deleteTask(id, bu, client);
 
     await client.query("COMMIT");
@@ -357,5 +401,15 @@ export const deleteTask = async ({ id, userId, bu }) => {
     throw err;
   } finally {
     client.release();
+  }
+
+  // Delete S3 files after commit — best-effort, log failures without throwing
+  if (s3Keys.length > 0) {
+    const results = await Promise.allSettled(s3Keys.map((key) => deleteFromS3(key)));
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        console.error(`Failed to delete S3 key ${s3Keys[i]}:`, r.reason);
+      }
+    });
   }
 };
