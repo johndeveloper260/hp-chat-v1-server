@@ -188,29 +188,20 @@ export const findTaskById = async (id, bu, client) => {
        (
          SELECT COUNT(*)::int FROM v4.tasks st WHERE st.parent_task_id = t.id
        ) AS subtask_count,
-       (
-         SELECT COUNT(*)::int FROM v4.tasks st
-         WHERE st.parent_task_id = t.id AND st.completed_at IS NOT NULL
-       ) AS subtask_completed_count,
-       CASE
-         WHEN (SELECT COUNT(*) FROM v4.tasks st WHERE st.parent_task_id = t.id) = 0 THEN NULL
-         ELSE ROUND(
-           (SELECT COUNT(*)::numeric FROM v4.tasks st WHERE st.parent_task_id = t.id AND st.completed_at IS NOT NULL)
-           / (SELECT COUNT(*)::numeric FROM v4.tasks st WHERE st.parent_task_id = t.id)
-           * 100
-         )
-       END AS completion_percentage,
+       0 AS subtask_completed_count,
+       NULL AS completion_percentage,
        COALESCE(
          (
            SELECT json_agg(
              json_build_object(
                'id', st.id,
+               'row_id', st.row_id,
                'title', st.title,
                'description', st.description,
                'deadline', st.deadline,
-               'completed_at', st.completed_at,
-               'completed_by', st.completed_by,
                'created_at', st.created_at,
+               'parent_task_id', st.parent_task_id,
+               'business_unit', st.business_unit,
                'assignees', COALESCE(
                  (
                    SELECT json_agg(json_build_object(
@@ -227,6 +218,32 @@ export const findTaskById = async (id, bu, client) => {
                    FROM v4.task_assignees ta
                    JOIN v4.user_profile_tbl up ON ta.user_id = up.user_id
                    WHERE ta.task_id = st.id
+                 ),
+                 '[]'::json
+               ),
+               'completed_by_ids', COALESCE(
+                 (
+                   SELECT json_agg(smc.user_id::text)
+                   FROM v4.subtask_member_completions smc
+                   WHERE smc.subtask_id = st.id
+                 ),
+                 '[]'::json
+               ),
+               'responded_by_ids', COALESCE(
+                 (
+                   SELECT json_agg(DISTINCT responder_id::text)
+                   FROM (
+                     SELECT sc.user_id AS responder_id
+                     FROM v4.shared_comments sc
+                     WHERE sc.relation_type = 'subtask'
+                       AND sc.relation_id = st.row_id
+                     UNION
+                     SELECT sa.created_by AS responder_id
+                     FROM v4.shared_attachments sa
+                     WHERE sa.relation_type = 'subtask'
+                       AND sa.relation_id = st.id::text
+                       AND sa.created_by IS NOT NULL
+                   ) r
                  ),
                  '[]'::json
                )
@@ -260,12 +277,36 @@ export const findSubtasksByParent = async (parentId, bu) => {
        t.title,
        t.description,
        t.deadline,
-       t.completed_at,
-       t.completed_by,
        t.created_at,
        t.parent_task_id,
        t.business_unit,
-       ${assigneesSubselect}
+       ${assigneesSubselect},
+       COALESCE(
+         (
+           SELECT json_agg(smc.user_id::text)
+           FROM v4.subtask_member_completions smc
+           WHERE smc.subtask_id = t.id
+         ),
+         '[]'::json
+       ) AS completed_by_ids,
+       COALESCE(
+         (
+           SELECT json_agg(DISTINCT responder_id::text)
+           FROM (
+             SELECT sc.user_id AS responder_id
+             FROM v4.shared_comments sc
+             WHERE sc.relation_type = 'subtask'
+               AND sc.relation_id = t.row_id
+             UNION
+             SELECT sa.created_by AS responder_id
+             FROM v4.shared_attachments sa
+             WHERE sa.relation_type = 'subtask'
+               AND sa.relation_id = t.id::text
+               AND sa.created_by IS NOT NULL
+           ) r
+         ),
+         '[]'::json
+       ) AS responded_by_ids
      FROM v4.tasks t
      WHERE t.parent_task_id = $1::uuid AND t.business_unit = $2
      ORDER BY t.created_at ASC`,
