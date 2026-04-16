@@ -54,6 +54,8 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds) =>
   if (!messageText?.trim() || !messageId) return;
 
   try {
+    console.log(`🔤 [AutoTranslate] Starting for message ${messageId}, recipients: [${recipientIds.join(", ")}]`);
+
     // 1. Get preferred_language for recipients that have auto_translate_chat ON
     const { rows } = await getPool().query(
       `SELECT DISTINCT preferred_language
@@ -64,29 +66,42 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds) =>
       [recipientIds],
     );
 
-    if (rows.length === 0) return; // no recipients need auto-translate
+    if (rows.length === 0) {
+      console.log(`🔤 [AutoTranslate] No recipients with auto_translate_chat=true, skipping`);
+      return;
+    }
 
     const targetLangs = rows.map((r) => r.preferred_language);
+    console.log(`🔤 [AutoTranslate] Target languages: [${targetLangs.join(", ")}]`);
 
     // 2. Translate to the first target lang to detect the source language
     const first = await gtxTranslate(messageText, targetLangs[0]);
-    if (!first) return;
+    if (!first) {
+      console.log(`🔤 [AutoTranslate] gtxTranslate failed for lang=${targetLangs[0]}`);
+      return;
+    }
 
     const sourceLang = first.detectedSourceLanguage;
+    console.log(`🔤 [AutoTranslate] Detected source language: ${sourceLang}`);
     const updates = {};
 
     // Store first translation (skip if source = target)
     if (sourceLang !== targetLangs[0]) {
       const key = `translations_${targetLangs[0]}`;
-      updates[key]             = first.translatedText;
-      updates[`${key}_source`] = sourceLang;
+      updates[key]               = first.translatedText;
+      updates[`${key}_source`]   = sourceLang;
       updates[`${key}_original`] = messageText;
+    } else {
+      console.log(`🔤 [AutoTranslate] Skipping ${targetLangs[0]} — same as source`);
     }
 
     // 3. Translate remaining languages in parallel
     const rest = await Promise.all(
       targetLangs.slice(1).map(async (lang) => {
-        if (lang === sourceLang) return null; // already in target language
+        if (lang === sourceLang) {
+          console.log(`🔤 [AutoTranslate] Skipping ${lang} — same as source`);
+          return null;
+        }
         const result = await gtxTranslate(messageText, lang);
         if (!result) return null;
         return { lang, result };
@@ -96,18 +111,21 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds) =>
     for (const item of rest) {
       if (!item) continue;
       const key = `translations_${item.lang}`;
-      updates[key]             = item.result.translatedText;
-      updates[`${key}_source`] = sourceLang;
+      updates[key]               = item.result.translatedText;
+      updates[`${key}_source`]   = sourceLang;
       updates[`${key}_original`] = messageText;
     }
 
-    if (Object.keys(updates).length === 0) return;
+    if (Object.keys(updates).length === 0) {
+      console.log(`🔤 [AutoTranslate] No updates to store (all targets match source language)`);
+      return;
+    }
 
-    // 4. Store on Stream message — clients read this for free
+    console.log(`🔤 [AutoTranslate] Storing ${Object.keys(updates).length} fields on message ${messageId}`);
     await getStreamChat().partialUpdateMessage(messageId, { set: updates });
-    console.log(`🌐 Translated message ${messageId} to [${targetLangs.join(", ")}]`);
+    console.log(`🌐 [AutoTranslate] Done — message ${messageId} translated to [${targetLangs.join(", ")}]`);
   } catch (err) {
-    console.error("❌ translateAndCacheMessage error:", err);
+    console.error(`❌ [AutoTranslate] Error for message ${messageId}:`, err);
   }
 };
 

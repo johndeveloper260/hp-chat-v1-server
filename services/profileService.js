@@ -10,6 +10,7 @@ import * as userRepo      from "../repositories/userRepository.js";
 import { syncUserToStream } from "../utils/syncUserToStream.js";
 import { getUserLanguage }   from "../utils/getUserLanguage.js";
 import { getPresignedUrl }   from "../utils/s3Client.js";
+import { env }               from "../config/env.js";
 import { getPool }           from "../config/getPool.js";
 import {
   ForbiddenError,
