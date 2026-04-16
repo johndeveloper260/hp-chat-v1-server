@@ -132,6 +132,7 @@ export async function findUserByEmail(email, client) {
       bu.lock_screen_expire_days,
       bu.souser_enabled,
       bu.task_enabled,
+      bu.assessment_enabled,
       su.country       AS souser_country,
       su.sending_org   AS souser_sending_org,
       su.primary_bu    AS souser_primary_bu,
