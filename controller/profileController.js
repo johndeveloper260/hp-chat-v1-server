@@ -86,6 +86,13 @@ export const updateNotificationPreference = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const updateAutoTranslateChat = async (req, res, next) => {
+  try {
+    await profileService.updateAutoTranslateChat(req.user.id, req.body.enabled);
+    res.json({ success: true, message: getApiMessage("update_success", lang(req)) });
+  } catch (err) { next(err); }
+};
+
 // ── profile_read ──────────────────────────────────────────────────────────────
 
 export const searchUsers = async (req, res, next) => {

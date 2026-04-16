@@ -103,7 +103,7 @@ export async function findUserByEmail(email, client) {
   const loginQuery = `
     SELECT
       a.id, a.email, a.password_hash, a.business_unit,
-      a.is_active, a.preferred_language, a.notification, a.created_at AS account_created_at,
+      a.is_active, a.preferred_language, a.notification, a.auto_translate_chat, a.created_at AS account_created_at,
       p.user_id,
       COALESCE(p.first_name, su.first_name) AS first_name,
       p.middle_name,

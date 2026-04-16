@@ -5,7 +5,7 @@ import express from "express";
 import auth from "../middleware/auth.js";
 import { requireRole } from "../middleware/requireRole.js";
 import { validate }           from "../middleware/validate.js";
-import { updateLanguageSchema, adminResetPasswordSchema, updateNotificationSchema } from "../validators/profileValidator.js";
+import { updateLanguageSchema, adminResetPasswordSchema, updateNotificationSchema, updateAutoTranslateChatSchema } from "../validators/profileValidator.js";
 import {
   searchUsers,
   updateWorkVisa,
@@ -14,6 +14,7 @@ import {
   updateUserProfile,
   updateUserLanguage,
   updateNotificationPreference,
+  updateAutoTranslateChat,
   toggleUserActive,
   adminResetUserPassword,
   getUserAvatar,
@@ -32,8 +33,9 @@ router.get("/personal-info/:userId",   auth, getUserProfile);
 router.put("/personal-info/:userId",   auth, updateUserProfile);
 router.get("/user-legal-info/:userId", auth, getUserLegalProfile);
 router.put("/visa-info/:userId",       auth, updateWorkVisa);
-router.patch("/update-language",       auth, validate(updateLanguageSchema), updateUserLanguage);
-router.patch("/update-notification",   auth, validate(updateNotificationSchema), updateNotificationPreference);
+router.patch("/update-language",             auth, validate(updateLanguageSchema), updateUserLanguage);
+router.patch("/update-notification",         auth, validate(updateNotificationSchema), updateNotificationPreference);
+router.patch("/update-auto-translate-chat",  auth, validate(updateAutoTranslateChatSchema), updateAutoTranslateChat);
 
 // ── profile_read (or profile_write) ──────────────────────────────────────────
 router.get("/search-users", auth, requireRole("profile_read"), searchUsers);

@@ -162,6 +162,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       profilePicId: user.profile_pic_id,
       profilePictureUrl,
       notification: user.notification ?? true,
+      auto_translate_chat: user.auto_translate_chat ?? false,
       profilePicS3Key: user.profile_pic_s3_key,
       profilePicS3Bucket: user.profile_pic_s3_bucket,
     },

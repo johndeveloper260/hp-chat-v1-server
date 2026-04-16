@@ -10,6 +10,11 @@ export const updateNotificationSchema = z.object({
   notification: z.boolean(),
 });
 
+/** Used on PATCH /profile/update-auto-translate-chat */
+export const updateAutoTranslateChatSchema = z.object({
+  enabled: z.boolean(),
+});
+
 /** Used on PATCH /profile/reset-password/:userId */
 export const adminResetPasswordSchema = z.object({
   newPassword: z

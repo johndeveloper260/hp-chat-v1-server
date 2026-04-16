@@ -282,6 +282,15 @@ export const updatePreferredLanguage = async (userId, language) => {
   );
 };
 
+// ── Auto-translate chat ────────────────────────────────────────────────────────
+
+export const updateAutoTranslateChat = async (userId, enabled) => {
+  await getPool().query(
+    "UPDATE v4.user_account_tbl SET auto_translate_chat = $1 WHERE id = $2",
+    [enabled, userId],
+  );
+};
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 /** Returns the most recent profile picture row ({ s3_key, s3_bucket }) or null. */

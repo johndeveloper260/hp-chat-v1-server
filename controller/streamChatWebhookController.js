@@ -2,9 +2,114 @@ import crypto from "crypto";
 import { getPool } from "../config/getPool.js";
 import { sendNotificationToUser } from "./notificationController.js";
 import { StreamClient } from "@stream-io/node-sdk";
+import { StreamChat } from "stream-chat";
 
 const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
+
+let _streamChat;
+const getStreamChat = () => {
+  if (!_streamChat) _streamChat = StreamChat.getInstance(STREAM_API_KEY, STREAM_API_SECRET);
+  return _streamChat;
+};
+
+/**
+ * Call the free Google Translate endpoint (same as clients use).
+ * Returns { translatedText, detectedSourceLanguage } or null on failure.
+ */
+const gtxTranslate = async (text, targetLang) => {
+  try {
+    const url = new URL("https://translate.googleapis.com/translate_a/single");
+    url.searchParams.set("client", "gtx");
+    url.searchParams.set("sl", "auto");
+    url.searchParams.set("tl", targetLang);
+    url.searchParams.set("dt", "t");
+    url.searchParams.set("q", text);
+
+    const res = await fetch(url.toString());
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    let translatedText = "";
+    if (data?.[0]) {
+      for (const item of data[0]) {
+        if (item[0]) translatedText += item[0];
+      }
+    }
+    return {
+      translatedText: translatedText || text,
+      detectedSourceLanguage: data?.[2] || "auto",
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Translate a message to all unique languages needed by channel recipients
+ * who have auto_translate_chat enabled, then store results as Stream custom
+ * fields so clients can read them for free (no client-side API call needed).
+ */
+const translateAndCacheMessage = async (messageId, messageText, recipientIds) => {
+  if (!messageText?.trim() || !messageId) return;
+
+  try {
+    // 1. Get preferred_language for recipients that have auto_translate_chat ON
+    const { rows } = await getPool().query(
+      `SELECT DISTINCT preferred_language
+       FROM v4.user_account_tbl
+       WHERE id = ANY($1::uuid[])
+         AND auto_translate_chat = true
+         AND preferred_language IS NOT NULL`,
+      [recipientIds],
+    );
+
+    if (rows.length === 0) return; // no recipients need auto-translate
+
+    const targetLangs = rows.map((r) => r.preferred_language);
+
+    // 2. Translate to the first target lang to detect the source language
+    const first = await gtxTranslate(messageText, targetLangs[0]);
+    if (!first) return;
+
+    const sourceLang = first.detectedSourceLanguage;
+    const updates = {};
+
+    // Store first translation (skip if source = target)
+    if (sourceLang !== targetLangs[0]) {
+      const key = `translations_${targetLangs[0]}`;
+      updates[key]             = first.translatedText;
+      updates[`${key}_source`] = sourceLang;
+      updates[`${key}_original`] = messageText;
+    }
+
+    // 3. Translate remaining languages in parallel
+    const rest = await Promise.all(
+      targetLangs.slice(1).map(async (lang) => {
+        if (lang === sourceLang) return null; // already in target language
+        const result = await gtxTranslate(messageText, lang);
+        if (!result) return null;
+        return { lang, result };
+      }),
+    );
+
+    for (const item of rest) {
+      if (!item) continue;
+      const key = `translations_${item.lang}`;
+      updates[key]             = item.result.translatedText;
+      updates[`${key}_source`] = sourceLang;
+      updates[`${key}_original`] = messageText;
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    // 4. Store on Stream message — clients read this for free
+    await getStreamChat().partialUpdateMessage(messageId, { set: updates });
+    console.log(`🌐 Translated message ${messageId} to [${targetLangs.join(", ")}]`);
+  } catch (err) {
+    console.error("❌ translateAndCacheMessage error:", err);
+  }
+};
 
 /**
  * Verify Stream Chat webhook signature using HMAC-SHA256
@@ -107,8 +212,11 @@ export const handleChatWebhook = async (req, res) => {
     // 5. Respond immediately so Stream doesn't retry due to timeout
     res.status(200).json({ success: true, recipients: recipientIds.length });
 
-    // 6. Process notifications asynchronously (after response is sent)
+    // 6. Process notifications + translation asynchronously (after response is sent)
     setImmediate(async () => {
+      // Translate and cache on Stream in parallel with notifications
+      translateAndCacheMessage(messageId, messageText, recipientIds);
+
       try {
         const senderQuery = await getPool().query(
           `SELECT ua.business_unit, sa.s3_key, sa.s3_bucket
