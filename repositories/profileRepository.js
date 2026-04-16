@@ -34,7 +34,7 @@ export const findUserInBU = async (userId, businessUnit, client) => {
 /** Returns live BU-level feature flags for a given business unit code. */
 export const getBUSettings = async (businessUnit) => {
   const { rows } = await getPool().query(
-    "SELECT lock_screen_expire, lock_screen_expire_days FROM v4.business_unit_tbl WHERE bu_code = $1",
+    "SELECT lock_screen_expire, lock_screen_expire_days, souser_enabled, task_enabled, assessment_enabled FROM v4.business_unit_tbl WHERE bu_code = $1",
     [businessUnit],
   );
   return rows[0] ?? null;

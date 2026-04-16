@@ -25,8 +25,11 @@ const VALID_LANGUAGES = ["en", "ja", "id", "vi"];
 export const getBUSettings = async (businessUnit) => {
   const row = await profileRepo.getBUSettings(businessUnit);
   return {
-    lockScreenExpire: row?.lock_screen_expire ?? false,
+    lockScreenExpire:     row?.lock_screen_expire      ?? false,
     lockScreenExpireDays: row?.lock_screen_expire_days ?? 14,
+    bu_souser_enabled:    row?.souser_enabled           ?? false,
+    task_enabled:         row?.task_enabled             ?? false,
+    bu_assessment_enabled: row?.assessment_enabled      ?? false,
   };
 };
 
