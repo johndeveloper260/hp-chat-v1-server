@@ -291,6 +291,13 @@ export const updateAutoTranslateChat = async (userId, enabled) => {
   );
 };
 
+export const updateTranslateExceptions = async (userId, exceptions) => {
+  await getPool().query(
+    "UPDATE v4.user_account_tbl SET translate_exceptions = $1 WHERE id = $2",
+    [exceptions, userId],
+  );
+};
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 /** Returns the most recent profile picture row ({ s3_key, s3_bucket }) or null. */

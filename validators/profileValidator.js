@@ -15,6 +15,11 @@ export const updateAutoTranslateChatSchema = z.object({
   enabled: z.boolean(),
 });
 
+/** Used on PATCH /profile/update-translate-exceptions */
+export const updateTranslateExceptionsSchema = z.object({
+  exceptions: z.array(z.string()).default([]),
+});
+
 /** Used on PATCH /profile/reset-password/:userId */
 export const adminResetPasswordSchema = z.object({
   newPassword: z

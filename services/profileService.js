@@ -164,6 +164,13 @@ export const updateAutoTranslateChat = async (userId, enabled) => {
   await profileRepo.updateAutoTranslateChat(userId, enabled);
 };
 
+export const updateTranslateExceptions = async (userId, exceptions) => {
+  if (!Array.isArray(exceptions)) {
+    throw new ValidationError("invalid_value");
+  }
+  await profileRepo.updateTranslateExceptions(userId, exceptions);
+};
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 // Cache presigned avatar URLs per user. TTL is 55 min; the URL itself expires at 60 min.
