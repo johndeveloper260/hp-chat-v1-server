@@ -88,10 +88,13 @@ const gptTranslate = async (text, targetLang) => {
 };
 
 // Picks the active provider at runtime — no restart needed if env changes.
-const activeTranslate = (text, targetLang) =>
-  env.translation.provider === "openai"
+const activeTranslate = (text, targetLang) => {
+  const provider = env.translation.provider === "openai" ? "gpt-4o-mini" : "google-gtx";
+  console.log(`🔤 [AutoTranslate] Provider: ${provider} → lang=${targetLang}`);
+  return env.translation.provider === "openai"
     ? gptTranslate(text, targetLang)
     : gtxTranslate(text, targetLang);
+};
 
 /**
  * Translate a message to all unique languages needed by channel recipients
