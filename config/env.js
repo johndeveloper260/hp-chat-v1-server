@@ -57,6 +57,15 @@ const env = {
     credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS,
   },
 
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+
+  // Set TRANSLATION_PROVIDER=openai to use GPT-4o mini; defaults to Google.
+  translation: {
+    provider: process.env.TRANSLATION_PROVIDER || "google", // "google" | "openai"
+  },
+
   cors: {
     whitelist: [
       process.env.NODE_ENV === "production"

@@ -3,6 +3,7 @@ import { getPool } from "../config/getPool.js";
 import { sendNotificationToUser } from "./notificationController.js";
 import { StreamClient } from "@stream-io/node-sdk";
 import { StreamChat } from "stream-chat";
+import env from "../config/env.js";
 
 const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
@@ -13,9 +14,10 @@ const getStreamChat = () => {
   return _streamChat;
 };
 
+// ── Translation providers ──────────────────────────────────────────────────
+
 /**
- * Call the free Google Translate endpoint (same as clients use).
- * Returns { translatedText, detectedSourceLanguage } or null on failure.
+ * Google Translate (free gtx endpoint). Returns { translatedText, detectedSourceLanguage } or null.
  */
 const gtxTranslate = async (text, targetLang) => {
   try {
@@ -44,6 +46,52 @@ const gtxTranslate = async (text, targetLang) => {
     return null;
   }
 };
+
+/**
+ * GPT-4o mini. Returns { translatedText, detectedSourceLanguage } or null.
+ */
+const gptTranslate = async (text, targetLang) => {
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.openai.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              `Translate the chat message to language code "${targetLang}". ` +
+              `Match the informality of the source. Preserve emoji and punctuation. ` +
+              `Reply ONLY with valid JSON: {"translated":"<text>","source":"<ISO 639-1 code>"}.`,
+          },
+          { role: "user", content: text },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 500,
+        temperature: 0.1,
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const parsed = JSON.parse(data.choices[0].message.content);
+    return {
+      translatedText: parsed.translated || text,
+      detectedSourceLanguage: parsed.source || "auto",
+    };
+  } catch {
+    return null;
+  }
+};
+
+// Picks the active provider at runtime — no restart needed if env changes.
+const activeTranslate = (text, targetLang) =>
+  env.translation.provider === "openai"
+    ? gptTranslate(text, targetLang)
+    : gtxTranslate(text, targetLang);
 
 /**
  * Translate a message to all unique languages needed by channel recipients
@@ -75,7 +123,7 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds) =>
     console.log(`🔤 [AutoTranslate] Target languages: [${targetLangs.join(", ")}]`);
 
     // 2. Translate to the first target lang to detect the source language
-    const first = await gtxTranslate(messageText, targetLangs[0]);
+    const first = await activeTranslate(messageText, targetLangs[0]);
     if (!first) {
       console.log(`🔤 [AutoTranslate] gtxTranslate failed for lang=${targetLangs[0]}`);
       return;
@@ -102,7 +150,7 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds) =>
           console.log(`🔤 [AutoTranslate] Skipping ${lang} — same as source`);
           return null;
         }
-        const result = await gtxTranslate(messageText, lang);
+        const result = await activeTranslate(messageText, lang);
         if (!result) return null;
         return { lang, result };
       }),
