@@ -101,7 +101,7 @@ const activeTranslate = (text, targetLang) => {
  * who have auto_translate_chat enabled, then store results as Stream custom
  * fields so clients can read them for free (no client-side API call needed).
  */
-const translateAndCacheMessage = async (messageId, messageText, recipientIds) => {
+const translateAndCacheMessage = async (messageId, messageText, recipientIds, senderId) => {
   if (!messageText?.trim() || !messageId) return;
 
   try {
@@ -173,7 +173,7 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds) =>
     }
 
     console.log(`🔤 [AutoTranslate] Storing ${Object.keys(updates).length} fields on message ${messageId}`);
-    await getStreamChat().partialUpdateMessage(messageId, { set: updates });
+    await getStreamChat().partialUpdateMessage(messageId, { set: updates }, senderId);
     console.log(`🌐 [AutoTranslate] Done — message ${messageId} translated to [${targetLangs.join(", ")}]`);
   } catch (err) {
     console.error(`❌ [AutoTranslate] Error for message ${messageId}:`, err);
@@ -284,7 +284,7 @@ export const handleChatWebhook = async (req, res) => {
     // 6. Process notifications + translation asynchronously (after response is sent)
     setImmediate(async () => {
       // Translate and cache on Stream in parallel with notifications
-      translateAndCacheMessage(messageId, messageText, recipientIds);
+      translateAndCacheMessage(messageId, messageText, recipientIds, senderId);
 
       try {
         const senderQuery = await getPool().query(
