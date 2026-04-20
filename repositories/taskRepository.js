@@ -63,6 +63,8 @@ export const findTasks = async (bu, filters = {}) => {
       t.updated_at,
       t.source_message_id,
       t.source_channel_id,
+      t.completed_at,
+      t.completed_by,
       p_creator.first_name AS creator_first_name,
       p_creator.middle_name AS creator_middle_name,
       p_creator.last_name AS creator_last_name,

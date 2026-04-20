@@ -189,7 +189,6 @@ export const searchTaskUsers = async ({ bu, filters, userType }) => {
 export const completeSubtask = async ({ id, userId, bu, userType }) => {
   const task = await taskRepo.findTaskById(id, bu);
   if (!task) throw new NotFoundError("task_not_found");
-  console.log('[completeSubtask] id=%s userType=%s parent_task_id=%s isPrivileged=%s', id, userType, task.parent_task_id, isPrivileged(userType));
 
   // ── Top-level task ─────────────────────────────────────────────────────────
   if (!task.parent_task_id) {
