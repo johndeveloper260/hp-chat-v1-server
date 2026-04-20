@@ -395,6 +395,33 @@ export const completeSubtask = async (taskId, userId, bu, client) => {
 };
 
 /**
+ * completeTask — toggles completed_at / completed_by on a top-level task.
+ */
+export const completeTask = async (taskId, userId, bu, client) => {
+  const { rows: taskRows } = await db(client).query(
+    `SELECT id, completed_at FROM v4.tasks
+     WHERE id = $1::uuid AND business_unit = $2 AND parent_task_id IS NULL`,
+    [taskId, bu],
+  );
+  if (!taskRows[0]) return null;
+
+  const isCompleted = !!taskRows[0].completed_at;
+
+  const { rows: updated } = await db(client).query(
+    isCompleted
+      ? `UPDATE v4.tasks SET completed_at = NULL, completed_by = NULL
+         WHERE id = $1::uuid AND business_unit = $2
+         RETURNING id, completed_at, completed_by`
+      : `UPDATE v4.tasks SET completed_at = NOW(), completed_by = $3::uuid
+         WHERE id = $1::uuid AND business_unit = $2
+         RETURNING id, completed_at, completed_by`,
+    isCompleted ? [taskId, bu] : [taskId, bu, userId],
+  );
+
+  return updated[0] ?? null;
+};
+
+/**
  * getParentProgress — returns total/completed subtask counts for a parent.
  */
 export const getParentProgress = async (parentId, bu) => {

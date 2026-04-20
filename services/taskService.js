@@ -187,10 +187,25 @@ export const searchTaskUsers = async ({ bu, filters, userType }) => {
 // ─── Complete / uncomplete sub-task ──────────────────────────────────────────
 
 export const completeSubtask = async ({ id, userId, bu, userType }) => {
-  const subtask = await taskRepo.findTaskById(id, bu);
-  if (!subtask) throw new NotFoundError("task_not_found");
-  if (!subtask.parent_task_id) throw new ForbiddenError("not_a_subtask");
+  const task = await taskRepo.findTaskById(id, bu);
+  if (!task) throw new NotFoundError("task_not_found");
+  console.log('[completeSubtask] id=%s userType=%s parent_task_id=%s isPrivileged=%s', id, userType, task.parent_task_id, isPrivileged(userType));
 
+  // ── Top-level task ─────────────────────────────────────────────────────────
+  if (!task.parent_task_id) {
+    if (!isPrivileged(userType)) {
+      const relation = await taskRepo.isUserRelatedToTask(id, userId);
+      if (!relation || (!relation.is_creator && !relation.is_assignee)) {
+        throw new ForbiddenError("cannot_complete_task");
+      }
+    }
+    const updated = await taskRepo.completeTask(id, userId, bu);
+    if (!updated) throw new NotFoundError("task_not_found");
+    const refreshed = await taskRepo.findTaskById(id, bu);
+    return refreshed;
+  }
+
+  // ── Subtask ────────────────────────────────────────────────────────────────
   if (!isPrivileged(userType)) {
     const relation = await taskRepo.isUserRelatedToTask(id, userId);
     if (!relation?.is_assignee) {
@@ -205,11 +220,10 @@ export const completeSubtask = async ({ id, userId, bu, userType }) => {
     setImmediate(() => _notifySubtaskCompletion(updated, userId, bu));
   }
 
-  // findTaskById returns global completed_at; overlay with this user's value.
-  const task = await taskRepo.findTaskById(id, bu);
-  task.completed_at = updated.completed_at ?? null;
-  task.completed_by = updated.completed_by ?? null;
-  return task;
+  const refreshed = await taskRepo.findTaskById(id, bu);
+  refreshed.completed_at = updated.completed_at ?? null;
+  refreshed.completed_by = updated.completed_by ?? null;
+  return refreshed;
 };
 
 const _notifySubtaskCompletion = async (updated, completerId, bu) => {
