@@ -298,6 +298,15 @@ export const updateTranslateExceptions = async (userId, exceptions) => {
   );
 };
 
+// ── Theme preference ──────────────────────────────────────────────────────────
+
+export const updateThemePreference = async (userId, theme) => {
+  await getPool().query(
+    "UPDATE v4.user_account_tbl SET theme_preference = $1 WHERE id = $2",
+    [theme, userId],
+  );
+};
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 /** Returns the most recent profile picture row ({ s3_key, s3_bucket }) or null. */

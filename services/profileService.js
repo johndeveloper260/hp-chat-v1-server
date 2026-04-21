@@ -171,6 +171,17 @@ export const updateTranslateExceptions = async (userId, exceptions) => {
   await profileRepo.updateTranslateExceptions(userId, exceptions);
 };
 
+// ── Theme preference ──────────────────────────────────────────────────────────
+
+const VALID_THEMES = ["light", "dark", "system"];
+
+export const updateThemePreference = async (userId, theme) => {
+  if (!VALID_THEMES.includes(theme)) {
+    throw new ValidationError("invalid_theme_value");
+  }
+  await profileRepo.updateThemePreference(userId, theme);
+};
+
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
 // Cache presigned avatar URLs per user. TTL is 55 min; the URL itself expires at 60 min.

@@ -20,6 +20,11 @@ export const updateTranslateExceptionsSchema = z.object({
   exceptions: z.array(z.string()).default([]),
 });
 
+/** Used on PATCH /profile/update-theme */
+export const updateThemeSchema = z.object({
+  theme: z.enum(["light", "dark", "system"]),
+});
+
 /** Used on PATCH /profile/reset-password/:userId */
 export const adminResetPasswordSchema = z.object({
   newPassword: z

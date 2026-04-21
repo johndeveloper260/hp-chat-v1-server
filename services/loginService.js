@@ -164,6 +164,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       notification: user.notification ?? true,
       auto_translate_chat: user.auto_translate_chat ?? false,
       translate_exceptions: user.translate_exceptions ?? [],
+      themePreference: user.theme_preference ?? 'system',
       profilePicS3Key: user.profile_pic_s3_key,
       profilePicS3Bucket: user.profile_pic_s3_bucket,
     },

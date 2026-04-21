@@ -100,6 +100,13 @@ export const updateTranslateExceptions = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const updateTheme = async (req, res, next) => {
+  try {
+    await profileService.updateThemePreference(req.user.id, req.body.theme);
+    res.json({ success: true, message: getApiMessage("update_success", lang(req)) });
+  } catch (err) { next(err); }
+};
+
 // ── profile_read ──────────────────────────────────────────────────────────────
 
 export const searchUsers = async (req, res, next) => {
