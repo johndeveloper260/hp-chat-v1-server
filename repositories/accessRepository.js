@@ -14,10 +14,11 @@ export const findOfficerUsers = (search = "", businessUnit) =>
   getPool().query(
     `SELECT p.user_id::text AS id,
             p.first_name, p.last_name, p.user_type, a.business_unit,
-            a.email, a.is_active
+            a.email
      FROM v4.user_profile_tbl p
      JOIN v4.user_account_tbl a ON a.id = p.user_id
-     WHERE a.business_unit = $2
+     WHERE a.is_active = true
+       AND a.business_unit = $2
        AND UPPER(p.user_type) = 'OFFICER'
        AND NOT EXISTS (
          SELECT 1 FROM v4.deleted_users_log d

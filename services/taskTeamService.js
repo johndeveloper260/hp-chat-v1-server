@@ -9,8 +9,8 @@ import { NotFoundError, ForbiddenError } from "../errors/AppError.js";
 
 // ─── List ──────────────────────────────────────────────────────────────────────
 
-export const listTeams = async (bu) => {
-  return teamRepo.findTeamsByBU(bu);
+export const listTeams = async (bu, userId) => {
+  return teamRepo.findTeamsByMember(bu, userId);
 };
 
 // ─── Get single team ───────────────────────────────────────────────────────────

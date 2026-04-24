@@ -50,6 +50,51 @@ export const findTeamsByBU = async (bu) => {
   return rows;
 };
 
+export const findTeamsByMember = async (bu, userId) => {
+  const { rows } = await getPool().query(
+    `SELECT
+       t.id,
+       t.name,
+       t.description,
+       t.business_unit,
+       t.created_by,
+       t.created_at,
+       t.updated_at,
+       COUNT(tm.user_id)::int AS member_count,
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'user_id', p.user_id,
+             'first_name', p.first_name,
+             'middle_name', p.middle_name,
+             'last_name', p.last_name,
+             'profile_pic_id', sa.attachment_id
+           ) ORDER BY p.first_name ASC
+         ) FILTER (WHERE p.user_id IS NOT NULL),
+         '[]'::json
+       ) AS members
+     FROM v4.task_teams t
+     LEFT JOIN v4.task_team_members tm ON t.id = tm.team_id
+     LEFT JOIN v4.user_profile_tbl p ON tm.user_id = p.user_id
+     LEFT JOIN LATERAL (
+       SELECT attachment_id
+       FROM v4.shared_attachments
+       WHERE relation_type = 'profile' AND relation_id = tm.user_id::text
+       ORDER BY created_at DESC
+       LIMIT 1
+     ) sa ON true
+     WHERE t.business_unit = $1
+       AND EXISTS (
+         SELECT 1 FROM v4.task_team_members
+         WHERE team_id = t.id AND user_id = $2::uuid
+       )
+     GROUP BY t.id
+     ORDER BY t.created_at DESC`,
+    [bu, userId],
+  );
+  return rows;
+};
+
 export const findTeamById = async (id, bu) => {
   const { rows } = await getPool().query(
     `SELECT

@@ -42,8 +42,8 @@ export const getBUSettings = async (businessUnit) => {
 
 // ── Search users ──────────────────────────────────────────────────────────────
 
-export const searchUsers = async (lang, businessUnit, { company, batch_no, name, country, sending_org, visa_type, passport_expiry_within, visa_expiry_within, user_type } = {}) => {
-  const values = [lang, businessUnit];
+export const searchUsers = async (lang, businessUnit, { company, batch_no, name, country, sending_org, visa_type, passport_expiry_within, visa_expiry_within, user_type, status = "all" } = {}) => {
+  const values = [lang, businessUnit, status];
   const parts  = [];
 
   let sql = `
@@ -80,7 +80,11 @@ export const searchUsers = async (lang, businessUnit, { company, batch_no, name,
     LEFT JOIN v4.user_visa_info_tbl v  ON v.user_id = p.user_id
     LEFT JOIN v4.visa_list_tbl vl  ON vl.code = v.visa_type AND vl.business_unit = a.business_unit
     WHERE a.business_unit = $2
-      AND a.is_active = true
+      AND ($3 = 'all' OR a.is_active = ($3 = 'active'))
+      AND NOT EXISTS (
+        SELECT 1 FROM v4.deleted_users_log d
+        WHERE d.original_user_id = p.user_id
+      )
   `;
 
   // Helper: push a single-or-array filter onto parts/values
@@ -260,7 +264,7 @@ export const updateUserProfile = async (userId, data, businessUnit) => {
 
 export const findActiveStatus = async (userId, businessUnit) => {
   const { rows } = await getPool().query(
-    "SELECT id, is_active FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2 AND is_active = true",
+    "SELECT id, is_active FROM v4.user_account_tbl WHERE id = $1::uuid AND business_unit = $2",
     [userId, businessUnit],
   );
   return rows[0] ?? null;

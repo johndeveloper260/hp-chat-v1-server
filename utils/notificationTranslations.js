@@ -15,7 +15,7 @@
 const pushMessages = {
   comment_on_inquiry: {
     en: "New comment on Inquiry",
-    ja: "報告に新しいコメント",
+    ja: "トラブル報告に新規コメント",
     id: "Komentar baru pada Pertanyaan",
     vi: "Bình luận mới về Yêu cầu",
     my: "စုံစမ်းချက်တွင် မှတ်ချက်အသစ်",
@@ -26,7 +26,7 @@ const pushMessages = {
   },
   comment_on_announcement: {
     en: "New comment on Announcement",
-    ja: "掲示板に新しいコメント",
+    ja: "掲示板に新規コメント",
     id: "Komentar baru pada Pengumuman",
     vi: "Bình luận mới về Thông báo",
     my: "ကြေညာချက်တွင် မှတ်ချက်အသစ်",
@@ -37,7 +37,7 @@ const pushMessages = {
   },
   new_inquiry: {
     en: "New Inquiry",
-    ja: "新しい報告",
+    ja: "新規トラブル報告",
     id: "Pertanyaan Baru",
     vi: "Yêu cầu mới",
     my: "စုံစမ်းချက်အသစ်",
@@ -59,7 +59,7 @@ const pushMessages = {
   },
   new_inquiry_high_priority: {
     en: "New Inquiry (High Priority)",
-    ja: "新しい報告（高優先度）",
+    ja: "新規トラブル報告（高優先度）",
     id: "Pertanyaan Baru (Prioritas Tinggi)",
     vi: "Yêu cầu mới (Ưu tiên cao)",
     my: "စုံစမ်းချက်အသစ် (ဦးစားပေးမြင့်မား)",
@@ -70,7 +70,7 @@ const pushMessages = {
   },
   inquiry_updated: {
     en: "Inquiry Updated",
-    ja: "報告が更新されました",
+    ja: "トラブル報告が更新されました",
     id: "Pertanyaan Diperbarui",
     vi: "Yêu cầu đã cập nhật",
     my: "စုံစမ်းချက် အပ်ဒိတ်လုပ်ပြီးပါပြီ",
@@ -81,7 +81,7 @@ const pushMessages = {
   },
   created_inquiry: {
     en: "{{name}} created a new inquiry: {{title}}",
-    ja: "{{name}}が新しい報告を作成しました：{{title}}",
+    ja: "{{name}}が新規トラブル報告を作成しました：{{title}}",
     id: "{{name}} membuat pertanyaan baru: {{title}}",
     vi: "{{name}} đã tạo yêu cầu mới: {{title}}",
     my: "{{name}} သည် စုံစမ်းချက်အသစ်ဖန်တီးခဲ့သည်: {{title}}",
@@ -92,7 +92,7 @@ const pushMessages = {
   },
   updated_inquiry: {
     en: "{{name}} updated the inquiry",
-    ja: "{{name}}が報告を更新しました",
+    ja: "{{name}}がトラブル報告を更新しました",
     id: "{{name}} memperbarui pertanyaan",
     vi: "{{name}} đã cập nhật yêu cầu",
     my: "{{name}} သည် စုံစမ်းချက်ကို အပ်ဒိတ်လုပ်ခဲ့သည်",
@@ -114,7 +114,7 @@ const pushMessages = {
   },
   assigned_to_you: {
     en: "assigned this inquiry to you",
-    ja: "があなたにこの報告を割り当てました",
+    ja: "があなたにこのトラブル報告を割り当てました",
     id: "menugaskan pertanyaan ini kepada Anda",
     vi: "đã giao yêu cầu này cho bạn",
     my: "ဤစုံစမ်းချက်ကို သင့်ထံ တာဝန်ပေးအပ်ခဲ့သည်",
@@ -147,7 +147,7 @@ const pushMessages = {
   },
   comment_on_return_home: {
     en: "New comment on Return Home application",
-    ja: "帰国申請に新しいコメントがあります",
+    ja: "帰国申請に新規コメントがあります",
     id: "Komentar baru pada permohonan kepulangan",
     vi: "Bình luận mới về đơn xin về nhà",
     my: "အိမ်ပြန်လျှောက်ထားမှုတွင် မှတ်ချက်အသစ်ရှိသည်",
@@ -158,7 +158,7 @@ const pushMessages = {
   },
   comment_on_task: {
     en: "New comment on Task",
-    ja: "タスクに新しいコメント",
+    ja: "タスクに新規コメント",
     id: "Komentar baru pada Tugas",
     vi: "Bình luận mới về Nhiệm vụ",
     my: "တာဝန်တွင် မှတ်ချက်အသစ်",
@@ -169,7 +169,7 @@ const pushMessages = {
   },
   file_on_task: {
     en: "New file on Task",
-    ja: "タスクに新しいファイル",
+    ja: "タスクに新規ファイル",
     id: "File baru pada Tugas",
     vi: "File mới về Nhiệm vụ",
     my: "တာဝန်တွင် ဖိုင်အသစ်",
@@ -287,7 +287,6 @@ const pushMessages = {
 //    The frontend can use the companion error_code for its own i18n lookup.
 // ─────────────────────────────────────────────────────────────────────────────
 const apiMessages = {
-
   // ── Register ─────────────────────────────────────────────────────────────
   register_success: {
     en: "Registration successful",
@@ -403,7 +402,7 @@ const apiMessages = {
   },
   login_password_too_short: {
     en: "New password must be at least 6 characters long.",
-    ja: "新しいパスワードは6文字以上で入力してください。",
+    ja: "新規パスワードは6文字以上で入力してください。",
     id: "Kata sandi baru harus minimal 6 karakter.",
     vi: "Mật khẩu mới phải có ít nhất 6 ký tự.",
     my: "စကားဝှက်အသစ်သည် အနည်းဆုံး ၆ လုံး ရှိရမည်။",
@@ -842,7 +841,7 @@ const apiMessages = {
   },
   inquiry_deleted: {
     en: "Inquiry and all related data deleted successfully",
-    ja: "報告と関連データをすべて削除しました",
+    ja: "トラブル報告と関連データをすべて削除しました",
     id: "Pertanyaan dan semua data terkait berhasil dihapus",
     vi: "Đã xóa yêu cầu và tất cả dữ liệu liên quan thành công",
     my: "စုံစမ်းချက်နှင့် ဆက်စပ်ဒေတာများ အောင်မြင်စွာ ဖျက်ပြီးပါပြီ",
@@ -1461,12 +1460,72 @@ const apiMessages = {
   },
 
   // ── HoRenSo Tasks ────────────────────────────────────────────────────────
-  task_not_found: { en: "Task not found", ja: "タスクが見つかりません", vi: "Không tìm thấy nhiệm vụ", id: "Tugas tidak ditemukan", th: "ไม่พบงาน", km: "រកមិនឃើញការងារ", bn: "কাজ পাওয়া যায়নি", my: "တာဝန်မတွေ့ပါ", ne: "कार्य फेला परेन" },
-  cannot_access_task: { en: "You do not have access to this task", ja: "このタスクにアクセスできません", vi: "Bạn không có quyền truy cập nhiệm vụ này", id: "Anda tidak memiliki akses ke tugas ini", th: "คุณไม่มีสิทธิ์เข้าถึงงานนี้", km: "អ្នកមិនអាចចូលប្រើការងារនេះ", bn: "এই কাজে আপনার অ্যাক্সেস নেই", my: "ဤတာဝန်ကိုဝင်ရောက်ခွင့်မရှိပါ", ne: "यो कार्यमा तपाईंको पहुँच छैन" },
-  cannot_update_task: { en: "You cannot update this task", ja: "このタスクを更新できません", vi: "Bạn không thể cập nhật nhiệm vụ này", id: "Anda tidak dapat memperbarui tugas ini", th: "คุณไม่สามารถอัปเดตงานนี้ได้", km: "អ្នកមិនអាចធ្វើបច្ចុប្បន្នភាពការងារនេះ", bn: "আপনি এই কাজ আপডেট করতে পারবেন না", my: "ဤတာဝန်ကိုအပ်ဒိတ်လုပ်၍မရပါ", ne: "तपाईं यो कार्य अपडेट गर्न सक्नुहुन्न" },
-  cannot_delete_task: { en: "Only the task creator can delete it", ja: "タスクの作成者のみ削除できます", vi: "Chỉ người tạo nhiệm vụ mới có thể xóa", id: "Hanya pembuat tugas yang dapat menghapusnya", th: "เฉพาะผู้สร้างงานเท่านั้นที่สามารถลบได้", km: "តែអ្នកបង្កើតការងារប៉ុណ្ណោះអាចលុបបាន", bn: "শুধুমাত্র কাজের নির্মাতা এটি মুছতে পারবেন", my: "တာဝန်ဖန်တီးသူသာဖျက်နိုင်သည်", ne: "कार्य सिर्जनाकर्ताले मात्र मेटाउन सक्छ" },
-  team_not_found: { en: "Team not found", ja: "チームが見つかりません", vi: "Không tìm thấy nhóm", id: "Tim tidak ditemukan", th: "ไม่พบทีม", km: "រកមិនឃើញក្រុម", bn: "দল পাওয়া যায়নি", my: "အဖွဲ့မတွေ့ပါ", ne: "टीम फेला परेन" },
-  column_not_found: { en: "Column not found", ja: "カラムが見つかりません", vi: "Không tìm thấy cột", id: "Kolom tidak ditemukan", th: "ไม่พบคอลัมน์", km: "រកមិនឃើញជួរ", bn: "কলাম পাওয়া যায়নি", my: "ကော်လံမတွေ့ပါ", ne: "स्तम्भ फेला परेन" },
+  task_not_found: {
+    en: "Task not found",
+    ja: "タスクが見つかりません",
+    vi: "Không tìm thấy nhiệm vụ",
+    id: "Tugas tidak ditemukan",
+    th: "ไม่พบงาน",
+    km: "រកមិនឃើញការងារ",
+    bn: "কাজ পাওয়া যায়নি",
+    my: "တာဝန်မတွေ့ပါ",
+    ne: "कार्य फेला परेन",
+  },
+  cannot_access_task: {
+    en: "You do not have access to this task",
+    ja: "このタスクにアクセスできません",
+    vi: "Bạn không có quyền truy cập nhiệm vụ này",
+    id: "Anda tidak memiliki akses ke tugas ini",
+    th: "คุณไม่มีสิทธิ์เข้าถึงงานนี้",
+    km: "អ្នកមិនអាចចូលប្រើការងារនេះ",
+    bn: "এই কাজে আপনার অ্যাক্সেস নেই",
+    my: "ဤတာဝန်ကိုဝင်ရောက်ခွင့်မရှိပါ",
+    ne: "यो कार्यमा तपाईंको पहुँच छैन",
+  },
+  cannot_update_task: {
+    en: "You cannot update this task",
+    ja: "このタスクを更新できません",
+    vi: "Bạn không thể cập nhật nhiệm vụ này",
+    id: "Anda tidak dapat memperbarui tugas ini",
+    th: "คุณไม่สามารถอัปเดตงานนี้ได้",
+    km: "អ្នកមិនអាចធ្វើបច្ចុប្បន្នភាពការងារនេះ",
+    bn: "আপনি এই কাজ আপডেট করতে পারবেন না",
+    my: "ဤတာဝန်ကိုအပ်ဒိတ်လုပ်၍မရပါ",
+    ne: "तपाईं यो कार्य अपडेट गर्न सक्नुहुन्न",
+  },
+  cannot_delete_task: {
+    en: "Only the task creator can delete it",
+    ja: "タスクの作成者のみ削除できます",
+    vi: "Chỉ người tạo nhiệm vụ mới có thể xóa",
+    id: "Hanya pembuat tugas yang dapat menghapusnya",
+    th: "เฉพาะผู้สร้างงานเท่านั้นที่สามารถลบได้",
+    km: "តែអ្នកបង្កើតការងារប៉ុណ្ណោះអាចលុបបាន",
+    bn: "শুধুমাত্র কাজের নির্মাতা এটি মুছতে পারবেন",
+    my: "တာဝန်ဖန်တီးသူသာဖျက်နိုင်သည်",
+    ne: "कार्य सिर्जनाकर्ताले मात्र मेटाउन सक्छ",
+  },
+  team_not_found: {
+    en: "Team not found",
+    ja: "チームが見つかりません",
+    vi: "Không tìm thấy nhóm",
+    id: "Tim tidak ditemukan",
+    th: "ไม่พบทีม",
+    km: "រកមិនឃើញក្រុម",
+    bn: "দল পাওয়া যায়নি",
+    my: "အဖွဲ့မတွေ့ပါ",
+    ne: "टीम फेला परेन",
+  },
+  column_not_found: {
+    en: "Column not found",
+    ja: "カラムが見つかりません",
+    vi: "Không tìm thấy cột",
+    id: "Kolom tidak ditemukan",
+    th: "ไม่พบคอลัมน์",
+    km: "រកមិនឃើញជួរ",
+    bn: "কলাম পাওয়া যায়নি",
+    my: "ကော်လံမတွေ့ပါ",
+    ne: "स्तम्भ फेला परेन",
+  },
 
   // ── Generic ───────────────────────────────────────────────────────────────
   internal_server_error: {
@@ -1529,7 +1588,7 @@ const apiMessages = {
 
   subtask_assigned_title: {
     en: "New Task Assigned",
-    ja: "新しいタスクが割り当てられました",
+    ja: "新規タスクが割り当てられました",
     id: "Tugas Baru Ditugaskan",
     vi: "Có nhiệm vụ mới được giao",
     my: "တာဝန်အသစ် တာဝန်ပေးအပ်ခဲ့သည်",
@@ -1583,15 +1642,15 @@ const apiMessages = {
     ne: "सबै उप-कार्यहरू पूरा भए",
   },
   all_subtasks_done_body: {
-    en: "All sub-tasks for \"{{title}}\" are done",
+    en: 'All sub-tasks for "{{title}}" are done',
     ja: "「{{title}}」のすべてのサブタスクが完了しました",
-    id: "Semua sub-tugas untuk \"{{title}}\" telah selesai",
-    vi: "Tất cả nhiệm vụ phụ của \"{{title}}\" đã hoàn thành",
-    my: "\"{{title}}\" အတွက် အဆင့်ခွဲတာဝန်အားလုံး ပြီးစီးပြီ",
-    km: "ភារកិច្ចរងទាំងអស់សម្រាប់ \"{{title}}\" បានបញ្ចប់",
-    bn: "\"{{title}}\" এর সমস্ত উপ-কাজ শেষ হয়েছে",
-    th: "งานย่อยทั้งหมดของ \"{{title}}\" เสร็จสิ้นแล้ว",
-    ne: "\"{{title}}\" का सबै उप-कार्यहरू सकिए",
+    id: 'Semua sub-tugas untuk "{{title}}" telah selesai',
+    vi: 'Tất cả nhiệm vụ phụ của "{{title}}" đã hoàn thành',
+    my: '"{{title}}" အတွက် အဆင့်ခွဲတာဝန်အားလုံး ပြီးစီးပြီ',
+    km: 'ភារកិច្ចរងទាំងអស់សម្រាប់ "{{title}}" បានបញ្ចប់',
+    bn: '"{{title}}" এর সমস্ত উপ-কাজ শেষ হয়েছে',
+    th: 'งานย่อยทั้งหมดของ "{{title}}" เสร็จสิ้นแล้ว',
+    ne: '"{{title}}" का सबै उप-कार्यहरू सकिए',
   },
 };
 
@@ -1603,26 +1662,58 @@ const VALID_LANGUAGES = ["en", "ja", "id", "vi", "my", "km", "bn", "th", "ne"];
 
 const statusTranslations = {
   Approved: {
-    en: "Approved", ja: "承認", id: "Disetujui", vi: "Đã duyệt",
-    my: "အတည်ပြု", km: "អនុម័ត", bn: "অনুমোদিত", th: "อนุมัติ", ne: "स्वीकृत",
+    en: "Approved",
+    ja: "承認",
+    id: "Disetujui",
+    vi: "Đã duyệt",
+    my: "အတည်ပြု",
+    km: "អនុម័ត",
+    bn: "অনুমোদিত",
+    th: "อนุมัติ",
+    ne: "स्वीकृत",
   },
   Rejected: {
-    en: "Rejected", ja: "却下", id: "Ditolak", vi: "Từ chối",
-    my: "ငြင်းပယ်", km: "បដិសេធ", bn: "প্রত্যাখ্যাত", th: "ปฏิเสธ", ne: "अस्वीकृत",
+    en: "Rejected",
+    ja: "却下",
+    id: "Ditolak",
+    vi: "Từ chối",
+    my: "ငြင်းပယ်",
+    km: "បដិសេធ",
+    bn: "প্রত্যাখ্যাত",
+    th: "ปฏิเสธ",
+    ne: "अस्वीकृत",
   },
   Pending: {
-    en: "Pending", ja: "保留中", id: "Menunggu", vi: "Đang chờ",
-    my: "စောင့်ဆိုင်း", km: "កំពុងរង់ចាំ", bn: "অপেক্ষারত", th: "รอดำเนินการ", ne: "विचाराधीन",
+    en: "Pending",
+    ja: "保留中",
+    id: "Menunggu",
+    vi: "Đang chờ",
+    my: "စောင့်ဆိုင်း",
+    km: "កំពុងរង់ចាំ",
+    bn: "অপেক্ষারত",
+    th: "รอดำเนินการ",
+    ne: "विचाराधीन",
   },
   Draft: {
-    en: "Draft", ja: "下書き", id: "Draf", vi: "Bản nháp",
-    my: "မူကြမ်း", km: "សេចក្តីព្រាង", bn: "খসড়া", th: "ร่าง", ne: "मस्यौदा",
+    en: "Draft",
+    ja: "下書き",
+    id: "Draf",
+    vi: "Bản nháp",
+    my: "မူကြမ်း",
+    km: "សេចក្តីព្រាង",
+    bn: "খসড়া",
+    th: "ร่าง",
+    ne: "मस्यौदा",
   },
 };
 
 export const translateStatus = (status, language = "en") => {
   const lang = resolveLang(language);
-  return statusTranslations[status]?.[lang] ?? statusTranslations[status]?.["en"] ?? status;
+  return (
+    statusTranslations[status]?.[lang] ??
+    statusTranslations[status]?.["en"] ??
+    status
+  );
 };
 
 const resolveLang = (language) =>
@@ -1677,4 +1768,9 @@ export const formatApiMessage = (key, language, replacements = {}) => {
   return text;
 };
 
-export default { getTranslation, formatNotification, getApiMessage, formatApiMessage };
+export default {
+  getTranslation,
+  formatNotification,
+  getApiMessage,
+  formatApiMessage,
+};

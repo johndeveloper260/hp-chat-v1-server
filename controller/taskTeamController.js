@@ -8,8 +8,8 @@ import * as teamService from "../services/taskTeamService.js";
 // GET /tasks/teams
 export const listTeams = async (req, res, next) => {
   try {
-    const { business_unit: bu } = req.user;
-    const teams = await teamService.listTeams(bu);
+    const { id: userId, business_unit: bu } = req.user;
+    const teams = await teamService.listTeams(bu, userId);
     res.json(teams);
   } catch (err) {
     next(err);
