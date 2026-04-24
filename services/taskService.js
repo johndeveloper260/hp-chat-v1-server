@@ -16,6 +16,7 @@
  */
 import { getPool } from "../config/getPool.js";
 import * as taskRepo from "../repositories/taskRepository.js";
+import * as teamRepo from "../repositories/taskTeamRepository.js";
 import * as notifRepo from "../repositories/notificationRepository.js";
 import { sendNotificationToUser } from "./notificationService.js";
 import { formatNotification } from "../utils/notificationTranslations.js";
@@ -60,8 +61,18 @@ export const getTask = async ({ id, bu, userId, userType }) => {
 
 // ─── Create parent task ───────────────────────────────────────────────────────
 
-export const createTask = async ({ body, userId, bu }) => {
+export const createTask = async ({ body, userId, bu, userType }) => {
   const { assignee_ids = [], ...taskData } = body;
+
+  if (taskData.team_id) {
+    const team = await teamRepo.findTeamById(taskData.team_id, bu);
+    if (!team) throw new NotFoundError("team_not_found");
+
+    if (!isPrivileged(userType)) {
+      const isMember = await teamRepo.isTeamMember(taskData.team_id, userId);
+      if (!isMember) throw new ForbiddenError("not_a_team_member");
+    }
+  }
 
   const client = await getPool().connect();
   try {

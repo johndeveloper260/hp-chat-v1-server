@@ -67,17 +67,27 @@ export const deleteTeam = async ({ id, bu, userId, userType }) => {
 
 // ─── Members ───────────────────────────────────────────────────────────────────
 
-export const addMember = async ({ teamId, userId, bu }) => {
+export const addMember = async ({ teamId, userId, bu, requestingUserId, userType }) => {
   const team = await teamRepo.findTeamById(teamId, bu);
   if (!team) throw new NotFoundError("team_not_found");
+
+  const isPrivilegedUser = ["OFFICER", "ADMIN"].includes((userType || "").toUpperCase());
+  if (!isPrivilegedUser && String(team.created_by) !== String(requestingUserId)) {
+    throw new ForbiddenError("cannot_modify_team_members");
+  }
 
   const result = await teamRepo.addMember(teamId, userId);
   return result;
 };
 
-export const removeMember = async ({ teamId, userId, bu }) => {
+export const removeMember = async ({ teamId, userId, bu, requestingUserId, userType }) => {
   const team = await teamRepo.findTeamById(teamId, bu);
   if (!team) throw new NotFoundError("team_not_found");
+
+  const isPrivilegedUser = ["OFFICER", "ADMIN"].includes((userType || "").toUpperCase());
+  if (!isPrivilegedUser && String(team.created_by) !== String(requestingUserId)) {
+    throw new ForbiddenError("cannot_modify_team_members");
+  }
 
   await teamRepo.removeMember(teamId, userId);
 };

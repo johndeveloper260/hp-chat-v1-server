@@ -45,8 +45,8 @@ export const getTask = async (req, res, next) => {
 // POST /tasks
 export const createTask = async (req, res, next) => {
   try {
-    const { id: userId, business_unit: bu } = req.user;
-    const task = await taskService.createTask({ body: req.body, userId, bu });
+    const { id: userId, business_unit: bu, userType } = req.user;
+    const task = await taskService.createTask({ body: req.body, userId, bu, userType });
     res.status(201).json(task);
   } catch (err) {
     next(err);

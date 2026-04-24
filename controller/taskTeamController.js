@@ -68,9 +68,9 @@ export const deleteTeam = async (req, res, next) => {
 export const addMember = async (req, res, next) => {
   try {
     const { id: teamId } = req.params;
-    const { business_unit: bu } = req.user;
+    const { id: requestingUserId, business_unit: bu, userType } = req.user;
     const { user_id } = req.body;
-    const result = await teamService.addMember({ teamId, userId: user_id, bu });
+    const result = await teamService.addMember({ teamId, userId: user_id, bu, requestingUserId, userType });
     res.status(201).json(result ?? { success: true });
   } catch (err) {
     next(err);
@@ -81,8 +81,8 @@ export const addMember = async (req, res, next) => {
 export const removeMember = async (req, res, next) => {
   try {
     const { id: teamId, userId } = req.params;
-    const { business_unit: bu } = req.user;
-    await teamService.removeMember({ teamId, userId, bu });
+    const { id: requestingUserId, business_unit: bu, userType } = req.user;
+    await teamService.removeMember({ teamId, userId, bu, requestingUserId, userType });
     res.json({ success: true });
   } catch (err) {
     next(err);

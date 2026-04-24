@@ -7,7 +7,7 @@
  */
 import * as columnRepo from "../repositories/taskColumnRepository.js";
 import * as taskRepo   from "../repositories/taskRepository.js";
-import { NotFoundError, ValidationError } from "../errors/AppError.js";
+import { NotFoundError, ValidationError, ForbiddenError } from "../errors/AppError.js";
 
 // ─── List (auto-seed defaults) ─────────────────────────────────────────────────
 
@@ -30,6 +30,10 @@ export const updateColumn = async ({ id, data, ownerType, ownerId, bu }) => {
   const existing = await columnRepo.findColumnById(id, bu);
   if (!existing) throw new NotFoundError("column_not_found");
 
+  if (existing.owner_type !== ownerType || String(existing.owner_id) !== String(ownerId)) {
+    throw new ForbiddenError("column_ownership_mismatch");
+  }
+
   const updated = await columnRepo.updateColumn(id, data, ownerType, ownerId, bu);
   if (!updated) throw new ValidationError("nothing_to_update");
 
@@ -48,6 +52,10 @@ export const reorderColumns = async ({ ids, ownerType, ownerId, bu }) => {
 export const deleteColumn = async ({ id, ownerType, ownerId, bu }) => {
   const existing = await columnRepo.findColumnById(id, bu);
   if (!existing) throw new NotFoundError("column_not_found");
+
+  if (existing.owner_type !== ownerType || String(existing.owner_id) !== String(ownerId)) {
+    throw new ForbiddenError("column_ownership_mismatch");
+  }
 
   const taskCount = await taskRepo.countTasksByColumn(id, bu);
   if (taskCount > 0) throw new ValidationError("column_has_tasks");
