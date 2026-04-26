@@ -134,11 +134,12 @@ export async function submitAttempt(attemptId, userId, { answers }) {
     if (!userAnswer) continue;
 
     if (q.question_type === "text") {
-      // Exact match, case-insensitive
-      const isCorrect = q.correct_answer && userAnswer.trim().toLowerCase() === q.correct_answer.trim().toLowerCase();
+      const isCorrect = q.correct_answer != null && q.correct_answer !== "" &&
+        userAnswer.trim().toLowerCase() === q.correct_answer.trim().toLowerCase();
       if (isCorrect) { earnedPoints += q.points; scoredAnswers[q.question_id].isCorrect = true; scoredAnswers[q.question_id].pointsEarned = q.points; }
     } else {
-      const isCorrect = q.correct_answer && userAnswer === q.correct_answer;
+      const isCorrect = q.correct_answer != null && q.correct_answer !== "" &&
+        userAnswer.trim() === q.correct_answer.trim();
       if (isCorrect) { earnedPoints += q.points; scoredAnswers[q.question_id].isCorrect = true; scoredAnswers[q.question_id].pointsEarned = q.points; }
     }
   }

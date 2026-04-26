@@ -175,7 +175,8 @@ export async function listAssessmentsForUser(userId, businessUnit, client) {
            'score', lat.score,
            'passed', lat.passed,
            'completed_at', lat.completed_at,
-           'current_question_index', lat.current_question_index
+           'current_question_index', lat.current_question_index,
+           'answers', lat.answers
          )
          FROM v4.assessment_attempt_tbl lat
          WHERE lat.assessment_id = a.assessment_id AND lat.user_id = $2
