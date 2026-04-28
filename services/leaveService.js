@@ -16,6 +16,25 @@ import { findCoordinatorsByCompany } from "../repositories/notificationRepositor
 
 const OFFICER_TYPES = ["officer", "admin"];
 
+const isOfficerUser = (user) =>
+  OFFICER_TYPES.includes((user?.userType || "").toLowerCase());
+
+const getRequesterLeaveContext = async (requestor) => {
+  const current = await leaveRepo.findUserLeaveContext(requestor.id);
+  if (!current) {
+    throw new NotFoundError(
+      "target_user_not_found",
+      "api_errors.leave.target_user_not_found",
+    );
+  }
+
+  return {
+    userId: current.user_id,
+    company: current.company || requestor.company,
+    businessUnit: current.business_unit || requestor.business_unit,
+  };
+};
+
 // ── Template management ───────────────────────────────────────────────────────
 
 export const saveLeaveTemplate = async (userId, requestor, body) => {
@@ -30,8 +49,9 @@ export const saveLeaveTemplate = async (userId, requestor, body) => {
     is_published,
   } = body;
 
-  const business_unit = requestor.business_unit;
-  const company       = company_id || requestor.company;
+  const context       = await getRequesterLeaveContext(requestor);
+  const business_unit = context.businessUnit;
+  const company       = company_id || context.company;
 
   const configJSON =
     typeof config === "string" ? config : JSON.stringify(config);
@@ -59,18 +79,26 @@ export const deleteLeaveTemplate = async (templateId) => {
 };
 
 export const getCompanyTemplates = async (requestor, queryParams) => {
-  const business_unit = requestor.business_unit;
-  const company       = queryParams.company_id || requestor.company;
-  const isOfficer     = OFFICER_TYPES.includes((requestor.userType || "").toLowerCase());
+  const isOfficer     = isOfficerUser(requestor);
+  const context       = await getRequesterLeaveContext(requestor);
+  const business_unit = context.businessUnit;
+  const company       = isOfficer ? (queryParams.company_id || context.company) : context.company;
   return leaveRepo.findCompanyTemplates(company, business_unit, !isOfficer);
 };
 
 export const getLeaveTemplate = async (requestor, queryParams) => {
-  const business_unit = requestor.business_unit;
+  const isOfficer     = isOfficerUser(requestor);
+  const context       = await getRequesterLeaveContext(requestor);
+  const business_unit = context.businessUnit;
   const template_id   = queryParams.template_id;
-  const company       = queryParams.company_id || requestor.company;
+  const company       = isOfficer ? (queryParams.company_id || context.company) : context.company;
 
-  const row = await leaveRepo.findLeaveTemplate({ templateId: template_id, company, businessUnit: business_unit });
+  const row = await leaveRepo.findLeaveTemplate({
+    templateId: template_id,
+    company,
+    businessUnit: business_unit,
+    publishedOnly: !isOfficer,
+  });
   if (!row) {
     throw new NotFoundError("no_leave_template", "api_errors.leave.no_template");
   }
@@ -81,12 +109,13 @@ export const getLeaveTemplate = async (requestor, queryParams) => {
 
 export const submitLeave = async (requestor, body) => {
   const { templateId, answers, targetUserId } = body;
-  const isOfficer = OFFICER_TYPES.includes((requestor.userType || "").toLowerCase());
+  const isOfficer = isOfficerUser(requestor);
 
   // Default submitter context
-  let userId      = requestor.id;
-  let business_unit = requestor.business_unit;
-  let company     = requestor.company;
+  const context = await getRequesterLeaveContext(requestor);
+  let userId        = context.userId;
+  let business_unit = context.businessUnit;
+  let company       = context.company;
 
   // On-behalf — officers only
   if (targetUserId) {
@@ -110,6 +139,16 @@ export const submitLeave = async (requestor, body) => {
 
   const answersJSON =
     typeof answers === "string" ? answers : JSON.stringify(answers);
+
+  const template = await leaveRepo.findLeaveTemplate({
+    templateId,
+    company,
+    businessUnit: business_unit,
+    publishedOnly: !isOfficer,
+  });
+  if (!template) {
+    throw new NotFoundError("no_leave_template", "api_errors.leave.no_template");
+  }
 
   // 1. Persist submission
   const submission = await leaveRepo.insertSubmission({

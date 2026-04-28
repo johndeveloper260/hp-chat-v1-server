@@ -131,6 +131,67 @@ export async function findAssessmentById(assessmentId, businessUnit, client) {
   return rows[0] ?? null;
 }
 
+export async function findAssessmentByIdForUser(assessmentId, businessUnit, userId, client) {
+  const { rows } = await db(client).query(
+    `SELECT a.*,
+       COALESCE(json_agg(q ORDER BY q.question_order) FILTER (WHERE q.question_id IS NOT NULL), '[]') AS questions,
+       (
+         SELECT json_build_object(
+           'attempt_id', lat.attempt_id,
+           'status', lat.status,
+           'score', lat.score,
+           'passed', lat.passed,
+           'completed_at', lat.completed_at,
+           'current_question_index', lat.current_question_index,
+           'started_at', lat.started_at,
+           'answers', lat.answers
+         )
+         FROM v4.assessment_attempt_tbl lat
+         WHERE lat.assessment_id = a.assessment_id AND lat.user_id = $3
+         ORDER BY lat.started_at DESC LIMIT 1
+       ) AS latest_attempt,
+       (
+         SELECT COUNT(*) FROM v4.assessment_attempt_tbl
+         WHERE assessment_id = a.assessment_id AND user_id = $3 AND status = 'completed'
+       )::int AS completed_attempts
+     FROM v4.assessment_tbl a
+     LEFT JOIN v4.assessment_question_tbl q ON q.assessment_id = a.assessment_id
+     WHERE a.assessment_id = $1 AND a.business_unit = $2 AND a.is_active = true
+     GROUP BY a.assessment_id`,
+    [assessmentId, businessUnit, userId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function findInProgressAttempt(assessmentId, userId, client) {
+  const { rows } = await db(client).query(
+    `SELECT * FROM v4.assessment_attempt_tbl
+     WHERE assessment_id = $1 AND user_id = $2 AND status = 'in_progress'
+     ORDER BY started_at DESC LIMIT 1`,
+    [assessmentId, userId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function abandonInProgressAttempts(assessmentId, userId, client) {
+  await db(client).query(
+    `UPDATE v4.assessment_attempt_tbl
+     SET status = 'timed_out', updated_at = NOW()
+     WHERE assessment_id = $1 AND user_id = $2 AND status = 'in_progress'`,
+    [assessmentId, userId],
+  );
+}
+
+export async function findLastCompletedAttempt(assessmentId, userId, client) {
+  const { rows } = await db(client).query(
+    `SELECT * FROM v4.assessment_attempt_tbl
+     WHERE assessment_id = $1 AND user_id = $2 AND status = 'completed'
+     ORDER BY completed_at DESC LIMIT 1`,
+    [assessmentId, userId],
+  );
+  return rows[0] ?? null;
+}
+
 export async function listAssessmentsForCoordinator(businessUnit, client) {
   const { rows } = await db(client).query(
     `SELECT a.*,
@@ -271,6 +332,7 @@ export async function getAssessmentResults(assessmentId, businessUnit, filters, 
        at.attempt_id, at.user_id, at.status, at.score, at.passed,
        at.started_at, at.completed_at,
        TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS full_name,
+       p.country,
        p.company AS company_id,
        COALESCE(c.company_name->>'en', c.company_name->>'ja') AS company_name,
        p.batch_no, v.visa_type
@@ -282,8 +344,9 @@ export async function getAssessmentResults(assessmentId, businessUnit, filters, 
        AND ($3::text IS NULL OR p.batch_no = $3)
        AND ($4::uuid IS NULL OR p.company::uuid = $4::uuid)
        AND ($5::text IS NULL OR v.visa_type = $5)
+       AND ($6::text IS NULL OR UPPER(p.country) = UPPER($6))
      ORDER BY at.created_at DESC`,
-    [assessmentId, businessUnit, batch ?? null, company ?? null, visa_type ?? null],
+    [assessmentId, businessUnit, batch ?? null, company ?? null, visa_type ?? null, country ?? null],
   );
   return rows;
 }

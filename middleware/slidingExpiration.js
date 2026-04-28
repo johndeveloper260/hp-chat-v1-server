@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import * as userRepo from "../repositories/userRepository.js";
 
 /**
  * Sliding Expiration Middleware
@@ -10,7 +11,7 @@ import jwt from "jsonwebtoken";
  * If both conditions are met, generates a new token with a fresh 30-day expiration
  * and sends it back via the X-Refresh-Token header.
  */
-const slidingExpiration = (req, res, next) => {
+const slidingExpiration = async (req, res, next) => {
   // Extract token from headers
   let token = req.header("x-app-identity");
 
@@ -45,43 +46,47 @@ const slidingExpiration = (req, res, next) => {
 
     // If token is valid and will expire in less than 7 days
     if (timeRemaining > 0 && timeRemaining < SEVEN_DAYS_IN_SECONDS) {
-      // Verify the token is actually valid before issuing a new one
-      jwt.verify(token, process.env.SECRET_TOKEN, (error, verified) => {
-        if (error) {
-          // Token is invalid, don't refresh
-          return next();
-        }
+      // Verify the token is actually valid before issuing a new one.
+      const verified = jwt.verify(token, process.env.SECRET_TOKEN);
 
-        // Generate a new token with fresh 30-day expiration.
-        // Carry over ALL fields from the verified token so nothing is lost
-        // (roles, souser flags, visa info, etc.).
-        const newPayload = {
-          id: verified.id,
-          user_type: verified.user_type,
-          business_unit: verified.business_unit,
-          company: verified.company,
-          company_name: verified.company_name,
-          visa_type_descr: verified.visa_type_descr ?? null,
-          batch_no: verified.batch_no,
-          preferred_language: verified.preferred_language || "en",
-          roles: verified.roles ?? [],
-          souser_country: verified.souser_country ?? null,
-          souser_sending_org: verified.souser_sending_org ?? null,
-          souser_primary_bu: verified.souser_primary_bu ?? null,
-          souser_announcements_read: verified.souser_announcements_read ?? false,
-          souser_announcements_write: verified.souser_announcements_write ?? false,
-        };
+      const [user, roles] = await Promise.all([
+        userRepo.findUserById(verified.id),
+        userRepo.findUserRoles(verified.id),
+      ]);
 
-        const newToken = jwt.sign(newPayload, process.env.SECRET_TOKEN.trim(), {
-          expiresIn: "30d",
-        });
+      // If the account disappeared or was deactivated, leave auth.js to reject
+      // the original request instead of issuing a refreshed token.
+      if (!user || user.is_active === false) {
+        return next();
+      }
 
-        // Send the new token in a custom header
-        res.setHeader("X-Refresh-Token", newToken);
+      // Generate a new token with fresh 30-day expiration from current DB state.
+      const newPayload = {
+        id: String(user.id).trim(),
+        user_type: user.user_type,
+        business_unit: user.business_unit,
+        company: user.company,
+        company_name: user.company_name,
+        visa_type_descr: user.visa_type_descr ?? null,
+        batch_no: user.batch_no,
+        preferred_language: user.preferred_language || "en",
+        roles,
+        souser_country: user.souser_country ?? null,
+        souser_sending_org: user.souser_sending_org ?? null,
+        souser_primary_bu: user.souser_primary_bu ?? null,
+        souser_announcements_read: user.souser_announcements_read ?? false,
+        souser_announcements_write: user.souser_announcements_write ?? false,
+      };
 
-        console.log(`🔄 Token refreshed for user: ${verified.id}`);
-        next();
+      const newToken = jwt.sign(newPayload, process.env.SECRET_TOKEN.trim(), {
+        expiresIn: "30d",
       });
+
+      // Send the new token in a custom header.
+      res.setHeader("X-Refresh-Token", newToken);
+
+      console.log(`🔄 Token refreshed for user: ${verified.id}`);
+      next();
     } else {
       // Token is either expired or has more than 7 days remaining
       next();

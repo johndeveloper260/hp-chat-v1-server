@@ -170,6 +170,49 @@ export async function findUserByEmail(email, client) {
 }
 
 /**
+ * Fetch full user record by id for token refresh.
+ */
+export async function findUserById(userId, client) {
+  const query = `
+    SELECT
+      a.id, a.email, a.business_unit,
+      a.is_active, a.preferred_language,
+      p.user_id,
+      COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END) AS user_type,
+      p.company, p.batch_no,
+      COALESCE(
+        c.company_name ->> a.preferred_language,
+        c.company_name ->> 'en',
+        (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
+      ) AS company_name,
+      COALESCE(
+        vl.descr ->> 'ja',
+        vl.descr ->> 'en',
+        (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
+      ) AS visa_type_descr,
+      su.country       AS souser_country,
+      su.sending_org   AS souser_sending_org,
+      su.primary_bu    AS souser_primary_bu,
+      sba.announcements_read  AS souser_announcements_read,
+      sba.announcements_write AS souser_announcements_write
+    FROM v4.user_account_tbl a
+    LEFT JOIN v4.user_profile_tbl p        ON a.id = p.user_id
+    LEFT JOIN v4.company_tbl c             ON p.company::uuid = c.company_id
+    LEFT JOIN v4.user_visa_info_tbl v      ON a.id = v.user_id
+    LEFT JOIN v4.visa_list_tbl vl          ON v.visa_type = vl.code
+                                          AND a.business_unit = vl.business_unit
+    LEFT JOIN v4.souser_tbl su             ON a.id = su.id
+    LEFT JOIN v4.souser_bu_access_tbl sba  ON sba.souser_id = a.id
+                                          AND sba.business_unit = a.business_unit
+                                          AND sba.revoked_at IS NULL
+    WHERE a.id = $1::uuid
+  `;
+
+  const { rows } = await db(client).query(query, [userId]);
+  return rows[0] ?? null;
+}
+
+/**
  * Fetch all role_name values assigned to a user.
  */
 export async function findUserRoles(userId, client) {

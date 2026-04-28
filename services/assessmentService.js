@@ -81,6 +81,12 @@ export async function getAssessment(assessmentId, businessUnit) {
   return assessment;
 }
 
+export async function getAssessmentForUser(assessmentId, userId, businessUnit) {
+  const assessment = await repo.findAssessmentByIdForUser(assessmentId, businessUnit, userId);
+  if (!assessment) throw new NotFoundError("assessment_not_found");
+  return assessment;
+}
+
 export async function listAssessments(userId, businessUnit, userType) {
   const isOfficer = ["OFFICER","ADMIN"].includes((userType || "").toUpperCase());
   if (isOfficer) {
@@ -97,11 +103,21 @@ export async function getResults(assessmentId, businessUnit, filters) {
 
 // ─── Attempts ─────────────────────────────────────────────────────────────────
 
-export async function startAttempt(assessmentId, userId, businessUnit, userType) {
+export async function startAttempt(assessmentId, userId, businessUnit, userType, force = false) {
   const isOfficer = ["OFFICER","ADMIN"].includes((userType || "").toUpperCase());
   const assessment = await repo.findAssessmentById(assessmentId, businessUnit);
   if (!assessment) throw new NotFoundError("assessment_not_found");
   if (!isOfficer && !assessment.is_published) throw new ForbiddenError("assessment_not_available");
+
+  if (!force) {
+    // Return existing in-progress attempt so users can resume without duplicates
+    const inProgress = await repo.findInProgressAttempt(assessmentId, userId);
+    if (inProgress) return inProgress;
+  } else {
+    // Abandon all in-progress attempts for a clean restart
+    await repo.abandonInProgressAttempts(assessmentId, userId);
+  }
+
   return repo.createAttempt({ assessmentId, userId, businessUnit });
 }
 

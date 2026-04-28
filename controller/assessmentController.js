@@ -12,7 +12,7 @@ export const listAssessments = async (req, res, next) => {
 
 export const getAssessment = async (req, res, next) => {
   try {
-    const data = await service.getAssessment(req.params.id, req.user.business_unit);
+    const data = await service.getAssessmentForUser(req.params.id, req.user.id, req.user.business_unit);
     res.status(200).json(data);
   } catch (err) { next(err); }
 };
@@ -67,7 +67,8 @@ export const getResults = async (req, res, next) => {
 
 export const startAttempt = async (req, res, next) => {
   try {
-    const data = await service.startAttempt(req.params.id, req.user.id, req.user.business_unit, req.user.userType);
+    const force = req.query.force === "true";
+    const data = await service.startAttempt(req.params.id, req.user.id, req.user.business_unit, req.user.userType, force);
     res.status(201).json(data);
   } catch (err) { next(err); }
 };

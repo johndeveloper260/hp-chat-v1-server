@@ -80,13 +80,15 @@ export const findLeaveTemplate = async ({
   templateId,
   company,
   businessUnit,
+  publishedOnly = false,
 } = {}) => {
   if (templateId) {
     const { rows } = await getPool().query(
       `SELECT template_id, version, config, fields, title, description, category, is_published
        FROM v4.leave_template_tbl
-       WHERE template_id = $1 AND is_active = true`,
-      [templateId],
+       WHERE template_id = $1 AND company_id = $2 AND business_unit = $3 AND is_active = true
+         AND ($4::boolean IS FALSE OR is_published = true)`,
+      [templateId, company, businessUnit, publishedOnly],
     );
     return rows[0] ?? null;
   }
@@ -95,8 +97,9 @@ export const findLeaveTemplate = async ({
     `SELECT template_id, version, config, fields, title, description, category, is_published
      FROM v4.leave_template_tbl
      WHERE company_id = $1 AND business_unit = $2 AND is_active = true
+       AND ($3::boolean IS FALSE OR is_published = true)
      ORDER BY updated_at DESC LIMIT 1`,
-    [company, businessUnit],
+    [company, businessUnit, publishedOnly],
   );
   return rows[0] ?? null;
 };
@@ -116,11 +119,24 @@ export const softDeleteLeaveTemplate = async (templateId) => {
 
 export const findTargetUser = async (targetUserId) => {
   const { rows } = await getPool().query(
-    `SELECT a.id AS user_id, p.company, a.business_unit
+    `SELECT a.id AS user_id, p.company, COALESCE(p.business_unit, a.business_unit) AS business_unit
      FROM v4.user_account_tbl a
      JOIN v4.user_profile_tbl p ON a.id = p.user_id
      WHERE a.id = $1`,
     [targetUserId],
+  );
+  return rows[0] ?? null;
+};
+
+export const findUserLeaveContext = async (userId) => {
+  const { rows } = await getPool().query(
+    `SELECT a.id AS user_id,
+            p.company AS company,
+            COALESCE(p.business_unit, a.business_unit) AS business_unit
+     FROM v4.user_account_tbl a
+     LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+     WHERE a.id = $1`,
+    [userId],
   );
   return rows[0] ?? null;
 };
