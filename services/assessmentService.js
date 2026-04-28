@@ -84,6 +84,21 @@ export async function getAssessment(assessmentId, businessUnit) {
 export async function getAssessmentForUser(assessmentId, userId, businessUnit) {
   const assessment = await repo.findAssessmentByIdForUser(assessmentId, businessUnit, userId);
   if (!assessment) throw new NotFoundError("assessment_not_found");
+  if (!assessment.is_published) throw new ForbiddenError("assessment_not_available");
+
+  // Audience eligibility — mirrors listAssessmentsForUser filter
+  if (assessment.audience_mode === "filtered") {
+    const profile = await repo.getUserAudienceProfile(userId);
+    const companyId = profile.company ? String(profile.company) : null;
+    const matchCompany = !assessment.audience_company?.length ||
+      (companyId && assessment.audience_company.map(String).includes(companyId));
+    const matchBatch = !assessment.audience_batch?.length ||
+      (profile.batch_no && assessment.audience_batch.includes(profile.batch_no));
+    const matchVisa = !assessment.audience_visa_type?.length ||
+      (profile.visa_type && assessment.audience_visa_type.includes(profile.visa_type));
+    if (!matchCompany || !matchBatch || !matchVisa) throw new ForbiddenError("assessment_not_available");
+  }
+
   return assessment;
 }
 
@@ -116,6 +131,12 @@ export async function startAttempt(assessmentId, userId, businessUnit, userType,
   } else {
     // Abandon all in-progress attempts for a clean restart
     await repo.abandonInProgressAttempts(assessmentId, userId);
+  }
+
+  // Enforce allow_retake=false for non-officers
+  if (!isOfficer && !assessment.allow_retake) {
+    const lastCompleted = await repo.findLastCompletedAttempt(assessmentId, userId);
+    if (lastCompleted) throw new ForbiddenError("assessment_retake_not_allowed");
   }
 
   return repo.createAttempt({ assessmentId, userId, businessUnit });

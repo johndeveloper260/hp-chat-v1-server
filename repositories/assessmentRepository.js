@@ -134,22 +134,47 @@ export async function findAssessmentById(assessmentId, businessUnit, client) {
 export async function findAssessmentByIdForUser(assessmentId, businessUnit, userId, client) {
   const { rows } = await db(client).query(
     `SELECT a.*,
-       COALESCE(json_agg(q ORDER BY q.question_order) FILTER (WHERE q.question_id IS NOT NULL), '[]') AS questions,
+       -- Questions without correct_answer to prevent answer leakage
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'question_id',    q.question_id,
+             'question_order', q.question_order,
+             'question_type',  q.question_type,
+             'prompt',         q.prompt,
+             'options',        q.options,
+             'points',         q.points
+           )
+           ORDER BY q.question_order
+         ) FILTER (WHERE q.question_id IS NOT NULL),
+         '[]'
+       ) AS questions,
+       -- In-progress attempt for resume (includes saved answers as plain strings)
        (
          SELECT json_build_object(
-           'attempt_id', lat.attempt_id,
-           'status', lat.status,
-           'score', lat.score,
-           'passed', lat.passed,
-           'completed_at', lat.completed_at,
+           'attempt_id',             lat.attempt_id,
            'current_question_index', lat.current_question_index,
-           'started_at', lat.started_at,
-           'answers', lat.answers
+           'started_at',             lat.started_at,
+           'answers',                lat.answers
          )
          FROM v4.assessment_attempt_tbl lat
          WHERE lat.assessment_id = a.assessment_id AND lat.user_id = $3
-         ORDER BY lat.started_at DESC LIMIT 1
-       ) AS latest_attempt,
+           AND lat.status = 'in_progress'
+         LIMIT 1
+       ) AS in_progress_attempt,
+       -- Latest completed attempt for score display (no per-question scoring data)
+       (
+         SELECT json_build_object(
+           'attempt_id',   lat.attempt_id,
+           'score',        lat.score,
+           'passed',       lat.passed,
+           'completed_at', lat.completed_at
+         )
+         FROM v4.assessment_attempt_tbl lat
+         WHERE lat.assessment_id = a.assessment_id AND lat.user_id = $3
+           AND lat.status = 'completed'
+         ORDER BY lat.completed_at DESC LIMIT 1
+       ) AS latest_completed_attempt,
        (
          SELECT COUNT(*) FROM v4.assessment_attempt_tbl
          WHERE assessment_id = a.assessment_id AND user_id = $3 AND status = 'completed'
@@ -161,6 +186,18 @@ export async function findAssessmentByIdForUser(assessmentId, businessUnit, user
     [assessmentId, businessUnit, userId],
   );
   return rows[0] ?? null;
+}
+
+export async function getUserAudienceProfile(userId, client) {
+  const { rows } = await db(client).query(
+    `SELECT p.company, p.batch_no, v.visa_type
+     FROM v4.user_profile_tbl p
+     LEFT JOIN v4.user_visa_info_tbl v ON v.user_id = p.user_id
+     WHERE p.user_id = $1
+     LIMIT 1`,
+    [userId],
+  );
+  return rows[0] ?? {};
 }
 
 export async function findInProgressAttempt(assessmentId, userId, client) {
@@ -231,18 +268,27 @@ export async function listAssessmentsForUser(userId, businessUnit, client) {
        a.audience_country, a.audience_company, a.audience_batch, a.audience_visa_type,
        (
          SELECT json_build_object(
-           'attempt_id', lat.attempt_id,
-           'status', lat.status,
-           'score', lat.score,
-           'passed', lat.passed,
-           'completed_at', lat.completed_at,
+           'attempt_id',             lat.attempt_id,
            'current_question_index', lat.current_question_index,
-           'answers', lat.answers
+           'started_at',             lat.started_at
          )
          FROM v4.assessment_attempt_tbl lat
          WHERE lat.assessment_id = a.assessment_id AND lat.user_id = $2
-         ORDER BY lat.created_at DESC LIMIT 1
-       ) AS latest_attempt,
+           AND lat.status = 'in_progress'
+         LIMIT 1
+       ) AS in_progress_attempt,
+       (
+         SELECT json_build_object(
+           'attempt_id',   lat.attempt_id,
+           'score',        lat.score,
+           'passed',       lat.passed,
+           'completed_at', lat.completed_at
+         )
+         FROM v4.assessment_attempt_tbl lat
+         WHERE lat.assessment_id = a.assessment_id AND lat.user_id = $2
+           AND lat.status = 'completed'
+         ORDER BY lat.completed_at DESC LIMIT 1
+       ) AS latest_completed_attempt,
        (
          SELECT COUNT(*) FROM v4.assessment_attempt_tbl
          WHERE assessment_id = a.assessment_id AND user_id = $2 AND status = 'completed'
@@ -271,6 +317,8 @@ export async function createAttempt({ assessmentId, userId, businessUnit }, clie
     `INSERT INTO v4.assessment_attempt_tbl
        (assessment_id, user_id, business_unit, status, answers, current_question_index)
      VALUES ($1, $2, $3, 'in_progress', '{}'::jsonb, 0)
+     ON CONFLICT (assessment_id, user_id) WHERE status = 'in_progress'
+     DO UPDATE SET updated_at = NOW()
      RETURNING *`,
     [assessmentId, userId, businessUnit],
   );

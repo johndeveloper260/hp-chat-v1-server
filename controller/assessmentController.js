@@ -12,7 +12,12 @@ export const listAssessments = async (req, res, next) => {
 
 export const getAssessment = async (req, res, next) => {
   try {
-    const data = await service.getAssessmentForUser(req.params.id, req.user.id, req.user.business_unit);
+    const isOfficer = ["OFFICER", "ADMIN"].includes((req.user.userType || "").toUpperCase());
+    // Officers (coordinators/admins) get full data including correct_answer for the builder.
+    // Learners get a sanitized DTO: no correct_answer, split attempt fields.
+    const data = isOfficer
+      ? await service.getAssessment(req.params.id, req.user.business_unit)
+      : await service.getAssessmentForUser(req.params.id, req.user.id, req.user.business_unit);
     res.status(200).json(data);
   } catch (err) { next(err); }
 };
