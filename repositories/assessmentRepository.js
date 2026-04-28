@@ -190,7 +190,7 @@ export async function findAssessmentByIdForUser(assessmentId, businessUnit, user
 
 export async function getUserAudienceProfile(userId, client) {
   const { rows } = await db(client).query(
-    `SELECT p.company, p.batch_no, v.visa_type
+    `SELECT p.company, p.batch_no, p.country, v.visa_type
      FROM v4.user_profile_tbl p
      LEFT JOIN v4.user_visa_info_tbl v ON v.user_id = p.user_id
      WHERE p.user_id = $1
@@ -252,7 +252,7 @@ export async function listAssessmentsForCoordinator(businessUnit, client) {
 export async function listAssessmentsForUser(userId, businessUnit, client) {
   // Fetch user profile attributes needed for audience filtering
   const { rows: profileRows } = await db(client).query(
-    `SELECT p.company, p.batch_no, v.visa_type
+    `SELECT p.company, p.batch_no, p.country, v.visa_type
      FROM v4.user_profile_tbl p
      LEFT JOIN v4.user_visa_info_tbl v ON v.user_id = p.user_id
      WHERE p.user_id = $1
@@ -303,10 +303,11 @@ export async function listAssessmentsForUser(userId, businessUnit, client) {
   return rows.filter((a) => {
     if (a.audience_mode === "all") return true;
     const companyId = profile.company ? String(profile.company) : null;
+    const matchCountry = !a.audience_country?.length || (profile.country && a.audience_country.includes(profile.country));
     const matchCompany = !a.audience_company?.length || (companyId && a.audience_company.map(String).includes(companyId));
     const matchBatch   = !a.audience_batch?.length   || (profile.batch_no && a.audience_batch.includes(profile.batch_no));
     const matchVisa    = !a.audience_visa_type?.length || (profile.visa_type && a.audience_visa_type.includes(profile.visa_type));
-    return matchCompany && matchBatch && matchVisa;
+    return matchCountry && matchCompany && matchBatch && matchVisa;
   });
 }
 

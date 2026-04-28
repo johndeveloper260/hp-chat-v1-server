@@ -81,23 +81,31 @@ export async function getAssessment(assessmentId, businessUnit) {
   return assessment;
 }
 
-export async function getAssessmentForUser(assessmentId, userId, businessUnit) {
-  const assessment = await repo.findAssessmentByIdForUser(assessmentId, businessUnit, userId);
-  if (!assessment) throw new NotFoundError("assessment_not_found");
+async function assertLearnerCanAccessAssessment(assessment, userId) {
   if (!assessment.is_published) throw new ForbiddenError("assessment_not_available");
 
-  // Audience eligibility — mirrors listAssessmentsForUser filter
+  // Audience eligibility — mirrors listAssessmentsForUser filter.
   if (assessment.audience_mode === "filtered") {
     const profile = await repo.getUserAudienceProfile(userId);
     const companyId = profile.company ? String(profile.company) : null;
+    const matchCountry = !assessment.audience_country?.length ||
+      (profile.country && assessment.audience_country.includes(profile.country));
     const matchCompany = !assessment.audience_company?.length ||
       (companyId && assessment.audience_company.map(String).includes(companyId));
     const matchBatch = !assessment.audience_batch?.length ||
       (profile.batch_no && assessment.audience_batch.includes(profile.batch_no));
     const matchVisa = !assessment.audience_visa_type?.length ||
       (profile.visa_type && assessment.audience_visa_type.includes(profile.visa_type));
-    if (!matchCompany || !matchBatch || !matchVisa) throw new ForbiddenError("assessment_not_available");
+    if (!matchCountry || !matchCompany || !matchBatch || !matchVisa) {
+      throw new ForbiddenError("assessment_not_available");
+    }
   }
+}
+
+export async function getAssessmentForUser(assessmentId, userId, businessUnit) {
+  const assessment = await repo.findAssessmentByIdForUser(assessmentId, businessUnit, userId);
+  if (!assessment) throw new NotFoundError("assessment_not_found");
+  await assertLearnerCanAccessAssessment(assessment, userId);
 
   return assessment;
 }
@@ -122,7 +130,7 @@ export async function startAttempt(assessmentId, userId, businessUnit, userType,
   const isOfficer = ["OFFICER","ADMIN"].includes((userType || "").toUpperCase());
   const assessment = await repo.findAssessmentById(assessmentId, businessUnit);
   if (!assessment) throw new NotFoundError("assessment_not_found");
-  if (!isOfficer && !assessment.is_published) throw new ForbiddenError("assessment_not_available");
+  if (!isOfficer) await assertLearnerCanAccessAssessment(assessment, userId);
 
   if (!force) {
     // Return existing in-progress attempt so users can resume without duplicates
