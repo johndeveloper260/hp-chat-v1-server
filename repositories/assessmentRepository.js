@@ -238,7 +238,8 @@ export async function listAssessmentsForCoordinator(businessUnit, client) {
        ROUND(
          100.0 * COUNT(DISTINCT at2.attempt_id) FILTER (WHERE at2.passed = true AND at2.status = 'completed') /
          NULLIF(COUNT(DISTINCT at2.attempt_id) FILTER (WHERE at2.status = 'completed'), 0)
-       , 1) AS pass_rate
+       , 1) AS pass_rate,
+       (SELECT COUNT(*) FROM v4.assessment_question_tbl WHERE assessment_id = a.assessment_id)::int AS question_count
      FROM v4.assessment_tbl a
      LEFT JOIN v4.assessment_attempt_tbl at2 ON at2.assessment_id = a.assessment_id
      WHERE a.business_unit = $1 AND a.is_active = true
@@ -266,6 +267,7 @@ export async function listAssessmentsForUser(userId, businessUnit, client) {
     `SELECT a.assessment_id, a.title, a.description, a.passing_score,
        a.time_limit_seconds, a.allow_retake, a.audience_mode,
        a.audience_country, a.audience_company, a.audience_batch, a.audience_visa_type,
+       (SELECT COUNT(*) FROM v4.assessment_question_tbl WHERE assessment_id = a.assessment_id)::int AS question_count,
        (
          SELECT json_build_object(
            'attempt_id',             lat.attempt_id,

@@ -8,7 +8,7 @@ const questionSchema = z.object({
   question_type: z.enum(["multiple_choice", "text", "true_false"]),
   prompt: z.string().min(1),
   options: z.array(z.string()).optional().nullable(),
-  correct_answer: z.string().optional().nullable(),
+  correct_answer: z.string().min(1, "correct_answer is required"),
   points: z.number().int().min(1).default(1),
 });
 
