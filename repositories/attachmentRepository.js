@@ -69,6 +69,13 @@ export const checkParentBU = async (relationType, relationId, userBU, client, us
     );
     return rowCount;
   }
+  if (relationType === "app_support") {
+    const { rowCount } = await db(client).query(
+      "SELECT ticket_id FROM v4.app_support_ticket_tbl WHERE ticket_id = $1::integer AND business_unit = $2",
+      [relationId, userBU],
+    );
+    return rowCount;
+  }
   return 0; // unknown relation type
 };
 

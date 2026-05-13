@@ -33,6 +33,14 @@ export const checkReturnHomeBU = async (id, businessUnit) => {
   return rowCount > 0;
 };
 
+export const checkAppSupportBU = async (id, businessUnit) => {
+  const { rowCount } = await getPool().query(
+    "SELECT ticket_id FROM v4.app_support_ticket_tbl WHERE ticket_id = $1::integer AND business_unit = $2",
+    [id, businessUnit],
+  );
+  return rowCount > 0;
+};
+
 // ── Fetch comments ────────────────────────────────────────────────────────────
 
 export const findComments = async (type, id, userId = null) => {
@@ -175,6 +183,25 @@ export const findReturnHomeRecipients = async (relationId, commenterId) => {
   const prevRes = await getPool().query(
     `SELECT DISTINCT user_id FROM v4.shared_comments
      WHERE relation_type = 'return_home' AND relation_id = $1 AND user_id != $2`,
+    [String(relationId), commenterId],
+  );
+  return [...recipients, ...prevRes.rows.map((r) => r.user_id)];
+};
+
+export const findAppSupportRecipients = async (relationId, commenterId) => {
+  const ticketRes = await getPool().query(
+    "SELECT created_by, assigned_to FROM v4.app_support_ticket_tbl WHERE ticket_id = $1::integer",
+    [relationId],
+  );
+  const recipients = [];
+  if (ticketRes.rows[0]) {
+    const { created_by, assigned_to } = ticketRes.rows[0];
+    if (created_by) recipients.push(created_by);
+    if (assigned_to) recipients.push(assigned_to);
+  }
+  const prevRes = await getPool().query(
+    `SELECT DISTINCT user_id FROM v4.shared_comments
+     WHERE relation_type = 'app_support' AND relation_id = $1 AND user_id != $2`,
     [String(relationId), commenterId],
   );
   return [...recipients, ...prevRes.rows.map((r) => r.user_id)];

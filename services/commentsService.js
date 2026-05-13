@@ -38,6 +38,8 @@ const assertParentBU = async (relationType, relationId, businessUnit, userId = n
     } else {
       ok = await commentsRepo.checkSubtaskBU(relationId, businessUnit, userId);
     }
+  } else if (relationType === "app_support") {
+    ok = await commentsRepo.checkAppSupportBU(relationId, businessUnit);
   }
   if (!ok) throw new NotFoundError("record_not_found");
 };
@@ -91,6 +93,8 @@ export const addComment = async (body, userId, userBU) => {
     rawRecipients = await commentsRepo.findTaskRecipients(relation_id, userId);
   } else if (relation_type === "subtask") {
     rawRecipients = await commentsRepo.findSubtaskRecipients(relation_id, userId);
+  } else if (relation_type === "app_support") {
+    rawRecipients = await commentsRepo.findAppSupportRecipients(relation_id, userId);
   }
 
   const recipients = [...new Set(rawRecipients)].filter(
@@ -104,6 +108,7 @@ export const addComment = async (body, userId, userBU) => {
     else if (relation_type === "return_home") titleKey = "comment_on_return_home";
     else if (relation_type === "task") titleKey = "comment_on_task";
     else if (relation_type === "subtask") titleKey = "comment_on_task";
+    else if (relation_type === "app_support") titleKey = "comment_on_app_support";
     else titleKey = "comment_on_announcement";
 
     const commentPreview =
@@ -135,7 +140,9 @@ export const addComment = async (body, userId, userBU) => {
                   ? "ReturnHome"
                   : (relation_type === "task" || relation_type === "subtask")
                     ? "MyTasks"
-                    : "Home",
+                    : relation_type === "app_support"
+                      ? "AppSupport"
+                      : "Home",
             params:
               relation_type === "inquiries"
                 ? { ticketId: relation_id }
@@ -143,7 +150,9 @@ export const addComment = async (body, userId, userBU) => {
                   ? { id: relation_id }
                   : (relation_type === "task" || relation_type === "subtask")
                     ? { taskId: taskUUID }
-                    : { rowId: relation_id },
+                    : relation_type === "app_support"
+                      ? { ticketId: relation_id }
+                      : { rowId: relation_id },
           },
         }),
       ),
