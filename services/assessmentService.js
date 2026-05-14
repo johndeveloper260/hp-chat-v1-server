@@ -198,3 +198,12 @@ export async function submitAttempt(attemptId, userId, { answers }) {
 export async function getMyHistory(userId, businessUnit) {
   return repo.getMyAttemptHistory(userId, businessUnit);
 }
+
+export async function getAttempt(attemptId, userId) {
+  const attempt = await repo.findAttemptById(attemptId);
+  if (!attempt) throw new NotFoundError("attempt_not_found");
+  if (String(attempt.user_id) !== String(userId)) throw new ForbiddenError();
+  // Include questions with correct_answer — safe because the attempt is already completed.
+  const questions = await repo.findQuestionsForAttempt(attempt.assessment_id);
+  return { ...attempt, questions };
+}

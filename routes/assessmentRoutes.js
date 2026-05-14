@@ -25,6 +25,7 @@ import {
   autoSave,
   submitAttempt,
   getMyHistory,
+  getAttempt,
 } from "../controller/assessmentController.js";
 
 const router = express.Router();
@@ -32,6 +33,7 @@ const router = express.Router();
 // ── All authenticated users ────────────────────────────────────────────────────
 router.get("/",                                    auth, listAssessments);
 router.get("/attempts/history",                    auth, getMyHistory);
+router.get("/attempts/:attemptId",                 auth, getAttempt);
 router.get("/:id",                                 auth, getAssessment);
 router.post("/:id/attempts",                       auth, startAttempt);
 router.patch("/attempts/:attemptId/save",          auth, validate(autoSaveSchema), autoSave);

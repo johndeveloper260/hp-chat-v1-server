@@ -167,6 +167,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
       themePreference: user.theme_preference ?? 'system',
       profilePicS3Key: user.profile_pic_s3_key,
       profilePicS3Bucket: user.profile_pic_s3_bucket,
+      is_platform_admin: !!env.appSupport.platformAdminId && String(user.id) === String(env.appSupport.platformAdminId),
     },
   };
 }

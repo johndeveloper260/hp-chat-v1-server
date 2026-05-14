@@ -12,14 +12,14 @@ import { NotFoundError, ValidationError } from "../errors/AppError.js";
 
 // ─── 1. Search ────────────────────────────────────────────────────────────────
 
-export const searchTickets = async ({ query: filters, userId, businessUnit, isSupportUser }) => {
-  return repo.searchTickets({ businessUnit, userId, isSupportUser, filters });
+export const searchTickets = async ({ query: filters, userId, businessUnit, isSupportUser, isPlatformAdmin }) => {
+  return repo.searchTickets({ businessUnit, userId, isSupportUser, isPlatformAdmin, filters });
 };
 
 // ─── 2. Get single ────────────────────────────────────────────────────────────
 
 export const getTicket = async ({ ticketId, businessUnit }) => {
-  const { row } = await repo.findTicketById(ticketId, businessUnit);
+  const { row } = await repo.findTicketById(ticketId, businessUnit ?? null);
   if (!row) throw new NotFoundError("record_not_found");
   return row;
 };
@@ -71,19 +71,10 @@ export const createTicket = async ({ body, userId, userBU }) => {
 
 // ─── 4. Update ────────────────────────────────────────────────────────────────
 
-export const updateTicket = async ({ ticketId, body, userId, userBU, isSupportUser }) => {
+export const updateTicket = async ({ ticketId, body, userId, userBU }) => {
+  // userBU is null for platform admin (cross-BU lookup)
   const { row: oldTicket } = await repo.findTicketById(ticketId, userBU);
   if (!oldTicket) throw new NotFoundError("record_not_found");
-
-  // Regular users can only edit their own tickets and only user-editable fields
-  if (!isSupportUser) {
-    if (String(oldTicket.created_by) !== String(userId)) {
-      throw new NotFoundError("record_not_found"); // hide existence from other users
-    }
-    // Strip workflow fields — only user-editable fields allowed
-    const { title, description, category, severity, source_page, browser_info, app_version } = body;
-    body = { title, description, category, severity, source_page, browser_info, app_version };
-  }
 
   // Auto-set closed_at when closing
   let { closed_at } = body;
@@ -104,8 +95,8 @@ export const updateTicket = async ({ ticketId, body, userId, userBU, isSupportUs
 
   // Notifications
   const recipientsSet = new Set();
-  // Notify creator on workflow changes made by support
-  if (isSupportUser && String(oldTicket.created_by) !== String(userId)) {
+  // Notify creator when platform admin changes their ticket
+  if (String(oldTicket.created_by) !== String(userId)) {
     recipientsSet.add(oldTicket.created_by);
   }
   // Notify new assignee

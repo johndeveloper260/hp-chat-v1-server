@@ -5,19 +5,18 @@
  * All business logic lives in services/appSupportService.js.
  */
 import * as appSupportService from "../services/appSupportService.js";
+import env from "../config/env.js";
 
-/**
- * Returns true when the requesting user may manage any ticket in their BU
- * (ADMIN, full-access OFFICER, or OFFICER with app_support_write/admin role).
- */
+/** Officers and admins see all BU tickets and can manage workflow fields. */
 const isSupportUser = (req) => {
-  const type  = (req.user.userType || "").toUpperCase();
-  const roles = req.user.roles ?? [];
-  if (type === "ADMIN") return true;
-  if (type !== "OFFICER") return false;
-  if (roles.length === 0) return true; // full-access backward compat
-  return roles.includes("app_support_write") || roles.includes("app_support_admin");
+  const type = (req.user.userType || "").toUpperCase();
+  return type === "OFFICER" || type === "ADMIN";
 };
+
+/** Cross-BU access — user whose UUID matches PLATFORM_ADMIN_ID env var. */
+const isPlatformAdmin = (req) =>
+  !!env.appSupport.platformAdminId &&
+  String(req.user.id) === String(env.appSupport.platformAdminId);
 
 // ─── 1. Search ────────────────────────────────────────────────────────────────
 
@@ -29,9 +28,11 @@ export const searchTickets = async (req, res, next) => {
       userId,
       businessUnit,
       isSupportUser: isSupportUser(req),
+      isPlatformAdmin: isPlatformAdmin(req),
     });
     res.json(rows);
   } catch (err) {
+    console.error("[AppSupport search error]", err.message, err.detail ?? "");
     next(err);
   }
 };
@@ -42,10 +43,13 @@ export const getTicket = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
     const { business_unit: userBU, id: userId } = req.user;
-    const ticket = await appSupportService.getTicket({ ticketId, businessUnit: userBU });
+    const ticket = await appSupportService.getTicket({
+      ticketId,
+      businessUnit: isPlatformAdmin(req) ? null : userBU,
+    });
 
-    // Non-support users may only view their own tickets
-    if (!isSupportUser(req) && String(ticket.created_by) !== String(userId)) {
+    // Regular users may only view their own tickets
+    if (!isSupportUser(req) && !isPlatformAdmin(req) && String(ticket.created_by) !== String(userId)) {
       return res.status(404).json({ error: "Not found" });
     }
 
@@ -71,10 +75,13 @@ export const createTicket = async (req, res, next) => {
 
 export const updateTicket = async (req, res, next) => {
   try {
+    if (!isPlatformAdmin(req)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const { ticketId } = req.params;
-    const { id: userId, business_unit: userBU } = req.user;
+    const { id: userId } = req.user;
     const updated = await appSupportService.updateTicket({
-      ticketId, body: req.body, userId, userBU, isSupportUser: isSupportUser(req),
+      ticketId, body: req.body, userId, userBU: null,
     });
     res.json(updated);
   } catch (err) {
@@ -88,16 +95,8 @@ export const deleteTicket = async (req, res, next) => {
   try {
     const { ticketId } = req.params;
     const { id: userId, business_unit: userBU } = req.user;
-    const type  = (req.user.userType || "").toUpperCase();
-    const roles = req.user.roles ?? [];
 
-    // Only ADMIN, full-access OFFICER, or app_support_admin may delete
-    const canDelete =
-      type === "ADMIN" ||
-      (type === "OFFICER" && roles.length === 0) ||
-      roles.includes("app_support_admin");
-
-    if (!canDelete) {
+    if (!isSupportUser(req)) {
       return res.status(403).json({ error: "Forbidden" });
     }
 

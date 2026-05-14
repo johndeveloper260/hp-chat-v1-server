@@ -94,7 +94,11 @@ export const resetSouserPassword = async (req, res, next) => {
 export const getSouserSelf = async (req, res, next) => {
   try {
     const result = await souserService.getSouserById(req.user.id);
-    res.json(result);
+    const platformAdminId = process.env.PLATFORM_ADMIN_ID;
+    res.json({
+      ...result,
+      is_platform_admin: !!platformAdminId && String(req.user.id) === String(platformAdminId),
+    });
   } catch (err) {
     next(err);
   }

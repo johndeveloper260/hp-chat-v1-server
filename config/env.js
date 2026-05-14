@@ -61,6 +61,10 @@ const env = {
     apiKey: process.env.OPENAI_API_KEY,
   },
 
+  appSupport: {
+    platformAdminId: process.env.PLATFORM_ADMIN_ID ?? null,
+  },
+
   // Set TRANSLATION_PROVIDER=openai to use GPT-4o mini; defaults to Google.
   translation: {
     provider: process.env.TRANSLATION_PROVIDER || "google", // "google" | "openai"

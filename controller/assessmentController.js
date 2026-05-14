@@ -98,3 +98,10 @@ export const getMyHistory = async (req, res, next) => {
     res.status(200).json(data);
   } catch (err) { next(err); }
 };
+
+export const getAttempt = async (req, res, next) => {
+  try {
+    const data = await service.getAttempt(req.params.attemptId, req.user.id);
+    res.status(200).json(data);
+  } catch (err) { next(err); }
+};

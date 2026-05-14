@@ -11,7 +11,7 @@ const db = (client) => client ?? getPool();
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-export const searchTickets = async ({ businessUnit, userId, isSupportUser, filters }) => {
+export const searchTickets = async ({ businessUnit, userId, isSupportUser, isPlatformAdmin, filters }) => {
   const { status, severity, category, assigned_to, company_id, ticket_id } = filters;
 
   let query = `
@@ -21,9 +21,10 @@ export const searchTickets = async ({ businessUnit, userId, isSupportUser, filte
       u_created.first_name  AS created_fn, u_created.middle_name AS created_mn, u_created.last_name AS created_ln,
       u_assign.first_name   AS assign_fn,  u_assign.middle_name  AS assign_mn,  u_assign.last_name  AS assign_ln,
       u_upd.first_name      AS upd_fn,     u_upd.middle_name     AS upd_mn,     u_upd.last_name     AS upd_ln,
+      a_created.email       AS created_by_email,
       (SELECT COUNT(*)
        FROM v4.shared_comments
-       WHERE relation_type = 'app_support' AND relation_id = t.ticket_id::text) AS comment_count,
+       WHERE relation_type = 'app_support' AND relation_id = t.ticket_id) AS comment_count,
       COALESCE(
         (
           SELECT json_agg(
@@ -40,16 +41,22 @@ export const searchTickets = async ({ businessUnit, userId, isSupportUser, filte
         ), '[]'::json
       ) AS attachments
     FROM v4.app_support_ticket_tbl t
-    LEFT JOIN v4.company_tbl c       ON t.company_id = c.company_id
-    LEFT JOIN v4.user_profile_tbl u_created ON t.created_by    = u_created.user_id
-    LEFT JOIN v4.user_profile_tbl u_assign  ON t.assigned_to   = u_assign.user_id
+    LEFT JOIN v4.company_tbl c       ON t.company_id = c.company_id::text
+    LEFT JOIN v4.user_profile_tbl u_created ON t.created_by      = u_created.user_id
+    LEFT JOIN v4.user_profile_tbl u_assign  ON t.assigned_to     = u_assign.user_id
     LEFT JOIN v4.user_profile_tbl u_upd     ON t.last_updated_by = u_upd.user_id
-    WHERE t.business_unit = $2
+    LEFT JOIN v4.user_account_tbl a_created ON t.created_by      = a_created.id
+    WHERE 1=1
   `;
 
-  const values = ["en", businessUnit];
+  // Platform admins see all BUs; everyone else is scoped to their own BU
+  const values = ["en"];
+  if (!isPlatformAdmin) {
+    values.push(businessUnit);
+    query += ` AND t.business_unit = $${values.length}`;
+  }
 
-  if (!isSupportUser) {
+  if (!isSupportUser && !isPlatformAdmin) {
     values.push(userId);
     query += ` AND t.created_by = $${values.length}::uuid`;
   }
@@ -87,7 +94,7 @@ export const searchTickets = async ({ businessUnit, userId, isSupportUser, filte
     }
   }
 
-  query += ` ORDER BY t.last_update_dttm DESC`;
+  query += ` ORDER BY t.updated_at DESC`;
 
   const { rows } = await getPool().query(query, values);
   return rows.map((r) => {
@@ -105,9 +112,11 @@ export const searchTickets = async ({ businessUnit, userId, isSupportUser, filte
 // ─── Get single ticket ────────────────────────────────────────────────────────
 
 export const findTicketById = async (ticketId, businessUnit, client) => {
+  const buClause = businessUnit ? ` AND business_unit = $2` : "";
+  const params   = businessUnit ? [ticketId, businessUnit] : [ticketId];
   const { rows, rowCount } = await db(client).query(
-    `SELECT * FROM v4.app_support_ticket_tbl WHERE ticket_id = $1::integer AND business_unit = $2`,
-    [ticketId, businessUnit],
+    `SELECT * FROM v4.app_support_ticket_tbl WHERE ticket_id = $1::integer${buClause}`,
+    params,
   );
   return { row: rows[0] ?? null, rowCount };
 };
@@ -125,16 +134,16 @@ export const insertTicket = async (fields) => {
        business_unit, created_by, last_updated_by,
        title, description, category, severity,
        source_page, browser_info, app_version, company_id,
-       status, last_update_dttm
+       status
      ) VALUES (
        $1, $2::uuid, $2::uuid,
        $3, $4, $5, $6,
        $7, $8, $9, $10,
-       'NEW', NOW()
+       'NEW'
      ) RETURNING *`,
     [
       businessUnit, userId,
-      title, description ?? null, category ?? null, severity ?? "NORMAL",
+      title, description ?? null, category ?? "OTHER", severity ?? "NORMAL",
       source_page ?? null, browser_info ?? null, app_version ?? null,
       company_id ?? null,
     ],
@@ -165,12 +174,11 @@ export const updateTicket = async (fields) => {
        assigned_to   = COALESCE($11::uuid, assigned_to),
        resolution    = COALESCE($12, resolution),
        closed_at     = $13,
-       last_updated_by  = $14::uuid,
-       last_update_dttm = NOW()
-     WHERE ticket_id = $1::integer AND business_unit = $2
+       last_updated_by  = $14::uuid
+     WHERE ticket_id = $1::integer AND ($2::text IS NULL OR business_unit = $2)
      RETURNING *`,
     [
-      ticketId, businessUnit,
+      ticketId, businessUnit ?? null,
       title ?? null, description ?? null, category ?? null, severity ?? null,
       source_page ?? null, browser_info ?? null, app_version ?? null,
       status ?? null, assigned_to ?? null, resolution ?? null, closed_at ?? null,
@@ -200,7 +208,7 @@ export const cascadeDeleteTicket = async (ticketId, businessUnit, client) => {
   await db(client).query(
     `DELETE FROM v4.shared_comments
      WHERE relation_id = $1 AND relation_type = 'app_support' AND business_unit = $2`,
-    [String(ticketId), businessUnit],
+    [ticketId, businessUnit],
   );
   await db(client).query(
     `DELETE FROM v4.notification_history_tbl
