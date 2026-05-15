@@ -138,6 +138,7 @@ export const createNotification = async ({
   bodyKey,
   bodyParams = {},
   data,
+  skipPush = false,
 }) => {
   try {
     const {
@@ -173,6 +174,7 @@ export const createNotification = async ({
       userId, finalTitle, body, data?.type, data?.relationId ?? data?.rowId, businessUnit,
     );
 
+    if (skipPush) return;
     return sendNotificationToUser(userId, finalTitle, body, data, businessUnit);
   } catch (err) {
     console.error("createNotification error:", err);

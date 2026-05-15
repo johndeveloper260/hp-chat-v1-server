@@ -55,6 +55,7 @@ export const createTicket = async ({ body, userId, userBU }) => {
           titleKey,
           bodyKey: "app_support_created_body",
           bodyParams: { name: creatorName, title },
+          skipPush: true,
           data: {
             type:   "app_support",
             rowId:  ticket.ticket_id,
@@ -125,6 +126,7 @@ export const updateTicket = async ({ ticketId, body, userId, userBU }) => {
           titleKey,
           bodyKey,
           bodyParams: { name: updaterName, title: updated.title, status: body.status },
+          skipPush: true,
           data: {
             type:   "app_support",
             rowId:  ticketId,
