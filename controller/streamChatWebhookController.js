@@ -50,6 +50,19 @@ const gtxTranslate = async (text, targetLang) => {
 /**
  * GPT-4o mini. Returns { translatedText, detectedSourceLanguage } or null.
  */
+const sanitizeOpenAIError = (text) => text.replace(/sk-[A-Za-z0-9_*.-]+/g, "sk-***");
+
+const getTranslationMaxTokens = (text) => {
+  const estimatedOutputTokens = Math.ceil(text.length / 2);
+  return Math.min(4096, Math.max(1000, estimatedOutputTokens));
+};
+
+const hasMissingLines = (original, translated) => {
+  const originalLines = original.split(/\r?\n/).filter((line) => line.trim()).length;
+  const translatedLines = translated.split(/\r?\n/).filter((line) => line.trim()).length;
+  return originalLines > 1 && translatedLines < originalLines;
+};
+
 const gptTranslate = async (text, targetLang) => {
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -65,24 +78,41 @@ const gptTranslate = async (text, targetLang) => {
             role: "system",
             content:
               `Translate the chat message to language code "${targetLang}". ` +
-              `Match the informality of the source. Preserve emoji and punctuation. ` +
+              `Translate every line completely. Do not summarize, omit, merge, or shorten any line. ` +
+              `Preserve the original line breaks, line order, emoji, punctuation, and informality. ` +
               `Reply ONLY with valid JSON: {"translated":"<text>","source":"<ISO 639-1 code>"}.`,
           },
           { role: "user", content: text },
         ],
         response_format: { type: "json_object" },
-        max_tokens: 500,
+        max_tokens: getTranslationMaxTokens(text),
         temperature: 0.1,
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(
+        `❌ [AutoTranslate] OpenAI API error: ${res.status} ${sanitizeOpenAIError(errorText).slice(0, 500)}`,
+      );
+      return null;
+    }
     const data = await res.json();
+    if (data.choices?.[0]?.finish_reason === "length") {
+      console.error("❌ [AutoTranslate] OpenAI translation was truncated by token limit.");
+      return null;
+    }
     const parsed = JSON.parse(data.choices[0].message.content);
+    const translatedText = parsed.translated || text;
+    if (hasMissingLines(text, translatedText)) {
+      console.error("❌ [AutoTranslate] OpenAI translation omitted one or more source lines.");
+      return null;
+    }
     return {
-      translatedText: parsed.translated || text,
+      translatedText,
       detectedSourceLanguage: parsed.source || "auto",
     };
-  } catch {
+  } catch (err) {
+    console.error("❌ [AutoTranslate] OpenAI translation error:", err);
     return null;
   }
 };
@@ -128,7 +158,7 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds, se
     // 2. Translate to the first target lang to detect the source language
     const first = await activeTranslate(messageText, targetLangs[0]);
     if (!first) {
-      console.log(`🔤 [AutoTranslate] gtxTranslate failed for lang=${targetLangs[0]}`);
+      console.log(`🔤 [AutoTranslate] Translation failed for lang=${targetLangs[0]}`);
       return;
     }
 

@@ -97,6 +97,10 @@ const REQUIRED = [
   ["STREAM_API_SECRET", env.stream.apiSecret],
 ];
 
+if (env.translation.provider === "openai") {
+  REQUIRED.push(["OPENAI_API_KEY", env.openai.apiKey]);
+}
+
 for (const [name, value] of REQUIRED) {
   if (!value) {
     throw new Error(

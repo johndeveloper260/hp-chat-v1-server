@@ -47,6 +47,19 @@ const googleTranslate = async (text, targetLang) => {
 
 // ── GPT-4o mini ────────────────────────────────────────────────────────────
 
+const sanitizeOpenAIError = (text) => text.replace(/sk-[A-Za-z0-9_*.-]+/g, "sk-***");
+
+const getTranslationMaxTokens = (text) => {
+  const estimatedOutputTokens = Math.ceil(text.length / 2);
+  return Math.min(4096, Math.max(1000, estimatedOutputTokens));
+};
+
+const hasMissingLines = (original, translated) => {
+  const originalLines = original.split(/\r?\n/).filter((line) => line.trim()).length;
+  const translatedLines = translated.split(/\r?\n/).filter((line) => line.trim()).length;
+  return originalLines > 1 && translatedLines < originalLines;
+};
+
 const gptTranslate = async (text, targetLang) => {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -61,23 +74,36 @@ const gptTranslate = async (text, targetLang) => {
           role: "system",
           content:
             `Translate the chat message to language code "${targetLang}". ` +
-            `Match the informality of the source. Preserve emoji and punctuation. ` +
+            `Translate every line completely. Do not summarize, omit, merge, or shorten any line. ` +
+            `Preserve the original line breaks, line order, emoji, punctuation, and informality. ` +
             `Reply ONLY with valid JSON: {"translated":"<text>","source":"<ISO 639-1 code>"}.`,
         },
         { role: "user", content: text },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500,
+      max_tokens: getTranslationMaxTokens(text),
       temperature: 0.1,
     }),
   });
 
-  if (!res.ok) throw new Error(`[translateService] OpenAI API error: ${res.status}`);
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(
+      `[translateService] OpenAI API error: ${res.status} ${sanitizeOpenAIError(errorText).slice(0, 500)}`,
+    );
+  }
   const data = await res.json();
+  if (data.choices?.[0]?.finish_reason === "length") {
+    throw new Error("[translateService] OpenAI translation was truncated by token limit.");
+  }
   const parsed = JSON.parse(data.choices[0].message.content);
+  const translated = parsed.translated || text;
+  if (hasMissingLines(text, translated)) {
+    throw new Error("[translateService] OpenAI translation omitted one or more source lines.");
+  }
   return {
     original: text,
-    translated: parsed.translated || text,
+    translated,
     targetLanguage: targetLang,
     detectedSource: parsed.source || "unknown",
   };
