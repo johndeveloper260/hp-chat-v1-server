@@ -154,6 +154,29 @@ export const findAttachmentKeysByRelation = async (relationType, relationId, use
   return rows;
 };
 
+/**
+ * Count attachments that reference a given S3 key. Used to guard SharePoint
+ * file deletes: a "link from Files" attachment shares the file's exact s3_key,
+ * so a non-zero count means deleting the file would break those announcements.
+ */
+export const countAttachmentsByS3Key = async (s3Key, client) => {
+  const { rows } = await db(client).query(
+    `SELECT COUNT(*)::int AS count FROM v4.shared_attachments WHERE s3_key = $1`,
+    [s3Key],
+  );
+  return rows[0].count;
+};
+
+/** Given a list of S3 keys, return the subset still referenced by ≥1 attachment. */
+export const findReferencedS3Keys = async (s3Keys, client) => {
+  if (!s3Keys || s3Keys.length === 0) return [];
+  const { rows } = await db(client).query(
+    `SELECT DISTINCT s3_key FROM v4.shared_attachments WHERE s3_key = ANY($1::text[])`,
+    [s3Keys],
+  );
+  return rows.map((r) => r.s3_key);
+};
+
 export const checkAttachmentExists = async (attachmentId, client) => {
   const { rowCount } = await db(client).query(
     `SELECT attachment_id FROM v4.shared_attachments WHERE attachment_id = $1`,

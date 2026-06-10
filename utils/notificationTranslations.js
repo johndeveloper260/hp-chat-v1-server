@@ -1342,6 +1342,17 @@ const apiMessages = {
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถลบไฟล์ได้",
     ne: "केवल अफिसरहरूले मात्र फाइल मेटाउन सक्छन्",
   },
+  file_in_use: {
+    en: "This file is used in {{count}} announcement(s). Remove it from those announcements before deleting.",
+    ja: "このファイルは{{count}}件のお知らせで使用されています。削除する前に、それらのお知らせから取り外してください。",
+    id: "File ini digunakan dalam {{count}} pengumuman. Hapus dari pengumuman tersebut sebelum menghapus.",
+    vi: "Tệp này được dùng trong {{count}} thông báo. Hãy gỡ khỏi các thông báo đó trước khi xóa.",
+    my: "ဤဖိုင်ကို ကြေညာချက် {{count}} ခုတွင် အသုံးပြုထားသည်။ မဖျက်မီ ထိုကြေညာချက်များမှ ဖယ်ရှားပါ။",
+    km: "ឯកសារនេះត្រូវបានប្រើក្នុងសេចក្តីប្រកាស {{count}}។ សូមដកវាចេញពីសេចក្តីប្រកាសទាំងនោះមុនពេលលុប។",
+    bn: "এই ফাইলটি {{count}}টি ঘোষণায় ব্যবহৃত হচ্ছে। মুছে ফেলার আগে সেই ঘোষণাগুলি থেকে এটি সরান।",
+    th: "ไฟล์นี้ถูกใช้ในประกาศ {{count}} รายการ โปรดนำออกจากประกาศเหล่านั้นก่อนลบ",
+    ne: "यो फाइल {{count}} वटा घोषणामा प्रयोग भएको छ। मेटाउनु अघि ती घोषणाहरूबाट हटाउनुहोस्।",
+  },
   nothing_to_update: {
     en: "Nothing to update",
     ja: "更新する項目がありません",

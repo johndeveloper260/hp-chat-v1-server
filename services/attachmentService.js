@@ -16,7 +16,7 @@ import { StreamChat } from "stream-chat";
 import { getSignedUrl }                    from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import env                  from "../config/env.js";
-import { getS3Client, deleteFromS3, copyWithinS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
+import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
 import { getS3Key }         from "../utils/getS3Key.js";
 import { clearAvatarCache } from "./profileService.js";
 import * as attachRepo      from "../repositories/attachmentRepository.js";
@@ -133,13 +133,23 @@ export const createAttachment = async ({
   return attachment;
 };
 
-// ─── 2b. Copy a SharePoint file into a relation's attachments ─────────────────
+// ─── 2b. Link a SharePoint file into a relation's attachments ─────────────────
+
+// SharePoint file objects live under this S3 prefix (see sharepointService
+// generateUploadUrl). A "link from Files" attachment shares the file's exact
+// s3_key, so this prefix marks an attachment as a reference whose underlying
+// S3 object is OWNED by /files — it must never be deleted on the attachment side.
+export const SHAREPOINT_KEY_PREFIX = "sharepoint/";
+
+const isSharepointOwned = (s3Key) =>
+  typeof s3Key === "string" && s3Key.startsWith(SHAREPOINT_KEY_PREFIX);
 
 /**
- * Server-side S3 copy of an existing SharePoint file into the attachments
- * prefix, then a new shared_attachments record on the target relation.
- * The copy is independent of the original — deleting the SharePoint file
- * later does not affect the attachment.
+ * References an existing SharePoint file from a relation (e.g. an announcement)
+ * by inserting a shared_attachments record that points at the file's SAME
+ * S3 object — no copy, no storage duplication. The SharePoint side guards
+ * against deleting a file while any announcement still references it
+ * (see sharepointService.deleteFile / deleteFolder).
  */
 export const copyFromSharepointFile = async ({
   fileId, relation_type, relation_id, userBU, userId,
@@ -156,14 +166,11 @@ export const copyFromSharepointFile = async ({
   const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
 
-  const destKey = getS3Key(userBU, relation_type, relation_id, file.display_name || "file");
-  await copyWithinS3(file.s3_key, destKey, file.s3_bucket || env.aws.bucket, env.aws.bucket);
-
   return attachRepo.insertSharedAttachment({
     relation_type,
     relation_id,
-    s3_key: destKey,
-    s3_bucket: env.aws.bucket,
+    s3_key: file.s3_key,                         // reference the SAME object
+    s3_bucket: file.s3_bucket || env.aws.bucket,
     display_name: file.display_name,
     file_type: file.file_type,
     business_unit: userBU,
@@ -238,7 +245,9 @@ export const deleteAttachment = async (attachmentId, userBU, userId = null) => {
   const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
-  await deleteFromS3(s3_key);
+  // Linked SharePoint files share the original S3 object — only drop the DB row,
+  // never the object (the file in /files still owns it).
+  if (!isSharepointOwned(s3_key)) await deleteFromS3(s3_key);
   await attachRepo.deleteAttachmentById(attachmentId);
 
   // Remove from Stream if this was a profile picture
@@ -289,7 +298,12 @@ export const deleteAttachmentsByRelation = async (relationType, relationId, user
   const rows = await attachRepo.findAttachmentKeysByRelation(relationType, relationId, userBU);
   if (rows.length === 0) throw new NotFoundError("record_not_found");
 
-  await Promise.all(rows.map((r) => deleteFromS3(r.s3_key)));
+  // Skip S3 deletes for linked SharePoint files — those objects belong to /files.
+  await Promise.all(
+    rows
+      .filter((r) => !isSharepointOwned(r.s3_key))
+      .map((r) => deleteFromS3(r.s3_key)),
+  );
   await attachRepo.deleteAttachmentsByRelation(relationType, relationId);
 
   if (relationType === "profile") {
