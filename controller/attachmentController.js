@@ -50,6 +50,25 @@ export const createAttachment = async (req, res, next) => {
   }
 };
 
+// ─── 2b. Copy a SharePoint file into a relation's attachments ─────────────────
+
+export const copyFromSharepoint = async (req, res, next) => {
+  try {
+    const { file_id, relation_type, relation_id } = req.body;
+
+    const attachment = await attachService.copyFromSharepointFile({
+      fileId: file_id,
+      relation_type,
+      relation_id,
+      userBU: req.user.business_unit,
+      userId: req.user.id,
+    });
+    res.status(201).json(attachment);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── 3. Generate presigned GET URL (viewing) ──────────────────────────────────
 
 export const getViewingUrl = async (req, res, next) => {

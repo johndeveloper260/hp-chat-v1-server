@@ -16,10 +16,11 @@ import { StreamChat } from "stream-chat";
 import { getSignedUrl }                    from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import env                  from "../config/env.js";
-import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
+import { getS3Client, deleteFromS3, copyWithinS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
 import { getS3Key }         from "../utils/getS3Key.js";
 import { clearAvatarCache } from "./profileService.js";
 import * as attachRepo      from "../repositories/attachmentRepository.js";
+import * as spRepo          from "../repositories/sharepointRepository.js";
 import * as commentsRepo    from "../repositories/commentsRepository.js";
 import { createNotification } from "./notificationService.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppError.js";
@@ -130,6 +131,44 @@ export const createAttachment = async ({
   }
 
   return attachment;
+};
+
+// ─── 2b. Copy a SharePoint file into a relation's attachments ─────────────────
+
+/**
+ * Server-side S3 copy of an existing SharePoint file into the attachments
+ * prefix, then a new shared_attachments record on the target relation.
+ * The copy is independent of the original — deleting the SharePoint file
+ * later does not affect the attachment.
+ */
+export const copyFromSharepointFile = async ({
+  fileId, relation_type, relation_id, userBU, userId,
+}) => {
+  if (!fileId || !relation_type || !relation_id) {
+    throw new ValidationError("missing_copy_params");
+  }
+
+  // SharePoint file must exist within the caller's business unit
+  const file = await spRepo.findFileWithFolderBU(fileId, userBU);
+  if (!file) throw new NotFoundError("record_not_found");
+
+  // Target record (e.g. the announcement) must exist within the caller's BU
+  const parentExists = await attachRepo.checkParentBU(relation_type, relation_id, userBU, null, userId);
+  if (parentExists === 0) throw new NotFoundError("record_not_found");
+
+  const destKey = getS3Key(userBU, relation_type, relation_id, file.display_name || "file");
+  await copyWithinS3(file.s3_key, destKey, file.s3_bucket || env.aws.bucket, env.aws.bucket);
+
+  return attachRepo.insertSharedAttachment({
+    relation_type,
+    relation_id,
+    s3_key: destKey,
+    s3_bucket: env.aws.bucket,
+    display_name: file.display_name,
+    file_type: file.file_type,
+    business_unit: userBU,
+    created_by: userId ?? null,
+  });
 };
 
 // ─── 3. Sync profile picture URL to GetStream ─────────────────────────────────

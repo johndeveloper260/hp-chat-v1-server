@@ -8,10 +8,12 @@ import {
   generateUrlSchema,
   createAttachmentSchema,
   renameAttachmentSchema,
+  copyFromSharepointSchema,
 } from "../validators/attachmentValidator.js";
 import {
   generateUploadUrl,
   createAttachment,
+  copyFromSharepoint,
   getViewingUrl,
   proxyAttachment,
   getAttachmentsByRelation,
@@ -28,6 +30,9 @@ router.post("/generate-url", auth, validate(generateUrlSchema), generateUploadUr
 
 // ── 2. Confirm upload (save DB record, sync profile pics to Stream) ────────────
 router.post("/confirm", auth, validate(createAttachmentSchema), createAttachment);
+
+// ── 2b. Copy a SharePoint file into a relation's attachments (server-side S3 copy)
+router.post("/copy-from-sharepoint", auth, validate(copyFromSharepointSchema), copyFromSharepoint);
 
 // ── 3. View single attachment (returns 1-hour signed GET URL) ─────────────────
 router.get("/view/:id", auth, getViewingUrl);

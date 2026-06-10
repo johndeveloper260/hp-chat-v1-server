@@ -172,7 +172,7 @@ export const insertFile = async ({
 /** Fetch a file while verifying the parent folder belongs to the given BU. */
 export const findFileWithFolderBU = async (id, businessUnit) => {
   const { rows } = await getPool().query(
-    `SELECT f.s3_key, f.s3_bucket
+    `SELECT f.s3_key, f.s3_bucket, f.display_name, f.file_type, f.file_size
      FROM v4.sharepoint_files f
      JOIN v4.sharepoint_folders fld ON f.folder_id = fld.id
      WHERE f.id = $1 AND fld.business_unit = $2`,

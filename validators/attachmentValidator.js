@@ -21,6 +21,13 @@ export const createAttachmentSchema = z.object({
   file_type:     z.string().optional().nullable(),
 });
 
+/** POST /attachments/copy-from-sharepoint — attach a SharePoint file copy to a relation */
+export const copyFromSharepointSchema = z.object({
+  file_id:       z.union([z.string(), z.number()]),
+  relation_type: z.string().min(1),
+  relation_id:   z.union([z.string(), z.number()]),
+});
+
 /** PUT /attachments/:id/rename */
 export const renameAttachmentSchema = z.object({
   display_name: z.string().min(1, "Display name is required"),

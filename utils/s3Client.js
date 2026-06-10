@@ -9,6 +9,7 @@ import {
   S3Client,
   DeleteObjectCommand,
   GetObjectCommand,
+  CopyObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
@@ -42,6 +43,28 @@ export const getS3Client = () => {
 export const deleteFromS3 = async (s3Key, bucket = env.aws.bucket) => {
   if (!s3Key) return;
   const command = new DeleteObjectCommand({ Bucket: bucket, Key: s3Key });
+  await getS3Client().send(command);
+};
+
+/**
+ * Server-side copy of an object within S3 (no download/upload round-trip).
+ *
+ * @param {string} sourceKey    - Key of the existing object.
+ * @param {string} destKey      - Key for the new copy.
+ * @param {string} [sourceBucket] - Defaults to env.aws.bucket.
+ * @param {string} [destBucket]   - Defaults to env.aws.bucket.
+ */
+export const copyWithinS3 = async (
+  sourceKey,
+  destKey,
+  sourceBucket = env.aws.bucket,
+  destBucket = env.aws.bucket,
+) => {
+  const command = new CopyObjectCommand({
+    Bucket: destBucket,
+    Key: destKey,
+    CopySource: encodeURIComponent(`${sourceBucket}/${sourceKey}`),
+  });
   await getS3Client().send(command);
 };
 

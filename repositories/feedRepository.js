@@ -71,7 +71,9 @@ export const findAnnouncements = async ({ lang, userId, company_filter, userBU, 
         (
           SELECT json_agg(att)
           FROM (
-            SELECT attachment_id, s3_key, s3_bucket, display_name AS name, file_type AS type
+            SELECT attachment_id, s3_key, s3_bucket,
+                   display_name, file_type,
+                   display_name AS name, file_type AS type
             FROM v4.shared_attachments
             WHERE relation_type = 'announcements' AND relation_id = a.row_id::text
           ) att
