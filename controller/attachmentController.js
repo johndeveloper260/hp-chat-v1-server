@@ -69,6 +69,24 @@ export const copyFromSharepoint = async (req, res, next) => {
   }
 };
 
+// ─── 2c. Link a SharePoint file to a Stream chat channel ─────────────────────
+
+export const linkSharepointToChat = async (req, res, next) => {
+  try {
+    const { file_id, channel_id } = req.body;
+
+    const attachment = await attachService.linkSharepointFileToChat({
+      fileId: file_id,
+      channelId: channel_id,
+      userBU: req.user.business_unit,
+      userId: req.user.id,
+    });
+    res.status(201).json(attachment);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── 3. Generate presigned GET URL (viewing) ──────────────────────────────────
 
 export const getViewingUrl = async (req, res, next) => {

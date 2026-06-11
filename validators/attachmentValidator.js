@@ -28,6 +28,12 @@ export const copyFromSharepointSchema = z.object({
   relation_id:   z.union([z.string(), z.number()]),
 });
 
+/** POST /attachments/chat-link-from-sharepoint — link a SharePoint file to a Stream channel */
+export const linkSharepointToChatSchema = z.object({
+  file_id:    z.union([z.string(), z.number()]),
+  channel_id: z.string().min(1),
+});
+
 /** PUT /attachments/:id/rename */
 export const renameAttachmentSchema = z.object({
   display_name: z.string().min(1, "Display name is required"),

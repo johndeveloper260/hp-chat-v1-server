@@ -9,11 +9,13 @@ import {
   createAttachmentSchema,
   renameAttachmentSchema,
   copyFromSharepointSchema,
+  linkSharepointToChatSchema,
 } from "../validators/attachmentValidator.js";
 import {
   generateUploadUrl,
   createAttachment,
   copyFromSharepoint,
+  linkSharepointToChat,
   getViewingUrl,
   proxyAttachment,
   getAttachmentsByRelation,
@@ -33,6 +35,9 @@ router.post("/confirm", auth, validate(createAttachmentSchema), createAttachment
 
 // ── 2b. Copy a SharePoint file into a relation's attachments (server-side S3 copy)
 router.post("/copy-from-sharepoint", auth, validate(copyFromSharepointSchema), copyFromSharepoint);
+
+// ── 2c. Link a SharePoint file into a Stream chat message attachment
+router.post("/chat-link-from-sharepoint", auth, validate(linkSharepointToChatSchema), linkSharepointToChat);
 
 // ── 3. View single attachment (returns 1-hour signed GET URL) ─────────────────
 router.get("/view/:id", auth, getViewingUrl);
