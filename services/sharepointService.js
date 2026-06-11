@@ -12,7 +12,7 @@ import { getSignedUrl }                    from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand }                from "@aws-sdk/client-s3";
 import * as spRepo                         from "../repositories/sharepointRepository.js";
 import * as attachRepo                     from "../repositories/attachmentRepository.js";
-import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from "../errors/AppError.js";
+import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppError.js";
 
 const OFFICER_TYPES = ["officer", "admin"];
 const isOfficer = (userType) => OFFICER_TYPES.includes(userType?.toLowerCase());
@@ -87,16 +87,13 @@ export const deleteFolder = async ({ id, userType, businessUnit }) => {
 
     const fileRows = await spRepo.findFileKeysByFolderIds(folderIds, client);
 
-    // Guard: block the whole delete if any file in the tree is referenced by an
-    // announcement (Option B). Surfaces the count so the officer knows the scope.
-    const referenced = await attachRepo.findReferencedS3Keys(
+    // Cascade: remove any announcement/chat attachment rows that link to a file
+    // in this tree (they share the file's exact s3_key), so they no longer point
+    // at a now-deleted S3 object. The frontend warns the officer first.
+    await attachRepo.deleteAttachmentsByS3Keys(
       fileRows.map((f) => f.s3_key),
       client,
     );
-    if (referenced.length > 0) {
-      await client.query("ROLLBACK");
-      throw new ConflictError("file_in_use", "api_errors.files.file_in_use", { count: referenced.length });
-    }
 
     // Best-effort S3 deletes — a single file failure must not abort the whole tree
     await Promise.all(
@@ -197,15 +194,23 @@ export const deleteFile = async ({ id, userType, businessUnit }) => {
   const file = await spRepo.findFileWithFolderBU(id, businessUnit);
   if (!file) throw new NotFoundError("record_not_found");
 
-  // Guard: block deletion while any announcement references this file (Option B —
-  // attachments link to the same S3 object, so deleting it would break those posts).
-  const refCount = await attachRepo.countAttachmentsByS3Key(file.s3_key);
-  if (refCount > 0) {
-    throw new ConflictError("file_in_use", "api_errors.files.file_in_use", { count: refCount });
+  // Cascade: any announcement/chat attachment links to the same S3 object, so
+  // remove those reference rows alongside the file (the frontend warns the
+  // officer first). DB changes are transactional; the S3 delete is best-effort.
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    await attachRepo.deleteAttachmentsByS3Keys([file.s3_key], client);
+    await spRepo.deleteFileById(id, client);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
 
   await deleteFromS3(file.s3_key);
-  await spRepo.deleteFileById(id);
 };
 
 // ─── Storage Quota ────────────────────────────────────────────────────────────
