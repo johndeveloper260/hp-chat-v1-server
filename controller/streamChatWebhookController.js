@@ -4,6 +4,7 @@ import { sendNotificationToUser } from "./notificationController.js";
 import { StreamClient } from "@stream-io/node-sdk";
 import { StreamChat } from "stream-chat";
 import env from "../config/env.js";
+import logger from "../utils/logger.js";
 
 const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
@@ -91,20 +92,20 @@ const gptTranslate = async (text, targetLang) => {
     });
     if (!res.ok) {
       const errorText = await res.text();
-      console.error(
+      logger.error(
         `❌ [AutoTranslate] OpenAI API error: ${res.status} ${sanitizeOpenAIError(errorText).slice(0, 500)}`,
       );
       return null;
     }
     const data = await res.json();
     if (data.choices?.[0]?.finish_reason === "length") {
-      console.error("❌ [AutoTranslate] OpenAI translation was truncated by token limit.");
+      logger.error("❌ [AutoTranslate] OpenAI translation was truncated by token limit.");
       return null;
     }
     const parsed = JSON.parse(data.choices[0].message.content);
     const translatedText = parsed.translated || text;
     if (hasMissingLines(text, translatedText)) {
-      console.error("❌ [AutoTranslate] OpenAI translation omitted one or more source lines.");
+      logger.error("❌ [AutoTranslate] OpenAI translation omitted one or more source lines.");
       return null;
     }
     return {
@@ -112,7 +113,7 @@ const gptTranslate = async (text, targetLang) => {
       detectedSourceLanguage: parsed.source || "auto",
     };
   } catch (err) {
-    console.error("❌ [AutoTranslate] OpenAI translation error:", err);
+    logger.error("❌ [AutoTranslate] OpenAI translation error:", err);
     return null;
   }
 };
@@ -120,7 +121,7 @@ const gptTranslate = async (text, targetLang) => {
 // Picks the active provider at runtime — no restart needed if env changes.
 const activeTranslate = (text, targetLang) => {
   const provider = env.translation.provider === "openai" ? "gpt-4o-mini" : "google-gtx";
-  console.log(`🔤 [AutoTranslate] Provider: ${provider} → lang=${targetLang}`);
+  logger.info(`🔤 [AutoTranslate] Provider: ${provider} → lang=${targetLang}`);
   return env.translation.provider === "openai"
     ? gptTranslate(text, targetLang)
     : gtxTranslate(text, targetLang);
@@ -135,7 +136,7 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds, se
   if (!messageText?.trim() || !messageId) return;
 
   try {
-    console.log(`🔤 [AutoTranslate] Starting for message ${messageId}, recipients: [${recipientIds.join(", ")}]`);
+    logger.info(`🔤 [AutoTranslate] Starting for message ${messageId}, recipients: [${recipientIds.join(", ")}]`);
 
     // 1. Get preferred_language for recipients that have auto_translate_chat ON
     const { rows } = await getPool().query(
@@ -148,22 +149,22 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds, se
     );
 
     if (rows.length === 0) {
-      console.log(`🔤 [AutoTranslate] No recipients with auto_translate_chat=true, skipping`);
+      logger.info(`🔤 [AutoTranslate] No recipients with auto_translate_chat=true, skipping`);
       return;
     }
 
     const targetLangs = rows.map((r) => r.preferred_language);
-    console.log(`🔤 [AutoTranslate] Target languages: [${targetLangs.join(", ")}]`);
+    logger.info(`🔤 [AutoTranslate] Target languages: [${targetLangs.join(", ")}]`);
 
     // 2. Translate to the first target lang to detect the source language
     const first = await activeTranslate(messageText, targetLangs[0]);
     if (!first) {
-      console.log(`🔤 [AutoTranslate] Translation failed for lang=${targetLangs[0]}`);
+      logger.info(`🔤 [AutoTranslate] Translation failed for lang=${targetLangs[0]}`);
       return;
     }
 
     const sourceLang = first.detectedSourceLanguage;
-    console.log(`🔤 [AutoTranslate] Detected source language: ${sourceLang}`);
+    logger.info(`🔤 [AutoTranslate] Detected source language: ${sourceLang}`);
     const updates = {};
 
     // Store first translation (skip if source = target)
@@ -173,14 +174,14 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds, se
       updates[`${key}_source`]   = sourceLang;
       updates[`${key}_original`] = messageText;
     } else {
-      console.log(`🔤 [AutoTranslate] Skipping ${targetLangs[0]} — same as source`);
+      logger.info(`🔤 [AutoTranslate] Skipping ${targetLangs[0]} — same as source`);
     }
 
     // 3. Translate remaining languages in parallel
     const rest = await Promise.all(
       targetLangs.slice(1).map(async (lang) => {
         if (lang === sourceLang) {
-          console.log(`🔤 [AutoTranslate] Skipping ${lang} — same as source`);
+          logger.info(`🔤 [AutoTranslate] Skipping ${lang} — same as source`);
           return null;
         }
         const result = await activeTranslate(messageText, lang);
@@ -198,15 +199,15 @@ const translateAndCacheMessage = async (messageId, messageText, recipientIds, se
     }
 
     if (Object.keys(updates).length === 0) {
-      console.log(`🔤 [AutoTranslate] No updates to store (all targets match source language)`);
+      logger.info(`🔤 [AutoTranslate] No updates to store (all targets match source language)`);
       return;
     }
 
-    console.log(`🔤 [AutoTranslate] Storing ${Object.keys(updates).length} fields on message ${messageId}`);
+    logger.info(`🔤 [AutoTranslate] Storing ${Object.keys(updates).length} fields on message ${messageId}`);
     await getStreamChat().partialUpdateMessage(messageId, { set: updates }, senderId);
-    console.log(`🌐 [AutoTranslate] Done — message ${messageId} translated to [${targetLangs.join(", ")}]`);
+    logger.info(`🌐 [AutoTranslate] Done — message ${messageId} translated to [${targetLangs.join(", ")}]`);
   } catch (err) {
-    console.error(`❌ [AutoTranslate] Error for message ${messageId}:`, err);
+    logger.error(`❌ [AutoTranslate] Error for message ${messageId}:`, err);
   }
 };
 
@@ -235,9 +236,9 @@ export const handleChatWebhook = async (req, res) => {
 
     // 1. Verify signature using raw body
     if (!verifyStreamSignature(rawBody, signature)) {
-      console.error("❌ Invalid webhook signature");
-      console.error("Expected secret:", STREAM_API_SECRET?.substring(0, 10) + "...");
-      console.error("Received signature:", signature);
+      logger.error("❌ Invalid webhook signature");
+      logger.error("Expected secret:", STREAM_API_SECRET?.substring(0, 10) + "...");
+      logger.error("Received signature:", signature);
       return res.status(401).json({ error: "Invalid signature" });
     }
 
@@ -269,12 +270,12 @@ export const handleChatWebhook = async (req, res) => {
         [messageId]
       );
       if (rowCount === 0) {
-        console.log(`⚠️ Duplicate webhook for message ${messageId}, skipping`);
+        logger.info(`⚠️ Duplicate webhook for message ${messageId}, skipping`);
         return res.status(200).json({ message: "Duplicate, skipped" });
       }
     }
 
-    console.log(`📨 New message from ${senderName} in channel ${channel_id}`);
+    logger.info(`📨 New message from ${senderName} in channel ${channel_id}`);
 
     // 4. Get channel members from webhook payload or fetch from API
     let recipientIds = [];
@@ -299,12 +300,12 @@ export const handleChatWebhook = async (req, res) => {
           recipientIds = memberIds.filter(id => id !== senderId);
         }
       } catch (apiError) {
-        console.error("Error fetching channel members:", apiError);
+        logger.error("Error fetching channel members:", apiError);
       }
     }
 
     if (recipientIds.length === 0) {
-      console.log("No recipients found");
+      logger.info("No recipients found");
       return res.status(200).json({ message: "No recipients" });
     }
 
@@ -355,14 +356,14 @@ export const handleChatWebhook = async (req, res) => {
             },
             businessUnit
           );
-          console.log(`✅ Sent notification to user ${recipientId}`);
+          logger.info(`✅ Sent notification to user ${recipientId}`);
         }
       } catch (bgError) {
-        console.error("❌ Background notification error:", bgError);
+        logger.error("❌ Background notification error:", bgError);
       }
     });
   } catch (error) {
-    console.error("❌ Chat webhook error:", error);
+    logger.error("❌ Chat webhook error:", error);
     res.status(500).json({ error: error.message });
   }
 };

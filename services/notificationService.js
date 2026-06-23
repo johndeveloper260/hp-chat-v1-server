@@ -14,6 +14,7 @@ import { Expo }         from "expo-server-sdk";
 import * as notifRepo   from "../repositories/notificationRepository.js";
 import { getTranslation, translateStatus } from "../utils/notificationTranslations.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
+import logger from "../utils/logger.js";
 
 const expo = new Expo();
 
@@ -56,11 +57,11 @@ export const sendNotificationToUser = async (
   try {
     const pushToken = await notifRepo.findPushToken(userId, businessUnit);
     if (!pushToken) {
-      console.log(`No push token found for user ${userId}`);
+      logger.info(`No push token found for user ${userId}`);
       return { success: false, error: "No push token" };
     }
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`Invalid push token for user ${userId}`);
+      logger.error(`Invalid push token for user ${userId}`);
       return { success: false, error: "Invalid token" };
     }
 
@@ -73,13 +74,13 @@ export const sendNotificationToUser = async (
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
       } catch (err) {
-        console.error("Error sending notification chunk:", err);
+        logger.error("Error sending notification chunk:", err);
       }
     }
 
     return { success: true, tickets };
   } catch (error) {
-    console.error("sendNotificationToUser error:", error);
+    logger.error("sendNotificationToUser error:", error);
     return { success: false, error: error.message };
   }
 };
@@ -100,7 +101,7 @@ export const sendNotificationToMultipleUsers = async (
     const pushTokens = [...new Set(rawTokens)].filter((t) => Expo.isExpoPushToken(t));
 
     if (pushTokens.length === 0) {
-      console.log("No valid push tokens found");
+      logger.info("No valid push tokens found");
       return { success: false, error: "No valid tokens" };
     }
 
@@ -116,13 +117,13 @@ export const sendNotificationToMultipleUsers = async (
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         tickets.push(...ticketChunk);
       } catch (err) {
-        console.error("Error sending notification chunk:", err);
+        logger.error("Error sending notification chunk:", err);
       }
     }
 
     return { success: true, tickets, count: tickets.length };
   } catch (error) {
-    console.error("sendNotificationToMultipleUsers error:", error);
+    logger.error("sendNotificationToMultipleUsers error:", error);
     return { success: false, error: error.message };
   }
 };
@@ -148,10 +149,10 @@ export const createNotification = async ({
     } = await notifRepo.findUserLangAndBU(userId);
 
     if (notificationEnabled === false) {
-      console.log(`🔕 Notifications disabled for user ${userId}, skipping`);
+      logger.info(`🔕 Notifications disabled for user ${userId}, skipping`);
       return;
     }
-    console.log(`[createNotification] userId=${userId} lang=${userLanguage} bu=${businessUnit}`);
+    logger.info(`[createNotification] userId=${userId} lang=${userLanguage} bu=${businessUnit}`);
 
     let title = getTranslation(titleKey, userLanguage);
     Object.keys(titleParams).forEach((key) => {
@@ -168,7 +169,7 @@ export const createNotification = async ({
       body = body.replace(`{{${key}}}`, translatedParams[key]);
     });
 
-    console.log(`📤 Sending notification in ${userLanguage}:`, { title: finalTitle, body });
+    logger.info(`📤 Sending notification in ${userLanguage}:`, { title: finalTitle, body });
 
     await notifRepo.insertNotificationHistory(
       userId, finalTitle, body, data?.type, data?.relationId ?? data?.rowId, businessUnit,
@@ -177,7 +178,7 @@ export const createNotification = async ({
     if (skipPush) return;
     return sendNotificationToUser(userId, finalTitle, body, data, businessUnit);
   } catch (err) {
-    console.error("createNotification error:", err);
+    logger.error("createNotification error:", err);
   }
 };
 
@@ -200,15 +201,15 @@ export const sendCallNotification = async (
     const bodyTemplate = getTranslation("calling_you", userLanguage);
     const body         = `${callerName} ${bodyTemplate}`;
 
-    console.log(`📞 Sending call notification in ${userLanguage}:`, { title, body });
+    logger.info(`📞 Sending call notification in ${userLanguage}:`, { title, body });
 
     const pushToken = await notifRepo.findPushToken(recipientUserId, recipientBU);
     if (!pushToken) {
-      console.log(`❌ No push token for user ${recipientUserId}`);
+      logger.info(`❌ No push token for user ${recipientUserId}`);
       return { success: false, error: "No push token" };
     }
     if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`❌ Invalid token`);
+      logger.error(`❌ Invalid token`);
       return { success: false, error: "Invalid token" };
     }
 
@@ -249,10 +250,10 @@ export const sendCallNotification = async (
     };
 
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    console.log("✅ Call notification sent:", JSON.stringify(tickets, null, 2));
+    logger.info("✅ Call notification sent:", JSON.stringify(tickets, null, 2));
     return { success: true, tickets };
   } catch (error) {
-    console.error("❌ sendCallNotification error:", error);
+    logger.error("❌ sendCallNotification error:", error);
     return { success: false, error: error.message };
   }
 };
