@@ -25,9 +25,9 @@ export const getPosters = async ({ businessUnit }) => {
 export const getAnnouncements = async ({ company_filter, userId, userBU, userType, userCompany, isManagement }) => {
   const lang      = await getUserLanguage(userId);
   const isOfficer = ["ADMIN", "OFFICER"].includes((userType || "").toUpperCase());
-  // Non-officers see announcements for their own company (plus global ones).
-  // Fall back to the user's company UUID when no explicit filter is supplied.
-  const effectiveFilter = company_filter ?? (!isOfficer ? userCompany : undefined);
+  // Regular users are always scoped by their current DB company. Never trust
+  // a client-supplied company filter for authorization.
+  const effectiveFilter = isOfficer ? company_filter : userCompany;
   return feedRepo.findAnnouncements({ lang, userId, company_filter: effectiveFilter, userBU, isOfficer, isManagement });
 };
 

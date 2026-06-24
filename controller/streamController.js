@@ -5,6 +5,7 @@
  * No SDK imports. All errors propagate via next(err).
  */
 import * as streamService from "../services/streamService.js";
+import { syncUserToStream } from "../utils/syncUserToStream.js";
 
 /**
  * GET /stream/token  (and /stream/token/:userId — backward-compat)
@@ -12,6 +13,9 @@ import * as streamService from "../services/streamService.js";
  */
 export const getStreamToken = async (req, res, next) => {
   try {
+    // Repair the current user's Stream metadata from the authoritative DB
+    // before the client connects and starts company-scoped queries.
+    await syncUserToStream(req.user.id);
     const token = streamService.generateStreamToken(req.user.id);
     res.json({ token });
   } catch (err) { next(err); }

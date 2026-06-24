@@ -24,8 +24,16 @@ router.post("/channel/add-member", express.json(), auth, addChannelMember);
 // Webhook — raw body required for HMAC signature verification (no auth middleware)
 router.post("/webhook/chat", express.raw({ type: "application/json" }), handleChatWebhook);
 
+const requireStreamSyncAccess = (req, res, next) => {
+  const userType = (req.user?.userType || "").toUpperCase();
+  if (!["ADMIN", "OFFICER"].includes(userType)) {
+    return res.status(403).json({ msg: "Officer or admin access required" });
+  }
+  next();
+};
+
 // Manual sync trigger — admin/officer only
-router.post("/sync/run", express.json(), auth, async (req, res, next) => {
+router.post("/sync/run", express.json(), auth, requireStreamSyncAccess, async (req, res, next) => {
   try {
     const result = await runStreamSync();
     res.json({ ok: true, ...result });

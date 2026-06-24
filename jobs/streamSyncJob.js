@@ -110,19 +110,20 @@ export async function runStreamSync() {
         const name = formatDisplayName(u.last_name, u.first_name, u.middle_name);
         const payload = { id: String(u.user_id) };
 
-        // Only include fields that have a non-null value to avoid
-        // overwriting existing Stream attributes with empty data
-        if (name)              payload.name            = name;
-        if (u.email)           payload.email           = u.email.toLowerCase().trim();
-        if (u.company)         payload.company         = u.company;
-        if (u.company_name)    payload.company_name    = u.company_name;
-        if (u.batch_no)        payload.batch_no        = u.batch_no;
-        if (u.sending_org)     payload.sending_org     = u.sending_org;
-        if (u.visa_type)       payload.visa_type       = u.visa_type;
-        if (u.visa_type_descr) payload.visa_type_descr = u.visa_type_descr;
-        if (u.business_unit)   payload.business_unit   = u.business_unit;
-        if (u.user_type)       payload.user_type       = u.user_type;
-        if (u.country)         payload.country         = u.country;
+        if (name)    payload.name  = name;
+        if (u.email) payload.email = u.email.toLowerCase().trim();
+
+        // These fields are DB-authoritative. Include nulls so reconciliation
+        // also removes metadata that was cleared or reassigned in the DB.
+        payload.company         = u.company ?? null;
+        payload.company_name    = u.company_name ?? null;
+        payload.batch_no        = u.batch_no ?? null;
+        payload.sending_org     = u.sending_org ?? null;
+        payload.visa_type       = u.visa_type ?? null;
+        payload.visa_type_descr = u.visa_type_descr ?? null;
+        payload.business_unit   = u.business_unit ?? null;
+        payload.user_type       = u.user_type ?? null;
+        payload.country         = u.country ?? null;
 
         if (u.profile_pic_s3_key) {
           payload.image = env.aws.cloudfrontDomain
