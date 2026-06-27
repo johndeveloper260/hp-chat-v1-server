@@ -22,6 +22,7 @@ export const addComment = async (req, res, next) => {
       req.body,
       req.user.id,
       req.user.business_unit,
+      req.user.userType,
     );
     res.status(201).json(newComment);
   } catch (err) { next(err); }

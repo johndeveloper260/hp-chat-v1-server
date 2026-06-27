@@ -56,7 +56,7 @@ export const getComments = async (type, id, userBU, userId = null, userType = nu
 
 // ── Add ────────────────────────────────────────────────────────────────────────
 
-export const addComment = async (body, userId, userBU) => {
+export const addComment = async (body, userId, userBU, userType = null) => {
   const {
     relation_type,
     relation_id,
@@ -65,7 +65,7 @@ export const addComment = async (body, userId, userBU) => {
     metadata,
   } = body;
 
-  await assertParentBU(relation_type, relation_id, userBU, userId);
+  await assertParentBU(relation_type, relation_id, userBU, userId, userType);
 
   // 1. Insert the comment
   const newComment = await commentsRepo.insertComment({
@@ -185,7 +185,7 @@ export const deleteComment = async (commentId, userId, userBU, userRole) => {
   const relation = await commentsRepo.findCommentRelation(commentId);
   if (!relation) throw new NotFoundError("comment_not_found");
 
-  await assertParentBU(relation.relation_type, relation.relation_id, userBU, userId);
+  await assertParentBU(relation.relation_type, relation.relation_id, userBU, userId, userRole);
 
   const isElevated = ELEVATED_ROLES.includes(
     (userRole || "").toUpperCase(),
