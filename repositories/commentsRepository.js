@@ -45,11 +45,6 @@ export const checkAppSupportBU = async (id, businessUnit) => {
 
 export const findComments = async (type, id, userId = null) => {
   const params = [type, id];
-  let userFilter = "";
-  if (type === "subtask" && userId) {
-    params.push(userId);
-    userFilter = ` AND c.user_id = $${params.length}::uuid`;
-  }
   const { rows } = await getPool().query(
     `SELECT
        c.comment_id, c.user_id, c.content_text, c.created_at,
@@ -67,7 +62,7 @@ export const findComments = async (type, id, userId = null) => {
        ORDER BY created_at DESC
        LIMIT 1
      ) sa ON true
-     WHERE c.relation_type = $1 AND c.relation_id = $2${userFilter}
+     WHERE c.relation_type = $1 AND c.relation_id = $2
      ORDER BY c.created_at ASC`,
     params,
   );
