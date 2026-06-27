@@ -15,6 +15,7 @@
  *   PATCH  /tasks/:id
  *   PATCH  /tasks/:id/move
  *   PATCH  /tasks/:id/complete        — toggle sub-task completion
+ *   PATCH  /tasks/:id/reset-completion — officer reset for sub-task completion
  *   DELETE /tasks/:id
  *   POST   /tasks/:id/subtasks        — create sub-task under parent
  *   GET    /tasks/:id/subtasks        — list sub-tasks of parent
@@ -39,6 +40,7 @@ import {
   listSubtasks,
   getMySubtasks,
   completeSubtask,
+  resetSubtaskCompletion,
   searchTaskUsers,
 } from "../controller/taskController.js";
 
@@ -61,6 +63,7 @@ router.get("/:id",        auth, getTask);
 router.post("/",          auth, validate(createTaskSchema),  createTask);
 router.patch("/:id/move",     auth, validate(moveTaskSchema),     moveTask);
 router.patch("/:id/complete", auth,                               completeSubtask);
+router.patch("/:id/reset-completion", auth,                       resetSubtaskCompletion);
 router.patch("/:id",          auth, validate(updateTaskSchema),   updateTask);
 router.delete("/:id",         auth, deleteTask);
 

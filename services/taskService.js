@@ -13,6 +13,7 @@
  *   - moveTask: any user with access to the task.
  *   - deleteTask: creator only.
  *   - completeSubtask: only the assigned user (or OFFICER/ADMIN to reset).
+ *   - resetSubtaskCompletion: OFFICER/ADMIN only.
  */
 import { getPool } from "../config/getPool.js";
 import * as taskRepo from "../repositories/taskRepository.js";
@@ -233,6 +234,26 @@ export const completeSubtask = async ({ id, userId, bu, userType }) => {
   const refreshed = await taskRepo.findTaskById(id, bu);
   refreshed.completed_at = updated.completed_at ?? null;
   refreshed.completed_by = updated.completed_by ?? null;
+  return refreshed;
+};
+
+export const resetSubtaskCompletion = async ({ id, bu, userType }) => {
+  if (!isPrivileged(userType)) {
+    throw new ForbiddenError("only_officers_can_reset_subtask_completion");
+  }
+
+  const task = await taskRepo.findTaskById(id, bu);
+  if (!task) throw new NotFoundError("task_not_found");
+  if (!task.parent_task_id) {
+    throw new ForbiddenError("only_subtasks_can_be_reset");
+  }
+
+  const reset = await taskRepo.resetSubtaskCompletion(id, bu);
+  if (!reset) throw new NotFoundError("task_not_found");
+
+  const refreshed = await taskRepo.findTaskById(id, bu);
+  refreshed.completed_at = null;
+  refreshed.completed_by = null;
   return refreshed;
 };
 

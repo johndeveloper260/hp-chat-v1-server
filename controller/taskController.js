@@ -138,6 +138,18 @@ export const completeSubtask = async (req, res, next) => {
   }
 };
 
+// PATCH /tasks/:id/reset-completion
+export const resetSubtaskCompletion = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { business_unit: bu, userType } = req.user;
+    const subtask = await taskService.resetSubtaskCompletion({ id, bu, userType });
+    res.json(subtask);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ─── User search ──────────────────────────────────────────────────────────────
 
 // GET /tasks/users/search
