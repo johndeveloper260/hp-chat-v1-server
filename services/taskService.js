@@ -21,7 +21,7 @@ import * as teamRepo from "../repositories/taskTeamRepository.js";
 import * as notifRepo from "../repositories/notificationRepository.js";
 import { sendNotificationToUser } from "./notificationService.js";
 import { formatNotification } from "../utils/notificationTranslations.js";
-import { NotFoundError, ForbiddenError } from "../errors/AppError.js";
+import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppError.js";
 import { deleteFromS3 } from "../utils/s3Client.js";
 
 const isPrivileged = (userType) =>
@@ -237,9 +237,12 @@ export const completeSubtask = async ({ id, userId, bu, userType }) => {
   return refreshed;
 };
 
-export const resetSubtaskCompletion = async ({ id, bu, userType }) => {
+export const resetSubtaskCompletion = async ({ id, targetUserId, bu, userType }) => {
   if (!isPrivileged(userType)) {
     throw new ForbiddenError("only_officers_can_reset_subtask_completion");
+  }
+  if (!targetUserId) {
+    throw new ValidationError("target_user_required");
   }
 
   const task = await taskRepo.findTaskById(id, bu);
@@ -247,8 +250,11 @@ export const resetSubtaskCompletion = async ({ id, bu, userType }) => {
   if (!task.parent_task_id) {
     throw new ForbiddenError("only_subtasks_can_be_reset");
   }
+  if (!task.assignees.some((assignee) => String(assignee.user_id) === String(targetUserId))) {
+    throw new NotFoundError("task_assignee_not_found");
+  }
 
-  const reset = await taskRepo.resetSubtaskCompletion(id, bu);
+  const reset = await taskRepo.resetSubtaskCompletion(id, targetUserId, bu);
   if (!reset) throw new NotFoundError("task_not_found");
 
   const refreshed = await taskRepo.findTaskById(id, bu);

@@ -397,9 +397,9 @@ export const completeSubtask = async (taskId, userId, bu, client) => {
 };
 
 /**
- * resetSubtaskCompletion — clears all member completion records for a subtask.
+ * resetSubtaskCompletion — clears one member's completion record for a subtask.
  */
-export const resetSubtaskCompletion = async (taskId, bu, client) => {
+export const resetSubtaskCompletion = async (taskId, userId, bu, client) => {
   const { rows: taskRows } = await db(client).query(
     `SELECT id, parent_task_id, title FROM v4.tasks
      WHERE id = $1::uuid AND business_unit = $2 AND parent_task_id IS NOT NULL`,
@@ -409,11 +409,11 @@ export const resetSubtaskCompletion = async (taskId, bu, client) => {
 
   const { rowCount } = await db(client).query(
     `DELETE FROM v4.subtask_member_completions
-     WHERE subtask_id = $1::uuid`,
-    [taskId],
+     WHERE subtask_id = $1::uuid AND user_id = $2::uuid`,
+    [taskId, userId],
   );
 
-  return { ...taskRows[0], reset_count: rowCount };
+  return { ...taskRows[0], reset_count: rowCount, reset_user_id: userId };
 };
 
 /**

@@ -143,7 +143,12 @@ export const resetSubtaskCompletion = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { business_unit: bu, userType } = req.user;
-    const subtask = await taskService.resetSubtaskCompletion({ id, bu, userType });
+    const subtask = await taskService.resetSubtaskCompletion({
+      id,
+      targetUserId: req.body?.user_id,
+      bu,
+      userType,
+    });
     res.json(subtask);
   } catch (err) {
     next(err);
