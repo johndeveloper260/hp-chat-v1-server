@@ -34,6 +34,7 @@ export const searchReturnHome = async (
     SELECT
       r.*,
       p.first_name AS rh_fn, p.middle_name AS rh_mn, p.last_name AS rh_ln,
+      cp.first_name AS cancel_fn, cp.middle_name AS cancel_mn, cp.last_name AS cancel_ln,
       p.company AS user_company_id, p.country,
       COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
       v.visa_type, v.joining_date, v.visa_expiry_date,
@@ -57,6 +58,7 @@ export const searchReturnHome = async (
       ) AS attachments
     FROM v4.return_home_tbl r
     LEFT JOIN v4.user_profile_tbl     p ON r.user_id = p.user_id
+    LEFT JOIN v4.user_profile_tbl    cp ON r.cancelled_by = cp.user_id
     LEFT JOIN v4.company_tbl          c ON p.company = c.company_id::text
     LEFT JOIN v4.user_visa_info_tbl   v ON r.user_id = v.user_id
     LEFT JOIN v4.visa_list_tbl       vl ON v.visa_type = vl.code AND r.business_unit = vl.business_unit
@@ -102,9 +104,12 @@ export const searchReturnHome = async (
 
   query += ` ORDER BY r.created_at DESC`;
   const { rows } = await getPool().query(query, values);
-  return rows.map(({ rh_fn, rh_mn, rh_ln, ...rest }) => ({
+  return rows.map(({ rh_fn, rh_mn, rh_ln, cancel_fn, cancel_mn, cancel_ln, ...rest }) => ({
     ...rest,
     user_name: formatDisplayName(rh_ln, rh_fn, rh_mn),
+    cancelled_by_name: rest.cancelled_by
+      ? formatDisplayName(cancel_ln, cancel_fn, cancel_mn)
+      : null,
   }));
 };
 
@@ -151,11 +156,13 @@ export const findReturnHomeById = async (id, businessUnit, lang) => {
     `SELECT
        r.*,
        p.first_name, p.middle_name, p.last_name, p.company AS user_company_id, p.country,
+       cp.first_name AS cancel_fn, cp.middle_name AS cancel_mn, cp.last_name AS cancel_ln,
        COALESCE(c.company_name->>$1, c.company_name->>'en', 'N/A') AS company_name_text,
        v.visa_type, v.joining_date, v.visa_expiry_date,
        COALESCE(vl.descr->>$1, vl.descr->>'en', (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)) AS visa_type_descr
      FROM v4.return_home_tbl r
      LEFT JOIN v4.user_profile_tbl   p ON r.user_id = p.user_id
+     LEFT JOIN v4.user_profile_tbl  cp ON r.cancelled_by = cp.user_id
      LEFT JOIN v4.company_tbl        c ON p.company = c.company_id::text
      LEFT JOIN v4.user_visa_info_tbl v ON r.user_id = v.user_id
      LEFT JOIN v4.visa_list_tbl     vl ON v.visa_type = vl.code AND r.business_unit = vl.business_unit
@@ -164,7 +171,14 @@ export const findReturnHomeById = async (id, businessUnit, lang) => {
   );
   const row = rows[0] ?? null;
   if (!row) return null;
-  return { ...row, user_name: formatDisplayName(row.last_name, row.first_name, row.middle_name) };
+  const { cancel_fn, cancel_mn, cancel_ln, ...record } = row;
+  return {
+    ...record,
+    user_name: formatDisplayName(row.last_name, row.first_name, row.middle_name),
+    cancelled_by_name: row.cancelled_by
+      ? formatDisplayName(cancel_ln, cancel_fn, cancel_mn)
+      : null,
+  };
 };
 
 export const findAttachments = async (id, businessUnit) => {
@@ -198,7 +212,6 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
     data.return_type        ?? -1,
     data.tio_jo             || null,
     data.details            || null,
-    data.status             || null,
     data.resign_date        || null,
     data.leave_days != null ? Number(data.leave_days) : null,
     data.mode_of_payment    || null,
@@ -212,17 +225,17 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
     ? `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
            ticket_type=$5, return_type=$6, tio_jo=$7, details=$8,
-           status=$9, resign_date=$10, leave_days=$11, mode_of_payment=$12,
-           payment_amount=$13, currency=$14, updated_by=$15, updated_at=NOW(),
-           payment_settled=$16, user_id=$17
-       WHERE id=$18 AND business_unit=$19 RETURNING *`
+           resign_date=$9, leave_days=$10, mode_of_payment=$11,
+           payment_amount=$12, currency=$13, updated_by=$14, updated_at=NOW(),
+           payment_settled=$15, user_id=$16
+       WHERE id=$17 AND business_unit=$18 RETURNING *`
     : `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
            ticket_type=$5, return_type=$6, tio_jo=$7, details=$8,
-           status=$9, resign_date=$10, leave_days=$11, mode_of_payment=$12,
-           payment_amount=$13, currency=$14, updated_by=$15, updated_at=NOW(),
-           payment_settled=$16
-       WHERE id=$17 AND business_unit=$18 RETURNING *`;
+           resign_date=$9, leave_days=$10, mode_of_payment=$11,
+           payment_amount=$12, currency=$13, updated_by=$14, updated_at=NOW(),
+           payment_settled=$15
+       WHERE id=$16 AND business_unit=$17 RETURNING *`;
 
   const values = safeUserId
     ? [...common, safeUserId, id, businessUnit]
@@ -239,7 +252,9 @@ export const patchReturnHomeStatus = async (id, businessUnit, status, updatedBy)
   const { rows } = await getPool().query(
     `UPDATE v4.return_home_tbl
      SET status = $1, updated_by = $2, updated_at = NOW()
-     WHERE id = $3 AND business_unit = $4
+     WHERE id = $3 AND business_unit = $4 AND user_id = $2::uuid
+       AND ((status = 'Draft' AND $1 = 'Pending')
+         OR (status = 'Pending' AND $1 = 'Draft'))
      RETURNING user_id, status`,
     [status, updatedBy, id, businessUnit],
   );
@@ -259,9 +274,34 @@ export const approveReturnHome = async (
     `UPDATE v4.return_home_tbl
      SET status = $1, approver_remarks = $2, approved_by = $3,
          approved_at = NOW(), updated_at = NOW(), updated_by = $3
-     WHERE id = $4 AND business_unit = $5
-     RETURNING user_id`,
+     WHERE id = $4 AND business_unit = $5 AND status = 'Pending'
+     RETURNING user_id, status, approved_by, approved_at, approver_remarks`,
     [status, approverRemarks, officerId, id, businessUnit],
+  );
+  return rows[0] ?? null;
+};
+
+// ── Cancel an approval ───────────────────────────────────────────────────────
+
+/**
+ * Atomically cancels only an Approved application. Approval metadata is kept
+ * intact so the current row and its audit trail both retain the approval.
+ */
+export const cancelApprovedReturnHome = async (
+  id,
+  businessUnit,
+  cancellationReason,
+  cancelledBy,
+) => {
+  const { rows } = await getPool().query(
+    `UPDATE v4.return_home_tbl
+     SET status = 'Cancelled', cancellation_reason = $1,
+         cancelled_by = $2, cancelled_at = NOW(),
+         updated_by = $2, updated_at = NOW()
+     WHERE id = $3 AND business_unit = $4 AND status = 'Approved'
+     RETURNING user_id, status, approved_by, approved_at, approver_remarks,
+               cancelled_by, cancelled_at, cancellation_reason`,
+    [cancellationReason, cancelledBy, id, businessUnit],
   );
   return rows[0] ?? null;
 };
@@ -306,12 +346,12 @@ export const findOfficersWithFlightRoles = async (businessUnit) => {
 
 // ── Delete (transaction-scoped) ───────────────────────────────────────────────
 
-export const checkExistsForDelete = async (id, businessUnit, client) => {
-  const { rowCount } = await db(client).query(
-    "SELECT id FROM v4.return_home_tbl WHERE id = $1 AND business_unit = $2",
+export const findReturnHomeForDelete = async (id, businessUnit, client) => {
+  const { rows } = await db(client).query(
+    "SELECT id, status FROM v4.return_home_tbl WHERE id = $1 AND business_unit = $2 FOR UPDATE",
     [id, businessUnit],
   );
-  return rowCount > 0;
+  return rows[0] ?? null;
 };
 
 /** Returns rows with { s3_key, s3_bucket } for physical S3 cleanup. */

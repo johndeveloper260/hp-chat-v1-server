@@ -9,7 +9,6 @@ const returnHomeBodySchema = z.object({
   return_type:        z.number().optional().nullable(),
   details:            z.string().optional().nullable(),
   tio_jo:             z.string().optional().nullable(),
-  status:             z.string().optional().nullable(),
   user_id:            z.string().optional().nullable(),
   resign_date:        z.string().optional().nullable(),
   leave_days:         z.number().optional().nullable(),
@@ -19,7 +18,9 @@ const returnHomeBodySchema = z.object({
   payment_settled:    z.boolean().optional(),
 });
 
-export const createReturnHomeSchema = returnHomeBodySchema;
+export const createReturnHomeSchema = returnHomeBodySchema.extend({
+  status: z.enum(["Draft", "Pending"]).optional(),
+});
 export const updateReturnHomeSchema = returnHomeBodySchema;
 
 export const approveReturnHomeSchema = z.object({
@@ -31,4 +32,8 @@ export const approveReturnHomeSchema = z.object({
 // or submit for approval → Pending). Does NOT touch any other column.
 export const patchReturnHomeStatusSchema = z.object({
   status: z.enum(["Draft", "Pending"]),
+});
+
+export const cancelReturnHomeSchema = z.object({
+  cancellation_reason: z.string().trim().min(1).max(2000),
 });

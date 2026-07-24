@@ -10,6 +10,7 @@ import {
   updateReturnHomeSchema,
   approveReturnHomeSchema,
   patchReturnHomeStatusSchema,
+  cancelReturnHomeSchema,
 } from "../validators/returnHomeValidator.js";
 import {
   searchReturnHome,
@@ -19,6 +20,7 @@ import {
   patchReturnHomeStatus,
   deleteReturnHome,
   approveReturnHome,
+  cancelApprovedReturnHome,
 } from "../controller/returnHomeController.js";
 
 const router = express.Router();
@@ -34,5 +36,6 @@ router.patch("/status/:id", auth, validate(patchReturnHomeStatusSchema), patchRe
 // ── flight_write ───────────────────────────────────────────────────────────────
 router.delete("/delete/:id",  auth, requireRole("flight_write"), deleteReturnHome);
 router.patch("/approve/:id",  auth, requireRole("flight_write"), validate(approveReturnHomeSchema), approveReturnHome);
+router.patch("/cancel/:id",   auth, requireRole("flight_write"), validate(cancelReturnHomeSchema), cancelApprovedReturnHome);
 
 export default router;

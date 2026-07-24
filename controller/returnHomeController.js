@@ -61,8 +61,23 @@ export const patchReturnHomeStatus = async (req, res, next) => {
 
 export const approveReturnHome = async (req, res, next) => {
   try {
-    await returnHomeService.approveReturnHome(req.params.id, req.body, req.user);
-    res.json({ success: true, message: `Application ${req.body.status} successfully` });
+    const data = await returnHomeService.approveReturnHome(req.params.id, req.body, req.user);
+    res.json({ success: true, message: `Application ${req.body.status} successfully`, data });
+  } catch (err) { next(err); }
+};
+
+export const cancelApprovedReturnHome = async (req, res, next) => {
+  try {
+    const data = await returnHomeService.cancelApprovedReturnHome(
+      req.params.id,
+      req.body,
+      req.user,
+    );
+    res.json({
+      success: true,
+      message: "Approved application cancelled successfully",
+      data,
+    });
   } catch (err) { next(err); }
 };
 

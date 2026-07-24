@@ -8,7 +8,7 @@
 import * as repo             from "../repositories/returnHomeRepository.js";
 import { deleteFromS3 }       from "../utils/s3Client.js";
 import { getPool }            from "../config/getPool.js";
-import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
+import { ConflictError, ForbiddenError, NotFoundError } from "../errors/AppError.js";
 import { createNotification } from "./notificationService.js";
 import { findCoordinatorsByCompany } from "../repositories/notificationRepository.js";
 
@@ -96,9 +96,6 @@ export const updateReturnHome = async (id, body, updatedBy, businessUnit) => {
 
   console.log("[updateReturnHome] user_id from body:", JSON.stringify(body.user_id), "-> safeUserId:", safeUserId);
 
-  // Capture old status before overwriting — used to detect status-change events
-  const oldRecord = await repo.findReturnHomeForNotify(id, businessUnit);
-
   const row = await repo.updateReturnHome(
     id,
     businessUnit,
@@ -116,18 +113,15 @@ export const updateReturnHome = async (id, body, updatedBy, businessUnit) => {
   );
 
   if (recipients.length > 0) {
-    const updaterName  = await repo.findUserName(updatedBy);
-    const statusChanged = body.status && oldRecord && body.status !== oldRecord.status;
+    const updaterName = await repo.findUserName(updatedBy);
 
     await Promise.all(
       recipients.map((recipientId) =>
         createNotification({
           userId: recipientId,
           titleKey: "return_home_updated",
-          bodyKey: statusChanged ? "return_home_status_changed" : "return_home_application_updated",
-          bodyParams: statusChanged
-            ? { name: updaterName, status: body.status }
-            : { name: updaterName },
+          bodyKey: "return_home_application_updated",
+          bodyParams: { name: updaterName },
           data: {
             type: "return_home",
             rowId: Number(id),
@@ -196,6 +190,21 @@ export const approveReturnHome = async (id, body, officer) => {
     id, officer.business_unit, status, approver_remarks, officer.id,
   );
 
+  if (!record) {
+    const current = await repo.findReturnHomeForNotify(id, officer.business_unit);
+    if (!current) {
+      throw new NotFoundError(
+        "record_not_found",
+        "api_errors.return_home.record_not_found",
+      );
+    }
+    throw new ConflictError(
+      "return_home_invalid_approval_transition",
+      "api_errors.return_home.invalid_approval_transition",
+      { status: current.status },
+    );
+  }
+
   if (record) {
     const { user_id: applicationUserId } = record;
     const userCompany = await repo.findUserCompany(applicationUserId);
@@ -224,6 +233,72 @@ export const approveReturnHome = async (id, body, officer) => {
       );
     }
   }
+  return record;
+};
+
+// ── Cancel an approved application ──────────────────────────────────────────
+
+export const cancelApprovedReturnHome = async (id, body, approver) => {
+  const userRole = approver.userType?.toUpperCase() || "";
+  if (!ELEVATED_ROLES.includes(userRole)) {
+    throw new ForbiddenError(
+      "officer_only_approve",
+      "api_errors.return_home.officer_only_approve",
+    );
+  }
+
+  const record = await repo.cancelApprovedReturnHome(
+    id,
+    approver.business_unit,
+    body.cancellation_reason,
+    approver.id,
+  );
+
+  if (!record) {
+    const current = await repo.findReturnHomeForNotify(id, approver.business_unit);
+    if (!current) {
+      throw new NotFoundError(
+        "record_not_found",
+        "api_errors.return_home.record_not_found",
+      );
+    }
+    throw new ConflictError(
+      "return_home_invalid_cancellation_transition",
+      "api_errors.return_home.invalid_cancellation_transition",
+      { status: current.status },
+    );
+  }
+
+  const userCompany = await repo.findUserCompany(record.user_id);
+  const coordinatorIds = await findCoordinatorsByCompany(
+    userCompany,
+    approver.business_unit,
+  );
+  const recipients = [...new Set([record.user_id, ...coordinatorIds])].filter(
+    (uid) => uid && uid !== approver.id,
+  );
+
+  if (recipients.length > 0) {
+    const approverName = await repo.findUserName(approver.id);
+    await Promise.all(
+      recipients.map((recipientId) =>
+        createNotification({
+          userId: recipientId,
+          titleKey: "return_home_updated",
+          bodyKey: "return_home_status_changed",
+          bodyParams: { name: approverName, status: "Cancelled" },
+          data: {
+            type: "return_home",
+            rowId: Number(id),
+            screen: "ReturnHome",
+            params: { id: Number(id) },
+          },
+        }),
+      ),
+    );
+  }
+
+  return record;
 };
 
 // ── Delete ────────────────────────────────────────────────────────────────────
@@ -233,10 +308,17 @@ export const deleteReturnHome = async (id, businessUnit) => {
   try {
     await client.query("BEGIN");
 
-    const exists = await repo.checkExistsForDelete(id, businessUnit, client);
-    if (!exists) {
+    const record = await repo.findReturnHomeForDelete(id, businessUnit, client);
+    if (!record) {
       await client.query("ROLLBACK");
       throw new NotFoundError("record_not_found");
+    }
+    if (["Approved", "Cancelled"].includes(record.status)) {
+      await client.query("ROLLBACK");
+      throw new ConflictError(
+        "return_home_finalized_cannot_delete",
+        "api_errors.return_home.finalized_cannot_delete",
+      );
     }
 
     // Collect S3 keys before deleting DB rows
