@@ -108,7 +108,9 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
   const nodeClient = new StreamClient(env.stream.apiKey, env.stream.apiSecret);
   const streamToken = nodeClient.generateUserToken({
     user_id: String(user.id),
-    validity_period_hs: env.stream.tokenValidityHours,
+    // The SDK only understands validity_in_seconds — any other key is ignored
+    // and the token silently falls back to the 1-hour default.
+    validity_in_seconds: env.stream.tokenValidityHours * 3600,
   });
 
   // 8. Build profile picture URL using the permanent proxy endpoint

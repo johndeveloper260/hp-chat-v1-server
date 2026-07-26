@@ -12,7 +12,9 @@ export const generateStreamToken = (userId) => {
   const client = new StreamClient(env.stream.apiKey, env.stream.apiSecret);
   return client.generateUserToken({
     user_id: String(userId),
-    validity_period_hs: env.stream.tokenValidityHours,
+    // The SDK only understands validity_in_seconds — any other key is ignored
+    // and the token silently falls back to the 1-hour default.
+    validity_in_seconds: env.stream.tokenValidityHours * 3600,
   });
 };
 
