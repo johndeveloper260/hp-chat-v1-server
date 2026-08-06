@@ -14,7 +14,7 @@ test("create only accepts user-controlled Draft and Pending states", () => {
   assert.equal(createReturnHomeSchema.safeParse({ status: "Cancelled" }).success, false);
 });
 
-test("general update accepts draft submission but rejects approval states", () => {
+test("general update accepts persisted statuses without granting a transition", () => {
   assert.deepEqual(
     updateReturnHomeSchema.parse({
       details: "Updated details",
@@ -22,13 +22,16 @@ test("general update accepts draft submission but rejects approval states", () =
     }),
     { details: "Updated details", status: "Pending" },
   );
-  assert.equal(
-    updateReturnHomeSchema.safeParse({ status: "Approved" }).success,
-    false,
-  );
-  assert.equal(
-    updateReturnHomeSchema.safeParse({ status: "Cancelled" }).success,
-    false,
+  assert.equal(updateReturnHomeSchema.safeParse({ status: "Approved" }).success, true);
+  assert.equal(updateReturnHomeSchema.safeParse({ status: "Rejected" }).success, true);
+  assert.equal(updateReturnHomeSchema.safeParse({ status: "Cancelled" }).success, true);
+  assert.equal(updateReturnHomeSchema.safeParse({ status: "Unknown" }).success, false);
+});
+
+test("general update accepts nullable values from legacy return-home rows", () => {
+  assert.deepEqual(
+    updateReturnHomeSchema.parse({ currency: null, payment_settled: null }),
+    { currency: null, payment_settled: null },
   );
 });
 

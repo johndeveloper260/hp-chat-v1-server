@@ -14,18 +14,20 @@ const returnHomeBodySchema = z.object({
   leave_days:         z.number().optional().nullable(),
   mode_of_payment:    z.string().optional().nullable(),
   payment_amount:     z.number().optional().nullable(),
-  currency:           z.string().optional(),
-  payment_settled:    z.boolean().optional(),
+  currency:           z.string().optional().nullable(),
+  payment_settled:    z.boolean().optional().nullable(),
 });
 
 export const createReturnHomeSchema = returnHomeBodySchema.extend({
   status: z.enum(["Draft", "Pending"]).optional(),
 });
-// The current web client saves an edited draft and submits it through the same
-// PUT request.  Only the user-controlled Pending transition is accepted here;
-// approval states still have to use the officer-only approval endpoint.
+// The web client sends the record's current status back when editing it, so
+// existing terminal states must pass validation. The repository preserves
+// those states; only Draft -> Pending can be initiated through this endpoint.
 export const updateReturnHomeSchema = returnHomeBodySchema.extend({
-  status: z.enum(["Draft", "Pending"]).optional(),
+  status: z.enum(["Draft", "Pending", "Approved", "Rejected", "Cancelled"])
+    .optional()
+    .nullable(),
 });
 
 export const approveReturnHomeSchema = z.object({
