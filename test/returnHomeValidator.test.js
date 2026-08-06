@@ -14,13 +14,22 @@ test("create only accepts user-controlled Draft and Pending states", () => {
   assert.equal(createReturnHomeSchema.safeParse({ status: "Cancelled" }).success, false);
 });
 
-test("general update strips status so it cannot bypass lifecycle endpoints", () => {
-  const result = updateReturnHomeSchema.parse({
-    details: "Updated details",
-    status: "Cancelled",
-  });
-
-  assert.deepEqual(result, { details: "Updated details" });
+test("general update accepts draft submission but rejects approval states", () => {
+  assert.deepEqual(
+    updateReturnHomeSchema.parse({
+      details: "Updated details",
+      status: "Pending",
+    }),
+    { details: "Updated details", status: "Pending" },
+  );
+  assert.equal(
+    updateReturnHomeSchema.safeParse({ status: "Approved" }).success,
+    false,
+  );
+  assert.equal(
+    updateReturnHomeSchema.safeParse({ status: "Cancelled" }).success,
+    false,
+  );
 });
 
 test("cancellation requires a non-blank, bounded reason", () => {

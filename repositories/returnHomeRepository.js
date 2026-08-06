@@ -219,6 +219,7 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
     data.currency           || "JPY",
     data.updatedBy,
     data.payment_settled    ?? false,
+    data.status             ?? null,
   ];
 
   const sql = safeUserId
@@ -227,15 +228,18 @@ export const updateReturnHome = async (id, businessUnit, data, safeUserId) => {
            ticket_type=$5, return_type=$6, tio_jo=$7, details=$8,
            resign_date=$9, leave_days=$10, mode_of_payment=$11,
            payment_amount=$12, currency=$13, updated_by=$14, updated_at=NOW(),
-           payment_settled=$15, user_id=$16
-       WHERE id=$17 AND business_unit=$18 RETURNING *`
+           payment_settled=$15,
+           status=CASE WHEN status='Draft' AND $16='Pending' THEN 'Pending' ELSE status END,
+           user_id=$17
+       WHERE id=$18 AND business_unit=$19 RETURNING *`
     : `UPDATE v4.return_home_tbl
        SET flight_date=$1, return_date=$2, route_origin=$3, route_destination=$4,
            ticket_type=$5, return_type=$6, tio_jo=$7, details=$8,
            resign_date=$9, leave_days=$10, mode_of_payment=$11,
            payment_amount=$12, currency=$13, updated_by=$14, updated_at=NOW(),
-           payment_settled=$15
-       WHERE id=$16 AND business_unit=$17 RETURNING *`;
+           payment_settled=$15,
+           status=CASE WHEN status='Draft' AND $16='Pending' THEN 'Pending' ELSE status END
+       WHERE id=$17 AND business_unit=$18 RETURNING *`;
 
   const values = safeUserId
     ? [...common, safeUserId, id, businessUnit]

@@ -21,7 +21,12 @@ const returnHomeBodySchema = z.object({
 export const createReturnHomeSchema = returnHomeBodySchema.extend({
   status: z.enum(["Draft", "Pending"]).optional(),
 });
-export const updateReturnHomeSchema = returnHomeBodySchema;
+// The current web client saves an edited draft and submits it through the same
+// PUT request.  Only the user-controlled Pending transition is accepted here;
+// approval states still have to use the officer-only approval endpoint.
+export const updateReturnHomeSchema = returnHomeBodySchema.extend({
+  status: z.enum(["Draft", "Pending"]).optional(),
+});
 
 export const approveReturnHomeSchema = z.object({
   status:            z.enum(["Approved", "Rejected"]),

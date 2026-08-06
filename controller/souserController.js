@@ -93,6 +93,13 @@ export const resetSouserPassword = async (req, res, next) => {
 
 export const getSouserSelf = async (req, res, next) => {
   try {
+    // AuthContext probes this endpoint for every authenticated account. A
+    // regular user has no row in souser_tbl, so respond with "no SO profile"
+    // instead of turning a successful login into a noisy 404 refresh failure.
+    if (req.user.userType?.toLowerCase() !== "souser") {
+      return res.status(204).end();
+    }
+
     const result = await souserService.getSouserById(req.user.id);
     const platformAdminId = process.env.PLATFORM_ADMIN_ID;
     res.json({
