@@ -175,7 +175,7 @@ export const proxyAttachment = async (req, res, next) => {
 export const renameAttachment = async (req, res, next) => {
   try {
     const data = await attachService.renameAttachment(
-      req.params.id, req.body.display_name, req.user.business_unit,
+      req.params.id, req.body.display_name, req.user.business_unit, req.user.id,
     );
     res.status(200).json({ message: "Attachment renamed successfully", data });
   } catch (err) {

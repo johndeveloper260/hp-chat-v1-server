@@ -23,6 +23,7 @@ import * as attachRepo      from "../repositories/attachmentRepository.js";
 import * as spRepo          from "../repositories/sharepointRepository.js";
 import * as commentsRepo    from "../repositories/commentsRepository.js";
 import { createNotification } from "./notificationService.js";
+import { isAnnouncementVisible, canModifyAnnouncement } from "./announcementAccess.js";
 import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppError.js";
 
 // ── Stream singleton ──────────────────────────────────────────────────────────
@@ -57,7 +58,27 @@ const checkRelationAccess = async (relationType, relationId, userBU, userId = nu
   if (relationType === CHAT_RELATION_TYPE) {
     return assertChatChannelMember(relationId, userId);
   }
+  if (relationType === "announcements") {
+    // An announcement's attachments are part of the announcement, so they carry
+    // its visibility rules. checkParentBU only asked "same business unit?",
+    // which let any account in the BU download a file attached to a bulletin
+    // addressed to a different sending organisation.
+    if (!userId) return 0;
+    return (await isAnnouncementVisible(userId, relationId)) ? 1 : 0;
+  }
   return attachRepo.checkParentBU(relationType, relationId, userBU, null, userId);
+};
+
+/**
+ * Announcement attachments follow the bulletin's own write rules: officers
+ * moderate, the SOUSER author edits their own post, nobody else writes. A no-op
+ * for every other relation type.
+ */
+const assertCanModifyAnnouncement = async (relationType, relationId, userId) => {
+  if (relationType !== "announcements") return;
+  if (!userId || !(await canModifyAnnouncement(userId, relationId))) {
+    throw new ForbiddenError("forbidden");
+  }
 };
 
 // ─── 1. Generate presigned PUT URL (upload) ───────────────────────────────────
@@ -85,6 +106,7 @@ export const createAttachment = async ({
 
   const parentExists = await checkRelationAccess(relation_type, relation_id, userBU, uploaderUserId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
+  await assertCanModifyAnnouncement(relation_type, relation_id, uploaderUserId);
 
   const attachment = await attachRepo.insertSharedAttachment({
     relation_type, relation_id, s3_key, s3_bucket,
@@ -191,6 +213,7 @@ export const copyFromSharepointFile = async ({
   // Target record (e.g. the announcement) must exist within the caller's BU
   const parentExists = await checkRelationAccess(relation_type, relation_id, userBU, userId);
   if (parentExists === 0) throw new NotFoundError("record_not_found");
+  await assertCanModifyAnnouncement(relation_type, relation_id, userId);
 
   return attachRepo.insertSharedAttachment({
     relation_type,
@@ -294,6 +317,9 @@ export const deleteAttachment = async (attachmentId, userBU, userId = null) => {
   const { s3_key, relation_type, relation_id } = attachment;
   const parentExists = await checkRelationAccess(relation_type, relation_id, userBU, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
+  // Reading a bulletin does not license editing it. Without this, any SOUSER of
+  // the authoring organisation could strip the attachments off a colleague's post.
+  await assertCanModifyAnnouncement(relation_type, relation_id, userId);
 
   // Linked SharePoint files share the original S3 object — only drop the DB row,
   // never the object (the file in /files still owns it).
@@ -344,6 +370,7 @@ export const deleteProfilePicture = async (userId, userBU) => {
 export const deleteAttachmentsByRelation = async (relationType, relationId, userBU, userId = null) => {
   const parentExists = await checkRelationAccess(relationType, relationId, userBU, userId);
   if (parentExists === 0) throw new ForbiddenError("forbidden");
+  await assertCanModifyAnnouncement(relationType, relationId, userId);
 
   const rows = await attachRepo.findAttachmentKeysByRelation(relationType, relationId, userBU);
   if (rows.length === 0) throw new NotFoundError("record_not_found");
@@ -407,13 +434,19 @@ export const streamAttachment = async (attachmentId, userBU, userId = null, user
 
 // ─── 10. Rename attachment ─────────────────────────────────────────────────────
 
-export const renameAttachment = async (attachmentId, displayName, userBU) => {
+export const renameAttachment = async (attachmentId, displayName, userBU, userId = null) => {
   if (!displayName || displayName.trim() === "") {
     throw new ValidationError("display_name_required");
   }
 
   const exists = await attachRepo.checkAttachmentExists(attachmentId);
   if (exists === 0) throw new NotFoundError("record_not_found");
+
+  // Renaming an announcement's attachment edits the announcement.
+  const attachment = await attachRepo.findAttachmentById(attachmentId);
+  if (attachment) {
+    await assertCanModifyAnnouncement(attachment.relation_type, attachment.relation_id, userId);
+  }
 
   const { rows, rowCount } = await attachRepo.updateAttachmentDisplayName(
     attachmentId, displayName.trim(), userBU,

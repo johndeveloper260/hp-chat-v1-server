@@ -7,11 +7,22 @@
  */
 import express from "express";
 import auth from "../middleware/auth.js";
-import { getStreamToken, addChannelMember } from "../controller/streamController.js";
+import {
+  getStreamToken,
+  addChannelMember,
+  getChatContacts,
+  authorizeChatMembers,
+  createChatChannel,
+  removeChannelMember,
+} from "../controller/streamController.js";
 import { handleChatWebhook } from "../controller/streamChatWebhookController.js";
 import { runStreamSync } from "../jobs/streamSyncJob.js";
 
+import { validate } from "../middleware/validate.js";
+import { createChatChannelSchema, addChatMemberSchema } from "../validators/chatValidator.js";
 const router = express.Router();
+router.post("/channel/remove-member", express.json(), auth, validate(addChatMemberSchema), removeChannelMember);
+router.post("/channel/create", express.json(), auth, validate(createChatChannelSchema), createChatChannel);
 
 // Token endpoint — user ID always derived from JWT, never from the URL param
 router.get("/token",         auth, getStreamToken);
@@ -19,7 +30,13 @@ router.get("/token/:userId", auth, getStreamToken); // backward-compat for web f
 
 // Add member via server-side admin client (bypasses channel permission restrictions)
 // express.json() is applied inline because this router is mounted before the global body parser
-router.post("/channel/add-member", express.json(), auth, addChannelMember);
+router.post("/channel/add-member", express.json(), auth, validate(addChatMemberSchema), addChannelMember);
+
+// Scoped contact discovery. The clients filter Stream's queryUsers on the
+// client side; this is the answer the backend will actually enforce, and the
+// list the pickers should be built from.
+router.get("/contacts", auth, getChatContacts);
+router.post("/authorize-members", express.json(), auth, authorizeChatMembers);
 
 // Webhook — raw body required for HMAC signature verification (no auth middleware)
 router.post("/webhook/chat", express.raw({ type: "application/json" }), handleChatWebhook);

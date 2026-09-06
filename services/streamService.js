@@ -7,6 +7,7 @@
 import { StreamClient } from "@stream-io/node-sdk";
 import { StreamChat } from "stream-chat";
 import env from "../config/env.js";
+import { ForbiddenError } from "../errors/AppError.js";
 
 export const generateStreamToken = (userId) => {
   const client = new StreamClient(env.stream.apiKey, env.stream.apiSecret);
@@ -33,4 +34,23 @@ const getStreamChat = () => {
 export const addChannelMember = async (channelId, userId) => {
   const channel = getStreamChat().channel("messaging", channelId);
   await channel.addMembers([String(userId)]);
+};
+
+/**
+ * Throws unless `userId` is already a member of the channel.
+ *
+ * Adding someone to a channel is a privileged action performed with the admin
+ * client, so the caller has to have standing in that channel — otherwise the
+ * endpoint lets an outsider inject members into a conversation they cannot see.
+ */
+export const assertChannelMember = async (channelId, userId) => {
+  const channel = getStreamChat().channel("messaging", String(channelId));
+  const { members = [] } = await channel.queryMembers(
+    { user_id: { $eq: String(userId) } },
+    {},
+    { limit: 1 },
+  );
+  if (members.length === 0) {
+    throw new ForbiddenError("chat_not_channel_member", "api_errors.chat.not_channel_member");
+  }
 };

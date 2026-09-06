@@ -7,6 +7,7 @@
  */
 import * as commentsRepo from "../repositories/commentsRepository.js";
 import { createNotification } from "./notificationService.js";
+import { isAnnouncementVisible } from "./announcementAccess.js";
 import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
 
 const ELEVATED_ROLES = ["OFFICER", "ADMIN"];
@@ -25,7 +26,11 @@ const assertParentBU = async (relationType, relationId, businessUnit, userId = n
   if (relationType === "inquiries") {
     ok = await commentsRepo.checkInquiryBU(relationId, businessUnit);
   } else if (relationType === "announcements") {
-    ok = await commentsRepo.checkAnnouncementBU(relationId, businessUnit);
+    // Full bulletin visibility, not just a BU existence check: the comment
+    // thread is part of the bulletin, so whoever cannot read the bulletin
+    // cannot read or post to its thread. The old checkAnnouncementBU let any
+    // account in the BU read another organisation's thread.
+    ok = await isAnnouncementVisible(userId, relationId);
   } else if (relationType === "return_home") {
     ok = await commentsRepo.checkReturnHomeBU(relationId, businessUnit);
   } else if (relationType === "task") {

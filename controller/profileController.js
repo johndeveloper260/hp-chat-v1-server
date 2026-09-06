@@ -35,6 +35,7 @@ export const getUserProfile = async (req, res, next) => {
       req.params.userId,
       req.user.business_unit,
       req.user.id,
+      req.user,
     );
     res.json(profile);
   } catch (err) { next(err); }
@@ -46,6 +47,7 @@ export const updateUserProfile = async (req, res, next) => {
       req.params.userId,
       req.body,
       req.user.business_unit,
+      req.user,
     );
     res.json({ message: getApiMessage("update_success", lang(req)), data });
   } catch (err) { next(err); }
@@ -56,6 +58,7 @@ export const getUserLegalProfile = async (req, res, next) => {
     const profile = await profileService.getLegalProfile(
       req.params.userId,
       req.user.business_unit,
+      req.user,
     );
     res.status(200).json(profile);
   } catch (err) { next(err); }
@@ -67,6 +70,7 @@ export const updateWorkVisa = async (req, res, next) => {
       req.params.userId,
       req.body,
       req.user.business_unit,
+      req.user,
     );
     res.status(200).json({ message: getApiMessage("update_success", lang(req)) });
   } catch (err) { next(err); }

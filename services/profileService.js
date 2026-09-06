@@ -17,8 +17,32 @@ import {
   NotFoundError,
   ValidationError,
 } from "../errors/AppError.js";
+import { isSouser } from "../utils/souserScope.js";
 
 const VALID_LANGUAGES = ["en", "ja", "id", "vi"];
+
+/**
+ * Personal, legal and visa records are private to their owner and the BU's
+ * officers.
+ *
+ * These routes are gated on `auth` plus "same business unit", which is enough
+ * for a SOUSER — who shares a BU with every employee their organisation sent —
+ * to read or overwrite any of their addresses, passport and visa dates,
+ * birthdate and emergency contacts by asking for their user id. Sharing a
+ * sending organisation is a reason to be able to message someone, not a reason
+ * to hold their personal file.
+ *
+ * A SOUSER is confined to their own record. USER and OFFICER behaviour is
+ * unchanged — the pre-existing "any USER in the BU can read any profile" gap is
+ * wider than this task and is called out in the handoff rather than altered
+ * here, where it would change the clients' behaviour unannounced.
+ */
+const assertPersonalRecordAccess = (requestor, targetUserId) => {
+  if (!isSouser(requestor)) return;
+  if (String(requestor.id) !== String(targetUserId)) {
+    throw new ForbiddenError("souser_profile_access_denied", "api_errors.souser.profile_access_denied");
+  }
+};
 
 // ── BU settings ───────────────────────────────────────────────────────────────
 
@@ -43,7 +67,8 @@ export const searchUsers = async (requestor, filters) => {
 
 // ── Work visa ─────────────────────────────────────────────────────────────────
 
-export const updateWorkVisa = async (userId, data, requestorBU) => {
+export const updateWorkVisa = async (userId, data, requestorBU, requestor = null) => {
+  if (requestor) assertPersonalRecordAccess(requestor, userId);
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
@@ -71,13 +96,15 @@ export const updateWorkVisa = async (userId, data, requestorBU) => {
 
 // ── Read profile ──────────────────────────────────────────────────────────────
 
-export const getLegalProfile = async (userId, requestorBU) => {
+export const getLegalProfile = async (userId, requestorBU, requestor = null) => {
+  if (requestor) assertPersonalRecordAccess(requestor, userId);
   const profile = await profileRepo.findLegalProfile(userId, requestorBU);
   if (!profile) throw new NotFoundError("record_not_found");
   return profile;
 };
 
-export const getUserProfile = async (userId, requestorBU, requestorId) => {
+export const getUserProfile = async (userId, requestorBU, requestorId, requestor = null) => {
+  if (requestor) assertPersonalRecordAccess(requestor, userId);
   const lang    = await getUserLanguage(requestorId);
   const profile = await profileRepo.findUserProfile(userId, requestorBU, lang);
   if (!profile) throw new NotFoundError("record_not_found");
@@ -86,7 +113,8 @@ export const getUserProfile = async (userId, requestorBU, requestorId) => {
 
 // ── Update profile ────────────────────────────────────────────────────────────
 
-export const updateUserProfile = async (userId, data, requestorBU) => {
+export const updateUserProfile = async (userId, data, requestorBU, requestor = null) => {
+  if (requestor) assertPersonalRecordAccess(requestor, userId);
   const member = await profileRepo.findUserInBU(userId, requestorBU);
   if (!member) throw new ForbiddenError();
 
