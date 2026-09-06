@@ -7,6 +7,7 @@
 import { getPool } from "../config/getPool.js";
 import * as companyRepo from "../repositories/companyRepository.js";
 import { getUserLanguage } from "../utils/getUserLanguage.js";
+import { syncCompanyMembersToStream } from "../utils/syncUserToStream.js";
 import { NotFoundError, ConflictError } from "../errors/AppError.js";
 
 const ALLOWED_FEATURES = ["ticketing", "flight_tracker", "company_form"];
@@ -75,6 +76,14 @@ export const createCompany = async (data, businessUnit, userId) => {
 export const updateCompany = async (id, businessUnit, data, userId) => {
   const { rows } = await companyRepo.updateCompanyById(id, businessUnit, data, userId);
   if (!rows[0]) throw new NotFoundError("company_not_found");
+
+  // company_name is denormalized onto every member's Stream record. Fan out so the
+  // rename is visible in chat immediately instead of at the next nightly reconcile.
+  // Fire-and-forget: a large company must not slow or fail the officer's request.
+  syncCompanyMembersToStream(id, businessUnit).catch((e) =>
+    console.error(`Stream fan-out after company rename (${id}) failed:`, e),
+  );
+
   return rows[0];
 };
 

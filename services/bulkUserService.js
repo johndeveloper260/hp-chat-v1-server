@@ -15,6 +15,7 @@ import * as bulkUserRepo    from "../repositories/bulkUserRepository.js";
 import * as profileRepo     from "../repositories/profileRepository.js";
 import * as companyRepo     from "../repositories/companyRepository.js";
 import { bulkImportRowSchema } from "../validators/bulkUserValidator.js";
+import { syncUserToStream } from "../utils/syncUserToStream.js";
 import { formatDate, parseDate, toCsv, parseCsv } from "../utils/csv.js";
 
 // ── Hardcoded reference sets (same as frontend COUNTRY_OPTIONS / GENDER_OPTIONS)
@@ -244,11 +245,21 @@ const _processRows = async (fileBuffer, officerBU) => {
       await bulkUserRepo.bulkUpdateVisa(user_id, visaFields, client);
       await client.query("COMMIT");
       succeeded.push(logCtx);
+
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       failed.push({ ...logCtx, reason: err.message ?? "Update failed" });
+      continue;
     } finally {
       client.release();
+    }
+
+    // Release the committed connection before sync borrows from the same pool.
+    // A Stream failure must not change the successful database import result.
+    try {
+      await syncUserToStream(user_id);
+    } catch (e) {
+      console.error(`Stream sync after bulk import of ${user_id} failed:`, e);
     }
   }
 

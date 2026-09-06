@@ -1,3 +1,7 @@
 node_modules/
 .env
-.DS_Store.claude/worktrees/
+.DS_Store
+.claude/worktrees/
+
+# Reconciliation reports (scripts/reconcileStreamVsDb.js) — contain user emails
+output/

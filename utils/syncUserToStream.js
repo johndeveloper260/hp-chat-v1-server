@@ -1,111 +1,176 @@
 import { StreamChat } from "stream-chat";
-import dotenv from "dotenv";
 
-import { getPool } from "../config/getPool.js";
-import { formatDisplayName } from "./formatDisplayName.js";
 import env from "../config/env.js";
+import { getPool } from "../config/getPool.js";
+import {
+  PROJECT_ONE_SQL,
+  PROJECT_BY_COMPANY_SQL,
+  PROJECT_BY_VISA_TYPE_SQL,
+  buildCreatePayload,
+  buildUpdatePayload,
+} from "./streamUserProjection.js";
 
-dotenv.config();
+/** Stream recommended max per partialUpdateUsers call. */
+const BATCH_SIZE = 100;
 
-const streamClient = StreamChat.getInstance(
-  process.env.STREAM_API_KEY,
-  process.env.STREAM_API_SECRET,
-);
+let _streamChat;
+const getStreamChat = () => {
+  if (!_streamChat) {
+    _streamChat = StreamChat.getInstance(env.stream.apiKey, env.stream.apiSecret);
+  }
+  return _streamChat;
+};
 
-const STREAM_SYNC_QUERY = `
-  SELECT
-    a.id,
-    a.email,
-    a.business_unit,
-    p.first_name,
-    p.middle_name,
-    p.last_name,
-    p.company,
-    p.batch_no,
-    p.user_type,
-    p.sending_org,
-    p.country,
-    v.visa_type,
-    COALESCE(
-      c.company_name ->> 'ja',
-      c.company_name ->> 'en',
-      (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
-    ) AS company_name,
-    COALESCE(
-      vl.descr ->> 'ja',
-      vl.descr ->> 'en',
-      (SELECT value FROM jsonb_each_text(vl.descr) LIMIT 1)
-    ) AS visa_type_descr,
-    sa.s3_key as profile_pic_s3_key,
-    sa.s3_bucket as profile_pic_s3_bucket
-  FROM v4.user_account_tbl a
-  LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
-  LEFT JOIN v4.company_tbl c ON p.company::uuid = c.company_id
-  LEFT JOIN v4.user_visa_info_tbl  v  ON a.id = v.user_id
-  LEFT JOIN v4.visa_list_tbl vl ON (
-    v.visa_type = vl.code
-    AND a.business_unit = vl.business_unit
-  )
-  LEFT JOIN LATERAL (
-    SELECT s3_key, s3_bucket
-    FROM v4.shared_attachments
-    WHERE relation_type = 'profile'
-      AND relation_id = a.id::text
-    ORDER BY created_at DESC
-    LIMIT 1
-  ) sa ON true
-  WHERE a.id = $1;
-`;
+/** Runs the projection for one user. Returns null when the user has no profile row. */
+const projectUser = async (userId, dbClient) => {
+  const runner = dbClient || getPool();
+  const { rows } = await runner.query(PROJECT_ONE_SQL, [userId]);
+  return rows[0] ?? null;
+};
 
 /**
- * Sync a user's profile to GetStream Chat.
- * Queries the DB for full profile + visa + company data and upserts to Stream.
- * The profile image is stored as a permanent proxy URL (BACKEND_URL/profile/avatar/:id)
- * that generates a fresh S3 signed URL on each request — never expires.
+ * Writes projected rows to Stream in batches.
+ *
+ * Shared by the nightly job and every fan-out below, so they cannot drift apart in
+ * batching or error handling.
+ *
+ * @param   {object[]} rows - rows from any projection query
+ * @param   {string}   label - log prefix, e.g. "[StreamSync]"
+ * @returns {{ synced: number, skipped: number, errors: number }}
+ */
+export const pushUpdates = async (rows, label = "[StreamSync]") => {
+  const streamChat = getStreamChat();
+  let synced = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const payloads = rows
+      .slice(i, i + BATCH_SIZE)
+      .map((row) => {
+        const payload = buildUpdatePayload(row);
+        if (!payload) skipped++;
+        return payload;
+      })
+      .filter(Boolean);
+
+    if (!payloads.length) continue;
+
+    const batchNo = Math.floor(i / BATCH_SIZE) + 1;
+
+    try {
+      await streamChat.partialUpdateUsers(payloads);
+      synced += payloads.length;
+      console.log(`${label} Batch ${batchNo}: updated ${payloads.length} users.`);
+    } catch (err) {
+      // A partial update targets an existing Stream user — unlike the upsert this
+      // replaced, it will not conjure one. A single unknown id (a user who never
+      // completed registration) can therefore reject the whole call, so fall back to
+      // one-at-a-time and lose only the rows that are genuinely bad.
+      console.error(
+        `${label} Batch ${batchNo} failed (${err.message}) — retrying individually.`,
+      );
+
+      for (const payload of payloads) {
+        try {
+          await streamChat.partialUpdateUser(payload);
+          synced++;
+        } catch (userErr) {
+          errors++;
+          console.error(`${label}   user ${payload.id}: ${userErr.message}`);
+        }
+      }
+    }
+  }
+
+  return { synced, skipped, errors };
+};
+
+/**
+ * Reconcile a user's Stream attributes from Postgres.
+ *
+ * Partial update: fields Postgres owns are set or unset, everything else on the
+ * Stream record is left alone. business_unit is not touched — it is written once
+ * by createStreamUser() at registration and never again.
+ *
+ * No-ops for accounts with no v4.user_profile_tbl row (sousers), whose Stream
+ * metadata is owned by souserService.
  *
  * @param {string} userId - The user's UUID
- * @param {import('pg').PoolClient} [dbClient] - Optional pg client (use when inside a transaction)
+ * @param {import('pg').PoolClient} [dbClient] - Optional pg client (use inside a transaction)
  */
 export const syncUserToStream = async (userId, dbClient) => {
-  const queryRunner = dbClient || getPool();
+  const row = await projectUser(userId, dbClient);
 
-  const result = await queryRunner.query(STREAM_SYNC_QUERY, [userId]);
-
-  if (result.rows.length === 0) {
-    console.warn(`syncUserToStream: No user found for id ${userId}`);
+  if (!row) {
+    console.warn(`syncUserToStream: no profile row for id ${userId} — skipped`);
     return;
   }
 
-  const user = result.rows[0];
-  const fullName = formatDisplayName(user.last_name, user.first_name, user.middle_name);
-  const normalizedEmail = user.email.toLowerCase().trim();
+  const payload = buildUpdatePayload(row);
+  if (!payload) return;
 
-  // Use CloudFront URL when available (permanent, no expiry, no backend hop).
-  // Fall back to the proxy URL which generates a fresh signed URL on each load.
-  const profileImageUrl = user.profile_pic_s3_key
-    ? env.aws.cloudfrontDomain
-      ? `https://${env.aws.cloudfrontDomain}/${user.profile_pic_s3_key}`
-      : `${process.env.BACKEND_URL}/profile/avatar/${user.id}`
-    : null;
+  await getStreamChat().partialUpdateUser(payload);
+};
 
-  const streamUserData = {
-    id: user.id,
-    name: fullName,
-    email: normalizedEmail,
-    company: user.company,
-    company_name: user.company_name,
-    visa_type_descr: user.visa_type_descr,
-    batch_no: user.batch_no,
-    business_unit: user.business_unit,
-    user_type: user.user_type,
-    ...(user.sending_org  && { sending_org:  user.sending_org }),
-    ...(user.visa_type    && { visa_type:     user.visa_type }),
-    ...(user.country      && { country:       user.country }),
-  };
+/**
+ * Create the Stream user for a newly registered account.
+ *
+ * The only path that writes business_unit, and the only one that may use a full
+ * upsert — there is no existing Stream record whose attributes could be lost.
+ *
+ * @param {string} userId - The user's UUID
+ * @param {import('pg').PoolClient} [dbClient] - Optional pg client (use inside a transaction)
+ */
+export const createStreamUser = async (userId, dbClient) => {
+  const row = await projectUser(userId, dbClient);
 
-  if (profileImageUrl) {
-    streamUserData.image = profileImageUrl;
+  if (!row) {
+    console.warn(`createStreamUser: no profile row for id ${userId} — skipped`);
+    return;
   }
 
-  await streamClient.upsertUser(streamUserData);
+  await getStreamChat().upsertUser(buildCreatePayload(row));
+};
+
+// ── Fan-outs ──────────────────────────────────────────────────────────────────
+//
+// company_name and visa_type_descr are denormalized into every member's Stream
+// record, so renaming the company or editing the visa description leaves every one
+// of them stale. These re-project the affected users.
+//
+// Both are best-effort by design: a rename can touch hundreds of users and must not
+// block or fail the officer's request. A failure is logged and left for the nightly
+// reconcile, matching how profileService already treats Stream sync.
+
+/**
+ * Re-syncs everyone in a company. Call after the company's name changes.
+ * @param {string} companyId
+ * @param {string} businessUnit
+ */
+export const syncCompanyMembersToStream = async (companyId, businessUnit) => {
+  const { rows } = await getPool().query(PROJECT_BY_COMPANY_SQL, [
+    String(companyId),
+    businessUnit,
+  ]);
+  if (!rows.length) return { synced: 0, skipped: 0, errors: 0 };
+
+  console.log(`[StreamFanout] Company ${companyId}: re-syncing ${rows.length} users.`);
+  return pushUpdates(rows, "[StreamFanout]");
+};
+
+/**
+ * Re-syncs everyone on a visa code. Call after the code's description changes.
+ * @param {string} visaCode
+ * @param {string} businessUnit
+ */
+export const syncVisaTypeMembersToStream = async (visaCode, businessUnit) => {
+  const { rows } = await getPool().query(PROJECT_BY_VISA_TYPE_SQL, [
+    visaCode,
+    businessUnit,
+  ]);
+  if (!rows.length) return { synced: 0, skipped: 0, errors: 0 };
+
+  console.log(`[StreamFanout] Visa ${visaCode}: re-syncing ${rows.length} users.`);
+  return pushUpdates(rows, "[StreamFanout]");
 };

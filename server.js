@@ -95,7 +95,15 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // --- 3. Database ---
 connectDB();
-scheduleStreamSync();
+
+// node-cron is in-process, so an unguarded schedule fires once per dyno — every
+// dyno running the same full reconcile at 20:00 UTC. Set RUN_CRON=true on exactly
+// one dyno. POST /stream/sync/run stays available everywhere for manual runs.
+if (process.env.RUN_CRON === "true") {
+  scheduleStreamSync();
+} else {
+  console.log("[StreamSync] Not scheduled on this dyno (RUN_CRON !== 'true').");
+}
 
 // --- 4. Routes ---
 app.get("/", (req, res) => res.status(200).send({ status: "ok" }));

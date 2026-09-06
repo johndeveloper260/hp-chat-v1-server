@@ -13,7 +13,7 @@ import { getPool } from "../config/getPool.js";
 import env from "../config/env.js";
 import { NotFoundError, ConflictError } from "../errors/AppError.js";
 import * as userRepo from "../repositories/userRepository.js";
-import { syncUserToStream } from "../utils/syncUserToStream.js";
+import { createStreamUser } from "../utils/syncUserToStream.js";
 import * as emailService from "../config/systemMailer.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -137,8 +137,9 @@ export async function registerUser(data) {
       await userRepo.grantDefaultOfficerRoles(userId, client);
     }
 
-    // 5. Sync to Stream Chat (inside transaction — rolls back if Stream fails)
-    await syncUserToStream(userId, client);
+    // 5. Create the Stream user (inside transaction — rolls back if Stream fails).
+    // This is the only path that writes business_unit; every later sync leaves it alone.
+    await createStreamUser(userId, client);
 
     // 6. Generate Stream token
     const streamClient = new StreamClient(env.stream.apiKey, env.stream.apiSecret);
