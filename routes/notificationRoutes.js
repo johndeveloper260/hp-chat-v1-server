@@ -54,24 +54,20 @@ router.post("/stream-webhook", async (req, res) => {
       const callId   = callCid?.split(":")[1];
       const callerId = event.user?.id;
       const callerName  = event.user?.name || "Someone";
-      const callerImage = event.user?.image;
 
       const members    = event.members || event.call?.members || [];
-      const recipients = members.filter((m) => m.user_id !== callerId);
       const allMemberIds = members.map((m) => m.user_id).filter(Boolean);
 
+      // Ringing is delivered by Stream's own push (FCM data message on
+      // Android, VoIP push -> CallKit on iOS), which the SDK dismisses when
+      // the call is answered, declined or cancelled. The Expo push that used
+      // to be sent here duplicated it and, having no cancel path, stayed in
+      // the shade after the call ended. Only the call log bookkeeping remains.
       if (callId) {
         activeCalls.set(callId, {
           callerId, callerName, memberIds: allMemberIds,
           createdAt: Date.now(), accepted: false,
         });
-      }
-
-      for (const member of recipients) {
-        console.log(`  → Notifying user ${member.user_id}`);
-        await notificationController.sendCallNotification(
-          member.user_id, callerName, callId, callerId, callerImage,
-        );
       }
     }
 
@@ -82,10 +78,8 @@ router.post("/stream-webhook", async (req, res) => {
       const createdBy   = event.call?.created_by;
       const callerId    = createdBy?.id;
       const callerName  = createdBy?.name || "Someone";
-      const callerImage = createdBy?.image;
 
       const members    = event.call?.members || [];
-      const recipients = members.filter((m) => m.user_id !== callerId);
       const allMemberIds = members.map((m) => m.user_id).filter(Boolean);
 
       if (callId && !activeCalls.has(callId)) {
@@ -93,14 +87,6 @@ router.post("/stream-webhook", async (req, res) => {
           callerId, callerName, memberIds: allMemberIds,
           createdAt: Date.now(), accepted: false,
         });
-
-        // Only notify if call.ring didn't already handle it
-        for (const member of recipients) {
-          console.log(`  → Notifying user ${member.user_id}`);
-          await notificationController.sendCallNotification(
-            member.user_id, callerName, callId, callerId, callerImage,
-          );
-        }
       }
     }
 
