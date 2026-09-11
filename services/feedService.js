@@ -124,8 +124,8 @@ export const createAnnouncement = async ({ body, user }) => {
     if (recipientIds.length > 0) {
       await sendNotificationToMultipleUsers(
         recipientIds,
-        `New Announcement: ${title}`,
-        `${creatorName} posted a new announcement`,
+        body.poll ? `New Survey: ${title}` : `New Announcement: ${title}`,
+        body.poll ? `${creatorName} posted a survey` : `${creatorName} posted a new announcement`,
         {
           type: "announcement",
           announcementId: newAnnouncement.row_id,
@@ -196,6 +196,8 @@ export const updateAnnouncement = async ({ rowId, body, user }) => {
   } catch (err) { await client.query("ROLLBACK"); throw err; }
   finally { client.release(); }
 
+  const poll = await pollRepo.findPollByAnnouncement(rowId, userBU, undefined, viewer.id);
+
   // Notify when post is newly activated or when active content changes
   const wasActivated   = oldData && !oldData.active && active;
   const titleChanged   = oldData && oldData.title !== title;
@@ -214,8 +216,12 @@ export const updateAnnouncement = async ({ rowId, body, user }) => {
     if (recipientIds.length > 0) {
       await sendNotificationToMultipleUsers(
         recipientIds,
-        wasActivated ? `New Announcement: ${title}` : `Announcement Updated: ${title}`,
-        wasActivated ? `${updaterName} posted an announcement` : `${updaterName} updated an announcement`,
+        wasActivated
+          ? (poll ? `New Survey: ${title}` : `New Announcement: ${title}`)
+          : (poll ? `Survey Updated: ${title}` : `Announcement Updated: ${title}`),
+        wasActivated
+          ? (poll ? `${updaterName} posted a survey` : `${updaterName} posted an announcement`)
+          : (poll ? `${updaterName} updated a survey` : `${updaterName} updated an announcement`),
         {
           type: "announcement",
           announcementId: rowId,
@@ -226,7 +232,6 @@ export const updateAnnouncement = async ({ rowId, body, user }) => {
     }
   }
 
-  const poll = await pollRepo.findPollByAnnouncement(rowId, userBU, undefined, viewer.id);
   return { ...updated, poll: projectPollForViewer(poll, updated, viewer) };
 };
 
