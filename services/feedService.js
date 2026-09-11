@@ -12,12 +12,17 @@ import { getUserLanguage }                from "../utils/getUserLanguage.js";
 import { deleteFromS3 }                   from "../utils/s3Client.js";
 import { sendNotificationToMultipleUsers } from "./notificationService.js";
 import * as feedRepo                      from "../repositories/feedRepository.js";
-import { ForbiddenError, NotFoundError }  from "../errors/AppError.js";
+import * as pollRepo                      from "../repositories/pollRepository.js";
+import { ForbiddenError, NotFoundError, ConflictError, ValidationError } from "../errors/AppError.js";
+import { projectPollForViewer, isPollOpen } from "../utils/pollProjection.js";
+import { toCsv } from "../utils/csv.js";
 import { ownsAnnouncement }  from "../utils/announcementVisibility.js";
 import {
   resolveViewer,
   loadVisibleAnnouncement,
   assertCanWrite,
+  canModifyAnnouncement,
+  canReadPollResults,
 } from "./announcementAccess.js";
 
 // ─── 1. Posters ───────────────────────────────────────────────────────────────
@@ -43,7 +48,7 @@ export const getAnnouncements = async ({ company_filter, user, isManagement }) =
   // a client-supplied company filter for authorization.
   const effectiveFilter = isOfficer ? company_filter : viewer.company;
 
-  return feedRepo.findAnnouncements({
+  const rows = await feedRepo.findAnnouncements({
     lang,
     userId: viewer.id,
     company_filter: effectiveFilter,
@@ -54,6 +59,7 @@ export const getAnnouncements = async ({ company_filter, user, isManagement }) =
       ? { sendingOrg: viewer.sendingOrg, country: viewer.country }
       : null,
   });
+  return rows.map((row) => ({ ...row, poll: projectPollForViewer(row.poll, row, viewer) }));
 };
 
 // ─── 3. Create announcement ───────────────────────────────────────────────────
@@ -86,10 +92,27 @@ export const createAnnouncement = async ({ body, user }) => {
     batch_no    = null;
   }
 
-  const newAnnouncement = await feedRepo.insertAnnouncement({
-    userBU, company, batch_no, country, sending_org, title, content_text,
-    date_from, date_to, active, comments_on, userId: viewer.id, createdBySendingOrg,
-  });
+  if (body.poll?.closes_at && new Date(body.poll.closes_at) <= new Date()) {
+    throw new ValidationError("poll_closed", "api_errors.poll.closed");
+  }
+  const client = await getPool().connect();
+  let newAnnouncement;
+  try {
+    await client.query("BEGIN");
+    newAnnouncement = await feedRepo.insertAnnouncement({
+      userBU, company, batch_no, country, sending_org, title, content_text,
+      date_from, date_to, active, comments_on, userId: viewer.id, createdBySendingOrg,
+    }, client);
+    if (body.poll) await pollRepo.insertPoll({
+      announcementId: newAnnouncement.row_id, businessUnit: userBU, question: body.poll.question,
+      allowMultiple: body.poll.allow_multiple, closesAt: body.poll.closes_at,
+      options: body.poll.options, userId: viewer.id,
+    }, client);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally { client.release(); }
 
   // Push notifications only when posting as active
   if (active) {
@@ -113,7 +136,8 @@ export const createAnnouncement = async ({ body, user }) => {
     }
   }
 
-  return newAnnouncement;
+  const poll = await pollRepo.findPollByAnnouncement(newAnnouncement.row_id, userBU, undefined, viewer.id);
+  return { ...newAnnouncement, poll: projectPollForViewer(poll, newAnnouncement, viewer) };
 };
 
 // ─── 4. Update announcement ───────────────────────────────────────────────────
@@ -140,11 +164,36 @@ export const updateAnnouncement = async ({ rowId, body, user }) => {
     sending_org = oldData.created_by_sending_org;
   }
 
-  const updated = await feedRepo.updateAnnouncement({
-    company, batch_no, country, sending_org, title, content_text, date_from, date_to,
-    active, comments_on, userId: viewer.id, rowId, userBU,
-  });
-  if (!updated) throw new NotFoundError("record_not_found");
+  const client = await getPool().connect();
+  let updated;
+  try {
+    await client.query("BEGIN");
+    updated = await feedRepo.updateAnnouncement({ company, batch_no, country, sending_org, title, content_text, date_from, date_to,
+      active, comments_on, userId: viewer.id, rowId, userBU }, client);
+    if (!updated) throw new NotFoundError("record_not_found");
+    if (Object.hasOwn(body, "poll")) {
+      const current = await pollRepo.findPollByAnnouncement(rowId, userBU, client, viewer.id);
+      if (body.poll === null) {
+        if (current?.has_responses) throw new ConflictError("poll_has_responses", "api_errors.poll.has_responses");
+        if (current) await pollRepo.deletePoll(current.poll_id, client);
+      } else if (!current) {
+        await pollRepo.insertPoll({ announcementId: rowId, businessUnit: userBU, question: body.poll.question,
+          allowMultiple: body.poll.allow_multiple, closesAt: body.poll.closes_at, options: body.poll.options, userId: viewer.id }, client);
+      } else {
+        // closes_at is optional on the wire: an absent key means "leave it",
+        // only an explicit null clears it. Both clients may omit the field.
+        const closesAt = body.poll.closes_at === undefined ? current.closes_at : body.poll.closes_at;
+        const definitionChanged = current.question !== body.poll.question || current.allow_multiple !== body.poll.allow_multiple ||
+          JSON.stringify(current.options.map((o) => o.label)) !== JSON.stringify(body.poll.options);
+        if (current.has_responses && definitionChanged) throw new ConflictError("poll_has_responses", "api_errors.poll.has_responses");
+        if (definitionChanged) await pollRepo.replacePollDefinition({ pollId: current.poll_id, question: body.poll.question,
+          allowMultiple: body.poll.allow_multiple, closesAt, options: body.poll.options, userId: viewer.id }, client);
+        else await pollRepo.updatePollClosesAt(current.poll_id, closesAt, viewer.id, client);
+      }
+    }
+    await client.query("COMMIT");
+  } catch (err) { await client.query("ROLLBACK"); throw err; }
+  finally { client.release(); }
 
   // Notify when post is newly activated or when active content changes
   const wasActivated   = oldData && !oldData.active && active;
@@ -176,7 +225,8 @@ export const updateAnnouncement = async ({ rowId, body, user }) => {
     }
   }
 
-  return updated;
+  const poll = await pollRepo.findPollByAnnouncement(rowId, userBU, undefined, viewer.id);
+  return { ...updated, poll: projectPollForViewer(poll, updated, viewer) };
 };
 
 // ─── 5. Toggle reaction ───────────────────────────────────────────────────────
@@ -295,6 +345,86 @@ export const toggleFavorite = async ({ rowId, user }) => {
   // bulletin it cannot see and confirm the row_id exists.
   await loadVisibleAnnouncement(user.id, rowId);
   return feedRepo.toggleFavorite(rowId, user.id);
+};
+
+const loadPollForResponse = async (rowId, userId) => {
+  const { row, viewer } = await loadVisibleAnnouncement(userId, rowId);
+  const poll = await pollRepo.findPollByAnnouncement(rowId, row.business_unit, undefined, viewer.id);
+  if (!poll) throw new NotFoundError("poll_not_found", "api_errors.poll.not_found");
+  if (poll.is_locked) throw new ConflictError("poll_locked", "api_errors.poll.locked");
+  if (!isPollOpen(poll, row)) throw new ConflictError("poll_closed", "api_errors.poll.closed");
+  return { row, viewer, poll };
+};
+
+export const respondToPoll = async ({ rowId, optionIds, user }) => {
+  const { row, viewer, poll } = await loadPollForResponse(rowId, user.id);
+  if (optionIds.length > 1 && !poll.allow_multiple) {
+    throw new ValidationError("poll_multiple_not_allowed", "api_errors.poll.multiple_not_allowed");
+  }
+  const unique = new Set(optionIds.map(String));
+  const valid = new Set(poll.options.map((option) => String(option.option_id)));
+  if (unique.size !== optionIds.length || optionIds.some((id) => !valid.has(String(id)))) {
+    throw new ValidationError("poll_option_invalid", "api_errors.poll.option_invalid");
+  }
+  const existing = await pollRepo.findMyResponse(poll.poll_id, viewer.id);
+  const same = existing.option_ids.length === optionIds.length &&
+    existing.option_ids.every((id) => unique.has(String(id)));
+  if (same) return { poll_id: poll.poll_id, my_option_ids: existing.option_ids, responded_at: existing.responded_at };
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const response = await pollRepo.replaceUserResponse({ pollId: poll.poll_id, userId: viewer.id,
+      optionIds, businessUnit: row.business_unit }, client);
+    await client.query("COMMIT");
+    return { poll_id: poll.poll_id, my_option_ids: response.option_ids, responded_at: response.responded_at };
+  } catch (err) { await client.query("ROLLBACK"); throw err; }
+  finally { client.release(); }
+};
+
+export const withdrawPollResponse = async ({ rowId, user }) => {
+  const { viewer, poll } = await loadPollForResponse(rowId, user.id);
+  await pollRepo.deleteUserResponse(poll.poll_id, viewer.id);
+  return { poll_id: poll.poll_id, my_option_ids: [], responded_at: null };
+};
+
+export const setPollLock = async ({ rowId, locked, user }) => {
+  if (!await canModifyAnnouncement(user.id, rowId)) throw new NotFoundError("record_not_found");
+  const { row, viewer } = await loadVisibleAnnouncement(user.id, rowId);
+  const poll = await pollRepo.findPollByAnnouncement(rowId, row.business_unit, undefined, viewer.id);
+  if (!poll) throw new NotFoundError("poll_not_found", "api_errors.poll.not_found");
+  return pollRepo.setPollLock(poll.poll_id, locked, viewer.id);
+};
+
+const loadPollForResults = async (rowId, user) => {
+  if (!await canReadPollResults(user.id, rowId)) throw new NotFoundError("record_not_found");
+  const { row, viewer } = await loadVisibleAnnouncement(user.id, rowId);
+  const poll = await pollRepo.findPollByAnnouncement(rowId, row.business_unit, undefined, viewer.id);
+  if (!poll) throw new NotFoundError("poll_not_found", "api_errors.poll.not_found");
+  return { row, viewer, poll };
+};
+
+export const getPollResults = async ({ rowId, user }) => {
+  const { row, poll } = await loadPollForResults(rowId, user);
+  const lang = await getUserLanguage(user.id);
+  const [result, audience] = await Promise.all([
+    pollRepo.findPollResults(poll.poll_id, lang),
+    feedRepo.countAudience(row.business_unit, row.company, row.batch_no, row.country, row.sending_org, row.created_by_sending_org),
+  ]);
+  const total = result.total_respondents;
+  return { poll_id: poll.poll_id, question: poll.question, allow_multiple: poll.allow_multiple,
+    is_locked: poll.is_locked, is_open: isPollOpen(poll, row), closes_at: poll.closes_at,
+    total_respondents: total, audience_count: audience.count, not_responded: Math.max(audience.count-total,0),
+    response_rate: audience.count ? total/audience.count : 0,
+    options: result.options.map((option) => ({ ...option, percent: total ? option.count/total : 0 })) };
+};
+
+export const exportPollResults = async ({ rowId, user, lang = "en" }) => {
+  const { row, poll } = await loadPollForResults(rowId, user);
+  const rows = await pollRepo.findPollExportRows(poll.poll_id, lang);
+  const csv = toCsv([["respondent_name","company","sending_org","country","batch_no","option","responded_at"],
+    ...rows.map((r) => [r.respondent_name,r.company,r.sending_org,r.country,r.batch_no,r.option,
+      r.responded_at instanceof Date ? r.responded_at.toISOString() : r.responded_at])]);
+  return { csv, filename: `poll_${row.row_id}_${new Date().toISOString().slice(0,10)}.csv` };
 };
 
 // ─── 10. Delete (atomic cascade) ──────────────────────────────────────────────

@@ -160,7 +160,8 @@ export const findAnnouncements = async ({ lang, userId, company_filter, business
             WHERE relation_type = 'announcements' AND relation_id = a.row_id::text
           ) att
         ), '[]'
-      ) AS attachments
+      ) AS attachments,
+      poll_data.poll
     FROM v4.announcement_tbl a
     LEFT JOIN v4.user_profile_tbl u ON a.created_by = u.user_id
     LEFT JOIN v4.souser_tbl creator_souser ON a.created_by::uuid = creator_souser.id
@@ -172,6 +173,21 @@ export const findAnnouncements = async ({ lang, userId, company_filter, business
       ORDER BY created_at DESC
       LIMIT 1
     ) sa ON true
+    LEFT JOIN LATERAL (
+      SELECT json_build_object(
+        'poll_id', p.poll_id, 'question', p.question, 'allow_multiple', p.allow_multiple,
+        'closes_at', p.closes_at, 'is_locked', p.is_locked,
+        'has_responses', EXISTS(SELECT 1 FROM v4.announcement_poll_response_tbl r WHERE r.poll_id=p.poll_id),
+        'options', COALESCE((SELECT json_agg(json_build_object('option_id',o.option_id,'label',o.label,
+          'sort_order',o.sort_order,'count',(SELECT COUNT(*) FROM v4.announcement_poll_response_tbl r WHERE r.option_id=o.option_id)) ORDER BY o.sort_order)
+          FROM v4.announcement_poll_option_tbl o WHERE o.poll_id=p.poll_id),'[]'),
+        'total_respondents',(SELECT COUNT(DISTINCT r.user_id) FROM v4.announcement_poll_response_tbl r WHERE r.poll_id=p.poll_id),
+        'my_option_ids',COALESCE((SELECT array_agg(r.option_id ORDER BY o.sort_order) FROM v4.announcement_poll_response_tbl r
+          JOIN v4.announcement_poll_option_tbl o ON o.option_id=r.option_id WHERE r.poll_id=p.poll_id AND r.user_id=$2::uuid),ARRAY[]::uuid[]),
+        'has_responded',EXISTS(SELECT 1 FROM v4.announcement_poll_response_tbl r WHERE r.poll_id=p.poll_id AND r.user_id=$2::uuid)
+      ) AS poll FROM v4.announcement_poll_tbl p
+      WHERE p.announcement_id=a.row_id AND p.business_unit=a.business_unit
+    ) poll_data ON true
     WHERE 1=1
   `;
 
@@ -640,6 +656,14 @@ export const findAnnouncementAttachmentKeys = async (rowId, userBU, client) => {
 };
 
 export const cascadeDeleteAnnouncement = async (rowId, userBU, client) => {
+  await db(client).query(
+    `DELETE FROM v4.announcement_poll_response_tbl r USING v4.announcement_poll_tbl p
+     WHERE r.poll_id=p.poll_id AND p.announcement_id=$1::integer AND p.business_unit=$2`, [rowId,userBU]);
+  await db(client).query(
+    `DELETE FROM v4.announcement_poll_option_tbl o USING v4.announcement_poll_tbl p
+     WHERE o.poll_id=p.poll_id AND p.announcement_id=$1::integer AND p.business_unit=$2`, [rowId,userBU]);
+  await db(client).query(
+    `DELETE FROM v4.announcement_poll_tbl WHERE announcement_id=$1::integer AND business_unit=$2`, [rowId,userBU]);
   await db(client).query(
     `DELETE FROM v4.announcement_favorites WHERE row_id = $1::integer`,
     [rowId],

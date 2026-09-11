@@ -10,6 +10,8 @@ import {
   updateAnnouncementSchema,
   toggleReactionSchema,
   previewAudienceSchema,
+  pollRespondSchema,
+  pollLockSchema,
 } from "../validators/feedValidator.js";
 import {
   getAnnouncements,
@@ -25,6 +27,11 @@ import {
   markAsSeen,
   getViewers,
   deleteAnnouncement,
+  respondToPoll,
+  withdrawPollResponse,
+  setPollLock,
+  getPollResults,
+  exportPollResults,
 } from "../controller/feedController.js";
 
 const router = express.Router();
@@ -35,6 +42,8 @@ router.post("/:rowId/react",     auth, validate(toggleReactionSchema), toggleRea
 router.post("/:rowId/favorite",  auth, toggleFavorite);
 router.get("/reactions/:rowId",  auth, getReactions);
 router.post("/:rowId/mark-seen", auth, markAsSeen);
+router.post("/:rowId/poll/respond", auth, validate(pollRespondSchema), respondToPoll);
+router.delete("/:rowId/poll/respond", auth, withdrawPollResponse);
 
 // ── announcements_read (or announcements_write) ───────────────────────────────
 router.get("/:rowId/viewers",       auth, requireRole("announcements_read"), getViewers);
@@ -42,10 +51,13 @@ router.get("/companies-with-users", auth, requireRole("announcements_read"), get
 router.get("/batches/:companyId",   auth, requireRole("announcements_read"), getBatchesByCompany);
 router.post("/preview-audience",    auth, requireRole("announcements_read"), validate(previewAudienceSchema), previewAudience);
 router.get("/posters",              auth, requireRole("announcements_read"), getPosters);
+router.get("/:rowId/poll/results", auth, requireRole("announcements_read"), getPollResults);
+router.get("/:rowId/poll/results/export", auth, requireRole("announcements_read"), exportPollResults);
 
 // ── announcements_write ───────────────────────────────────────────────────────
 router.post("/createAnnouncement",          auth, requireRole("announcements_write"), validate(createAnnouncementSchema), createAnnouncement);
 router.put("/updateAnnouncement/:rowId",    auth, requireRole("announcements_write"), validate(updateAnnouncementSchema), updateAnnouncement);
 router.delete("/deleteAnnouncement/:rowId", auth, requireRole("announcements_write"), deleteAnnouncement);
+router.put("/:rowId/poll/lock", auth, requireRole("announcements_write"), validate(pollLockSchema), setPollLock);
 
 export default router;

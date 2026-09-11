@@ -168,3 +168,28 @@ export const getViewers = async (req, res, next) => {
     next(err);
   }
 };
+
+export const respondToPoll = async (req, res, next) => {
+  try { res.json(await feedService.respondToPoll({ rowId: req.params.rowId, optionIds: req.body.option_ids, user: req.user })); }
+  catch (err) { next(err); }
+};
+export const withdrawPollResponse = async (req, res, next) => {
+  try { res.json(await feedService.withdrawPollResponse({ rowId: req.params.rowId, user: req.user })); }
+  catch (err) { next(err); }
+};
+export const setPollLock = async (req, res, next) => {
+  try { res.json(await feedService.setPollLock({ rowId: req.params.rowId, locked: req.body.locked, user: req.user })); }
+  catch (err) { next(err); }
+};
+export const getPollResults = async (req, res, next) => {
+  try { res.json(await feedService.getPollResults({ rowId: req.params.rowId, user: req.user })); }
+  catch (err) { next(err); }
+};
+export const exportPollResults = async (req, res, next) => {
+  try {
+    const { csv, filename } = await feedService.exportPollResults({ rowId: req.params.rowId, user: req.user, lang: req.query.lang ?? "en" });
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (err) { next(err); }
+};

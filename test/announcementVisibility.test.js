@@ -228,6 +228,17 @@ test("the feed window covers active and in-date, and is separate from visibility
   assert.equal(isWithinFeedWindow({ active: true, date_from: "2026-09-06", date_to: "2026-09-06" }, day), true);
 });
 
+test("the feed window accepts pg Date objects for date columns", () => {
+  // pg hands back `date` columns as JS Dates at local midnight. String(date)
+  // is "Sat Sep 05 2026 …", which compared as greater than any ISO day and
+  // closed every poll on a dated bulletin.
+  const day = new Date("2026-09-06T12:00:00Z");
+  const local = (y, m, d) => new Date(y, m - 1, d);
+  assert.equal(isWithinFeedWindow({ active: true, date_from: local(2026, 9, 5), date_to: local(2026, 9, 7) }, day), true);
+  assert.equal(isWithinFeedWindow({ active: true, date_from: local(2026, 9, 7) }, day), false);
+  assert.equal(isWithinFeedWindow({ active: true, date_to: local(2026, 9, 5) }, day), false);
+});
+
 // ── SQL mirrors ──────────────────────────────────────────────────────────────
 // The list query runs in SQL and cannot be exercised without a database, so
 // these assert the predicate is built from the same branches as the JS rule.

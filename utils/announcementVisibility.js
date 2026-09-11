@@ -58,11 +58,26 @@ const arrayIncludes = (arr, value) =>
 export const isWithinFeedWindow = (announcement, today = new Date()) => {
   if (!announcement?.active) return false;
   const day = today.toISOString().slice(0, 10);
-  const from = announcement.date_from ? String(announcement.date_from).slice(0, 10) : null;
-  const to = announcement.date_to ? String(announcement.date_to).slice(0, 10) : null;
+  const from = toCalendarDay(announcement.date_from);
+  const to = toCalendarDay(announcement.date_to);
   if (from && from > day) return false;
   if (to && to < day) return false;
   return true;
+};
+
+/**
+ * "YYYY-MM-DD" from either form a bulletin date arrives in. Rows straight from
+ * pg carry `date` columns as JS Dates built at local midnight, so the calendar
+ * day has to be read back with local getters — toISOString() would roll it to
+ * the previous day west of UTC, and String(date) is not comparable at all.
+ */
+const toCalendarDay = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+  return String(value).slice(0, 10);
 };
 
 /** The BUs a viewer may read from. SOUSERs carry a list; everyone else has one. */

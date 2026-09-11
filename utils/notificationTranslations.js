@@ -1809,6 +1809,36 @@ const apiMessages = {
     ne: "तपाईं आफ्नै प्रोफाइल रेकर्ड मात्र हेर्न वा सम्पादन गर्न सक्नुहुन्छ।",
   },
 
+  // ── Announcement polls ───────────────────────────────────────────────────
+  poll_not_found: {
+    en: "This announcement has no poll.", ja: "このお知らせには投票がありません。", id: "Pengumuman ini tidak memiliki jajak pendapat.",
+    vi: "Thông báo này không có cuộc thăm dò.", my: "ဤကြေညာချက်တွင် စစ်တမ်းမရှိပါ။", km: "ប្រកាសនេះមិនមានការស្ទង់មតិទេ។",
+    bn: "এই ঘোষণায় কোনো জরিপ নেই।", th: "ประกาศนี้ไม่มีแบบสำรวจ", ne: "यो घोषणामा मतदान छैन।",
+  },
+  poll_locked: {
+    en: "This poll has been locked and no longer accepts responses.", ja: "この投票はロックされ、回答を受け付けていません。", id: "Jajak pendapat ini telah dikunci dan tidak lagi menerima jawaban.",
+    vi: "Cuộc thăm dò đã bị khóa và không còn nhận phản hồi.", my: "ဤစစ်တမ်းကို လော့ခ်ချထားပြီး အဖြေများ လက်မခံတော့ပါ။", km: "ការស្ទង់មតិនេះត្រូវបានចាក់សោ ហើយលែងទទួលចម្លើយ។",
+    bn: "এই জরিপটি লক করা হয়েছে এবং আর উত্তর গ্রহণ করছে না।", th: "แบบสำรวจนี้ถูกล็อกและไม่รับคำตอบแล้ว", ne: "यो मतदान लक गरिएको छ र अब जवाफ स्वीकार गर्दैन।",
+  },
+  poll_closed: {
+    en: "This poll is closed.", ja: "この投票は終了しました。", id: "Jajak pendapat ini telah ditutup.", vi: "Cuộc thăm dò này đã đóng.",
+    my: "ဤစစ်တမ်း ပိတ်ထားပါသည်။", km: "ការស្ទង់មតិនេះបានបិទ។", bn: "এই জরিপটি বন্ধ।", th: "แบบสำรวจนี้ปิดแล้ว", ne: "यो मतदान बन्द छ।",
+  },
+  poll_option_invalid: {
+    en: "One or more selected options do not belong to this poll.", ja: "選択した項目の一部がこの投票に含まれていません。", id: "Satu atau lebih pilihan bukan bagian dari jajak pendapat ini.",
+    vi: "Một hoặc nhiều lựa chọn không thuộc cuộc thăm dò này.", my: "ရွေးချယ်ထားသော အဖြေအချို့သည် ဤစစ်တမ်းနှင့် မသက်ဆိုင်ပါ။", km: "ជម្រើសមួយ ឬច្រើនមិនមែនជារបស់ការស្ទង់មតិនេះទេ។",
+    bn: "নির্বাচিত এক বা একাধিক বিকল্প এই জরিপের নয়।", th: "ตัวเลือกอย่างน้อยหนึ่งรายการไม่ได้อยู่ในแบบสำรวจนี้", ne: "चयन गरिएका एक वा बढी विकल्प यो मतदानका होइनन्।",
+  },
+  poll_multiple_not_allowed: {
+    en: "This poll accepts only one answer.", ja: "この投票では回答を1つだけ選べます。", id: "Jajak pendapat ini hanya menerima satu jawaban.", vi: "Cuộc thăm dò này chỉ chấp nhận một câu trả lời.",
+    my: "ဤစစ်တမ်းတွင် အဖြေတစ်ခုသာ လက်ခံပါသည်။", km: "ការស្ទង់មតិនេះទទួលយកចម្លើយតែមួយ។", bn: "এই জরিপে শুধু একটি উত্তর গ্রহণ করা হয়।", th: "แบบสำรวจนี้รับคำตอบได้เพียงข้อเดียว", ne: "यो मतदानले एउटा उत्तर मात्र स्वीकार गर्छ।",
+  },
+  poll_has_responses: {
+    en: "The poll already has responses and can no longer be changed or removed.", ja: "この投票にはすでに回答があるため、変更または削除できません。", id: "Jajak pendapat sudah memiliki jawaban dan tidak dapat diubah atau dihapus.",
+    vi: "Cuộc thăm dò đã có phản hồi và không thể thay đổi hoặc xóa.", my: "စစ်တမ်းတွင် အဖြေများရှိပြီးဖြစ်၍ ပြောင်းလဲခြင်း သို့မဟုတ် ဖယ်ရှားခြင်း မပြုနိုင်ပါ။", km: "ការស្ទង់មតិមានចម្លើយរួចហើយ ហើយមិនអាចកែប្រែ ឬលុបបានទេ។",
+    bn: "জরিপে ইতিমধ্যে উত্তর রয়েছে এবং আর পরিবর্তন বা সরানো যাবে না।", th: "แบบสำรวจมีคำตอบแล้วและไม่สามารถแก้ไขหรือลบได้", ne: "मतदानमा जवाफ आइसकेको छ र अब परिवर्तन वा हटाउन सकिँदैन।",
+  },
+
   // ── Chat access ───────────────────────────────────────────────────────────
   chat_contact_not_permitted: {
     en: "You are not permitted to start a conversation with this person.",

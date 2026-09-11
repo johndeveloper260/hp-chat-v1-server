@@ -122,6 +122,20 @@ export const canModifyAnnouncement = async (userId, rowId, client) => {
          String(row.created_by) === String(viewer.id);
 };
 
+export const canReadPollResults = async (userId, rowId, client) => {
+  let row, viewer;
+  try {
+    ({ row, viewer } = await loadVisibleAnnouncement(userId, rowId, client));
+  } catch (err) {
+    if (err instanceof NotFoundError || err instanceof ForbiddenError) return false;
+    throw err;
+  }
+  if (ELEVATED.includes(viewer.userType)) return true;
+  return viewer.userType === "SOUSER" &&
+    viewer.scope?.readableBusinessUnits?.includes(String(row.business_unit)) &&
+    String(row.created_by) === String(viewer.id);
+};
+
 /**
  * Asserts the caller may write (create/edit/delete) in `businessUnit`.
  * For a SOUSER that is the "Allow bulletin writing" control, checked per BU.
