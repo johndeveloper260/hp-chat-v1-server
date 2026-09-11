@@ -1833,6 +1833,11 @@ const apiMessages = {
     en: "This poll accepts only one answer.", ja: "この投票では回答を1つだけ選べます。", id: "Jajak pendapat ini hanya menerima satu jawaban.", vi: "Cuộc thăm dò này chỉ chấp nhận một câu trả lời.",
     my: "ဤစစ်တမ်းတွင် အဖြေတစ်ခုသာ လက်ခံပါသည်။", km: "ការស្ទង់មតិនេះទទួលយកចម្លើយតែមួយ។", bn: "এই জরিপে শুধু একটি উত্তর গ্রহণ করা হয়।", th: "แบบสำรวจนี้รับคำตอบได้เพียงข้อเดียว", ne: "यो मतदानले एउटा उत्तर मात्र स्वीकार गर्छ।",
   },
+  poll_note_required: {
+    en: "Please add an explanation for the option you selected.", ja: "選択した項目について説明を入力してください。", id: "Harap tambahkan penjelasan untuk pilihan yang Anda pilih.",
+    vi: "Vui lòng nhập giải thích cho lựa chọn của bạn.", my: "သင်ရွေးချယ်ထားသော အဖြေအတွက် ရှင်းလင်းချက် ထည့်ပါ။", km: "សូមបន្ថែមការពន្យល់សម្រាប់ជម្រើសដែលអ្នកបានជ្រើសរើស។",
+    bn: "আপনার নির্বাচিত বিকল্পের জন্য একটি ব্যাখ্যা যোগ করুন।", th: "กรุณาเพิ่มคำอธิบายสำหรับตัวเลือกที่คุณเลือก", ne: "कृपया तपाईंले चयन गर्नुभएको विकल्पका लागि व्याख्या थप्नुहोस्।",
+  },
   poll_has_responses: {
     en: "The poll already has responses and can no longer be changed or removed.", ja: "この投票にはすでに回答があるため、変更または削除できません。", id: "Jajak pendapat sudah memiliki jawaban dan tidak dapat diubah atau dihapus.",
     vi: "Cuộc thăm dò đã có phản hồi và không thể thay đổi hoặc xóa.", my: "စစ်တမ်းတွင် အဖြေများရှိပြီးဖြစ်၍ ပြောင်းလဲခြင်း သို့မဟုတ် ဖယ်ရှားခြင်း မပြုနိုင်ပါ။", km: "ការស្ទង់មតិមានចម្លើយរួចហើយ ហើយមិនអាចកែប្រែ ឬលុបបានទេ។",

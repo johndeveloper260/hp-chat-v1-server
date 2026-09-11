@@ -170,7 +170,7 @@ export const getViewers = async (req, res, next) => {
 };
 
 export const respondToPoll = async (req, res, next) => {
-  try { res.json(await feedService.respondToPoll({ rowId: req.params.rowId, optionIds: req.body.option_ids, user: req.user })); }
+  try { res.json(await feedService.respondToPoll({ rowId: req.params.rowId, optionIds: req.body.option_ids, notes: req.body.notes, user: req.user })); }
   catch (err) { next(err); }
 };
 export const withdrawPollResponse = async (req, res, next) => {

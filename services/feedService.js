@@ -183,8 +183,9 @@ export const updateAnnouncement = async ({ rowId, body, user }) => {
         // closes_at is optional on the wire: an absent key means "leave it",
         // only an explicit null clears it. Both clients may omit the field.
         const closesAt = body.poll.closes_at === undefined ? current.closes_at : body.poll.closes_at;
+        const optionShape = (o) => [o.label, Boolean(o.requires_note)];
         const definitionChanged = current.question !== body.poll.question || current.allow_multiple !== body.poll.allow_multiple ||
-          JSON.stringify(current.options.map((o) => o.label)) !== JSON.stringify(body.poll.options);
+          JSON.stringify(current.options.map(optionShape)) !== JSON.stringify(body.poll.options.map(optionShape));
         if (current.has_responses && definitionChanged) throw new ConflictError("poll_has_responses", "api_errors.poll.has_responses");
         if (definitionChanged) await pollRepo.replacePollDefinition({ pollId: current.poll_id, question: body.poll.question,
           allowMultiple: body.poll.allow_multiple, closesAt, options: body.poll.options, userId: viewer.id }, client);
@@ -356,7 +357,7 @@ const loadPollForResponse = async (rowId, userId) => {
   return { row, viewer, poll };
 };
 
-export const respondToPoll = async ({ rowId, optionIds, user }) => {
+export const respondToPoll = async ({ rowId, optionIds, notes = {}, user }) => {
   const { row, viewer, poll } = await loadPollForResponse(rowId, user.id);
   if (optionIds.length > 1 && !poll.allow_multiple) {
     throw new ValidationError("poll_multiple_not_allowed", "api_errors.poll.multiple_not_allowed");
@@ -366,17 +367,27 @@ export const respondToPoll = async ({ rowId, optionIds, user }) => {
   if (unique.size !== optionIds.length || optionIds.some((id) => !valid.has(String(id)))) {
     throw new ValidationError("poll_option_invalid", "api_errors.poll.option_invalid");
   }
+  // Only notes for chosen options are kept; a flagged option must carry one.
+  const cleanNotes = {};
+  for (const id of optionIds) {
+    const note = typeof notes[id] === "string" ? notes[id].trim() : "";
+    if (note) cleanNotes[id] = note;
+  }
+  const missingNote = poll.options.some((option) => option.requires_note && unique.has(String(option.option_id)) && !cleanNotes[option.option_id]);
+  if (missingNote) throw new ValidationError("poll_note_required", "api_errors.poll.note_required");
+
   const existing = await pollRepo.findMyResponse(poll.poll_id, viewer.id);
   const same = existing.option_ids.length === optionIds.length &&
-    existing.option_ids.every((id) => unique.has(String(id)));
-  if (same) return { poll_id: poll.poll_id, my_option_ids: existing.option_ids, responded_at: existing.responded_at };
+    existing.option_ids.every((id) => unique.has(String(id))) &&
+    JSON.stringify(existing.notes ?? {}) === JSON.stringify(cleanNotes);
+  if (same) return { poll_id: poll.poll_id, my_option_ids: existing.option_ids, my_notes: existing.notes ?? {}, responded_at: existing.responded_at };
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     const response = await pollRepo.replaceUserResponse({ pollId: poll.poll_id, userId: viewer.id,
-      optionIds, businessUnit: row.business_unit }, client);
+      optionIds, notes: cleanNotes, businessUnit: row.business_unit }, client);
     await client.query("COMMIT");
-    return { poll_id: poll.poll_id, my_option_ids: response.option_ids, responded_at: response.responded_at };
+    return { poll_id: poll.poll_id, my_option_ids: response.option_ids, my_notes: response.notes, responded_at: response.responded_at };
   } catch (err) { await client.query("ROLLBACK"); throw err; }
   finally { client.release(); }
 };
@@ -384,7 +395,7 @@ export const respondToPoll = async ({ rowId, optionIds, user }) => {
 export const withdrawPollResponse = async ({ rowId, user }) => {
   const { viewer, poll } = await loadPollForResponse(rowId, user.id);
   await pollRepo.deleteUserResponse(poll.poll_id, viewer.id);
-  return { poll_id: poll.poll_id, my_option_ids: [], responded_at: null };
+  return { poll_id: poll.poll_id, my_option_ids: [], my_notes: {}, responded_at: null };
 };
 
 export const setPollLock = async ({ rowId, locked, user }) => {
@@ -421,8 +432,8 @@ export const getPollResults = async ({ rowId, user }) => {
 export const exportPollResults = async ({ rowId, user, lang = "en" }) => {
   const { row, poll } = await loadPollForResults(rowId, user);
   const rows = await pollRepo.findPollExportRows(poll.poll_id, lang);
-  const csv = toCsv([["respondent_name","company","sending_org","country","batch_no","option","responded_at"],
-    ...rows.map((r) => [r.respondent_name,r.company,r.sending_org,r.country,r.batch_no,r.option,
+  const csv = toCsv([["respondent_name","company","sending_org","country","batch_no","option","note","responded_at"],
+    ...rows.map((r) => [r.respondent_name,r.company,r.sending_org,r.country,r.batch_no,r.option,r.note ?? "",
       r.responded_at instanceof Date ? r.responded_at.toISOString() : r.responded_at])]);
   return { csv, filename: `poll_${row.row_id}_${new Date().toISOString().slice(0,10)}.csv` };
 };

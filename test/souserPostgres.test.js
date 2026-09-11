@@ -38,9 +38,11 @@ test("PostgreSQL: migration rerun, feed/notification isolation, grants and deact
   await db.query("INSERT INTO v4.announcement_tbl(business_unit,title,created_by,sending_org,country) VALUES('BU','A post',$1,'A',ARRAY['PH']),('BU','B post',$2,'B',NULL),('BU','General',$3,NULL,NULL),('OTHER','Other BU',$3,NULL,NULL)", [id(1),id(2),id(5)]);
   const migration = await readFile(new URL("../migrations/20260906_souser_scope.sql", import.meta.url), "utf8");
   await db.exec(migration);
-  const pollMigration = await readFile(new URL("../migrations/20260911_announcement_poll.sql", import.meta.url), "utf8");
-  await db.exec(pollMigration);
-  await db.exec(pollMigration);
+  for (const file of ["20260911_announcement_poll.sql", "20260911_poll_option_note.sql"]) {
+    const pollMigration = await readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8");
+    await db.exec(pollMigration);
+    await db.exec(pollMigration);
+  }
   assert.equal(await accounts.isAnnouncementsWriteEnabled(id(1), db), false);
   await accounts.setAnnouncementsWriteForAccount(id(1), true, db);
   await db.exec(migration);

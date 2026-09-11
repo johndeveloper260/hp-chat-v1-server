@@ -179,11 +179,14 @@ export const findAnnouncements = async ({ lang, userId, company_filter, business
         'closes_at', p.closes_at, 'is_locked', p.is_locked,
         'has_responses', EXISTS(SELECT 1 FROM v4.announcement_poll_response_tbl r WHERE r.poll_id=p.poll_id),
         'options', COALESCE((SELECT json_agg(json_build_object('option_id',o.option_id,'label',o.label,
-          'sort_order',o.sort_order,'count',(SELECT COUNT(*) FROM v4.announcement_poll_response_tbl r WHERE r.option_id=o.option_id)) ORDER BY o.sort_order)
+          'sort_order',o.sort_order,'requires_note',o.requires_note,
+          'count',(SELECT COUNT(*) FROM v4.announcement_poll_response_tbl r WHERE r.option_id=o.option_id)) ORDER BY o.sort_order)
           FROM v4.announcement_poll_option_tbl o WHERE o.poll_id=p.poll_id),'[]'),
         'total_respondents',(SELECT COUNT(DISTINCT r.user_id) FROM v4.announcement_poll_response_tbl r WHERE r.poll_id=p.poll_id),
         'my_option_ids',COALESCE((SELECT array_agg(r.option_id ORDER BY o.sort_order) FROM v4.announcement_poll_response_tbl r
           JOIN v4.announcement_poll_option_tbl o ON o.option_id=r.option_id WHERE r.poll_id=p.poll_id AND r.user_id=$2::uuid),ARRAY[]::uuid[]),
+        'my_notes',COALESCE((SELECT json_object_agg(r.option_id, r.note) FROM v4.announcement_poll_response_tbl r
+          WHERE r.poll_id=p.poll_id AND r.user_id=$2::uuid AND r.note IS NOT NULL),'{}'::json),
         'has_responded',EXISTS(SELECT 1 FROM v4.announcement_poll_response_tbl r WHERE r.poll_id=p.poll_id AND r.user_id=$2::uuid)
       ) AS poll FROM v4.announcement_poll_tbl p
       WHERE p.announcement_id=a.row_id AND p.business_unit=a.business_unit

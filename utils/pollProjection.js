@@ -45,14 +45,16 @@ export const projectPollForViewer = (poll, announcement, viewer, now = new Date(
     has_responses:  Boolean(poll.has_responses),
     options:        (poll.options ?? []).map((option) => {
       const projectedOption = {
-        option_id:  option.option_id,
-        label:      option.label,
-        sort_order: option.sort_order,
+        option_id:     option.option_id,
+        label:         option.label,
+        sort_order:    option.sort_order,
+        requires_note: Boolean(option.requires_note),
       };
       if (elevated) projectedOption.count = Number(option.count ?? 0);
       return projectedOption;
     }),
     my_option_ids:  poll.my_option_ids ?? [],
+    my_notes:       poll.my_notes ?? {},
     has_responded:  Boolean(poll.has_responded),
   };
   if (elevated) projected.total_respondents = Number(poll.total_respondents ?? 0);

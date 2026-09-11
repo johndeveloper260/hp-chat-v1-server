@@ -32,9 +32,11 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
     CREATE TABLE v4.shared_attachments (attachment_id uuid, relation_type text, relation_id text, s3_key text, s3_bucket text, display_name text, file_type text, created_at timestamptz, business_unit text);
     CREATE TABLE v4.notification_history_tbl (relation_id text, relation_type text, business_unit text);
   `);
-  const migration = await readFile(new URL("../migrations/20260911_announcement_poll.sql", import.meta.url), "utf8");
-  await db.exec(migration);
-  await db.exec(migration); // idempotent re-run
+  for (const file of ["20260911_announcement_poll.sql", "20260911_poll_option_note.sql"]) {
+    const migration = await readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8");
+    await db.exec(migration);
+    await db.exec(migration); // idempotent re-run
+  }
 
   // 1 = USER Alice (company 20), 2 = USER Bob, 3 = SOUSER, 5 = officer
   await db.query("INSERT INTO v4.company_tbl VALUES ($1, '{\"en\":\"Acme\",\"ja\":\"アクメ\"}', 1)", [id(20)]);
@@ -53,13 +55,16 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
   // ── create ──
   const created = await polls.insertPoll({
     announcementId: rowId, businessUnit: "BU", question: "Which shift?",
-    allowMultiple: false, closesAt: null, options: ["Morning", "Night"], userId: id(5),
+    allowMultiple: false, closesAt: null,
+    options: [{ label: "Morning", requires_note: false }, { label: "Night", requires_note: true }], userId: id(5),
   }, db);
   assert.ok(created.poll_id);
 
   let poll = await polls.findPollByAnnouncement(rowId, "BU", db, id(1));
   assert.equal(poll.question, "Which shift?");
   assert.deepEqual(poll.options.map((o) => o.label), ["Morning", "Night"]);
+  assert.deepEqual(poll.options.map((o) => o.requires_note), [false, true]);
+  assert.deepEqual(poll.my_notes, {});
   assert.equal(poll.has_responses, false);
   assert.equal(poll.has_responded, false);
   assert.deepEqual(poll.my_option_ids, []);
@@ -72,14 +77,18 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
   assert.equal(feedRows.length, 1);
   assert.equal(feedRows[0].poll.question, "Which shift?");
   assert.equal(feedRows[0].poll.options[0].count, 0);
+  assert.equal(feedRows[0].poll.options[1].requires_note, true);
+  assert.deepEqual(feedRows[0].poll.my_notes, {});
 
   // ── respond / change / second respondent ──
   let mine = await polls.replaceUserResponse({ pollId: poll.poll_id, userId: id(1), optionIds: [morning], businessUnit: "BU" }, db);
   assert.deepEqual(mine.option_ids, [morning]);
   assert.ok(mine.responded_at);
-  mine = await polls.replaceUserResponse({ pollId: poll.poll_id, userId: id(1), optionIds: [night], businessUnit: "BU" }, db);
+  mine = await polls.replaceUserResponse({ pollId: poll.poll_id, userId: id(1), optionIds: [night], notes: { [night]: "  I study by day  " }, businessUnit: "BU" }, db);
+  assert.deepEqual(mine.notes, { [night]: "I study by day" }, "note is trimmed");
   const stored = await polls.findMyResponse(poll.poll_id, id(1), db);
   assert.deepEqual(stored.option_ids, [night], "response replaced, not appended");
+  assert.deepEqual(stored.notes, { [night]: "I study by day" });
   await polls.replaceUserResponse({ pollId: poll.poll_id, userId: id(2), optionIds: [morning], businessUnit: "BU" }, db);
   await polls.replaceUserResponse({ pollId: poll.poll_id, userId: id(3), optionIds: [morning], businessUnit: "BU" }, db);
 
@@ -87,6 +96,7 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
   assert.equal(poll.has_responses, true);
   assert.equal(poll.has_responded, true);
   assert.deepEqual(poll.my_option_ids, [night]);
+  assert.deepEqual(poll.my_notes, { [night]: "I study by day" });
   assert.equal(poll.total_respondents, 3);
   assert.deepEqual(poll.options.map((o) => Number(o.count)), [2, 1]);
   assert.equal(await polls.countPollResponses(poll.poll_id, db), 3);
@@ -97,6 +107,8 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
 
   // ── projection: respondents never see counts, officers do ──
   const forUser = projectPollForViewer(poll, ann, { userType: "USER" });
+  assert.deepEqual(forUser.options.map((o) => o.requires_note), [false, true]);
+  assert.deepEqual(forUser.my_notes, { [night]: "I study by day" }, "own note comes back for editing");
   assert.equal("total_respondents" in forUser, false);
   assert.ok(forUser.options.every((o) => !("count" in o)));
   assert.equal(forUser.is_open, true);
@@ -134,6 +146,9 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
   assert.equal(byLabel.Morning.count, 2);
   assert.equal(byLabel.Night.count, 1);
   assert.deepEqual(byLabel.Night.respondents.map((r) => r.name), ["Anders, Alice"]);
+  assert.equal(byLabel.Night.respondents[0].note, "I study by day");
+  assert.equal(byLabel.Night.requires_note, true);
+  assert.equal(byLabel.Morning.respondents[0].note, null, "no note stored as null, not empty string");
   assert.equal(byLabel.Night.respondents[0].company, "アクメ", "company in caller language");
   const sam = byLabel.Morning.respondents.find((r) => r.id === id(3));
   assert.equal(sam.company, "ORG", "SOUSER falls back to sending_org");
@@ -144,6 +159,7 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
   assert.equal(exportRows.length, 3);
   const alice = exportRows.find((r) => r.respondent_name === "Anders, Alice");
   assert.equal(alice.option, "Night");
+  assert.equal(alice.note, "I study by day");
   assert.equal(alice.company, "Acme");
   assert.equal(alice.sending_org, "ORG");
   assert.equal(alice.country, "VN");
@@ -165,10 +181,11 @@ test("PostgreSQL: poll lifecycle — create, respond, change, lock, results, exp
 
   // ── replace definition (only legal with no responses, but the SQL must work) ──
   await db.query("DELETE FROM v4.announcement_poll_response_tbl WHERE poll_id = $1", [poll.poll_id]);
-  await polls.replacePollDefinition({ pollId: poll.poll_id, question: "Which day?", allowMultiple: false, closesAt: null, options: ["Mon", "Tue", "Wed"], userId: id(5) }, db);
+  await polls.replacePollDefinition({ pollId: poll.poll_id, question: "Which day?", allowMultiple: false, closesAt: null, options: [{ label: "Mon" }, { label: "Tue", requires_note: true }, { label: "Wed" }], userId: id(5) }, db);
   poll = await polls.findPollByAnnouncement(rowId, "BU", db, id(1));
   assert.equal(poll.question, "Which day?");
   assert.deepEqual(poll.options.map((o) => o.label), ["Mon", "Tue", "Wed"]);
+  assert.deepEqual(poll.options.map((o) => o.requires_note), [false, true, false]);
   await polls.replaceUserResponse({ pollId: poll.poll_id, userId: id(2), optionIds: [poll.options[0].option_id], businessUnit: "BU" }, db);
 
   // ── cascade delete removes every poll row ──
@@ -188,9 +205,11 @@ test("PostgreSQL: deletePoll removes options through the FK cascade", async (t) 
     CREATE SCHEMA v4;
     CREATE TABLE v4.announcement_tbl (row_id serial PRIMARY KEY, business_unit text);
   `);
-  await db.exec(await readFile(new URL("../migrations/20260911_announcement_poll.sql", import.meta.url), "utf8"));
+  for (const file of ["20260911_announcement_poll.sql", "20260911_poll_option_note.sql"]) {
+    await db.exec(await readFile(new URL(`../migrations/${file}`, import.meta.url), "utf8"));
+  }
   const { rows: [ann] } = await db.query("INSERT INTO v4.announcement_tbl(business_unit) VALUES ('BU') RETURNING row_id");
-  const created = await polls.insertPoll({ announcementId: ann.row_id, businessUnit: "BU", question: "Q", allowMultiple: false, closesAt: null, options: ["A", "B"], userId: id(5) }, db);
+  const created = await polls.insertPoll({ announcementId: ann.row_id, businessUnit: "BU", question: "Q", allowMultiple: false, closesAt: null, options: [{ label: "A" }, { label: "B" }], userId: id(5) }, db);
   await polls.deletePoll(created.poll_id, db);
   const { rows } = await db.query("SELECT COUNT(*)::int AS n FROM v4.announcement_poll_option_tbl");
   assert.equal(rows[0].n, 0);
