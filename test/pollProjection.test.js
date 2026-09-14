@@ -20,3 +20,23 @@ test("poll open state combines manual, scheduled and bulletin windows", () => {
   assert.equal(isPollOpen(poll,{...announcement,active:false},now),false);
   assert.equal(isPollOpen(poll,{...announcement,date_to:"2026-09-10"},now),false);
 });
+
+test("poll projection whitelists every poll and option field for all four roles", () => {
+  const input = { ...poll, poll_id: "p", question: "Q", allow_multiple: false,
+    created_by: "secret", locked_by: "secret", updated_by: "secret", business_unit: "secret", announcement_id: 42,
+    unknown_future_column: "secret", my_option_ids: ["x"], my_notes: { x: "mine" },
+    options: [{ option_id: "x", label: "A", sort_order: 0, count: 2, requires_note: true, internal_note: "secret" }] };
+  const keys = ["poll_id", "question", "allow_multiple", "closes_at", "is_locked", "is_open", "has_responses", "options", "my_option_ids", "my_notes", "has_responded"];
+  for (const userType of ["USER", "SOUSER", "OFFICER", "ADMIN"]) {
+    const elevated = ["OFFICER", "ADMIN"].includes(userType);
+    const output = projectPollForViewer(input, announcement, { userType }, now);
+    assert.deepEqual(Object.keys(output).sort(), [...keys, ...(elevated ? ["total_respondents"] : [])].sort());
+    assert.deepEqual(Object.keys(output.options[0]).sort(), ["option_id", "label", "sort_order", "requires_note", ...(elevated ? ["count"] : [])].sort());
+    assert.deepEqual(output.my_notes, { x: "mine" });
+  }
+});
+
+test("poll closes exactly at its deadline and respects future bulletin dates", () => {
+  assert.equal(isPollOpen({ ...poll, closes_at: now.toISOString() }, announcement, now), false);
+  assert.equal(isPollOpen(poll, { ...announcement, date_from: "2026-09-12" }, now), false);
+});

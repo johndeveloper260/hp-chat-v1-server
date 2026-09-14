@@ -364,13 +364,13 @@ const loadPollForResponse = async (rowId, userId) => {
 
 export const respondToPoll = async ({ rowId, optionIds, notes = {}, user }) => {
   const { row, viewer, poll } = await loadPollForResponse(rowId, user.id);
-  if (optionIds.length > 1 && !poll.allow_multiple) {
-    throw new ValidationError("poll_multiple_not_allowed", "api_errors.poll.multiple_not_allowed");
-  }
   const unique = new Set(optionIds.map(String));
   const valid = new Set(poll.options.map((option) => String(option.option_id)));
   if (unique.size !== optionIds.length || optionIds.some((id) => !valid.has(String(id)))) {
     throw new ValidationError("poll_option_invalid", "api_errors.poll.option_invalid");
+  }
+  if (optionIds.length > 1 && !poll.allow_multiple) {
+    throw new ValidationError("poll_multiple_not_allowed", "api_errors.poll.multiple_not_allowed");
   }
   // Only notes for chosen options are kept; a flagged option must carry one.
   const cleanNotes = {};
@@ -384,7 +384,8 @@ export const respondToPoll = async ({ rowId, optionIds, notes = {}, user }) => {
   const existing = await pollRepo.findMyResponse(poll.poll_id, viewer.id);
   const same = existing.option_ids.length === optionIds.length &&
     existing.option_ids.every((id) => unique.has(String(id))) &&
-    JSON.stringify(existing.notes ?? {}) === JSON.stringify(cleanNotes);
+    Object.keys(existing.notes ?? {}).length === Object.keys(cleanNotes).length &&
+    Object.entries(cleanNotes).every(([id, note]) => existing.notes?.[id] === note);
   if (same) return { poll_id: poll.poll_id, my_option_ids: existing.option_ids, my_notes: existing.notes ?? {}, responded_at: existing.responded_at };
   const client = await getPool().connect();
   try {
