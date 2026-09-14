@@ -2,13 +2,16 @@
  * Login Validators (Zod)
  */
 import { z } from "zod";
+import { normalizeLoginId, TEMP_LOGIN_ID_RE } from "../config/constants.js";
 
 // ── POST /login/loginUser ────────────────────────────────────────────────
 export const loginSchema = z.object({
   email: z
     .string({ required_error: "Email is required" })
-    .email("Must be a valid email address")
-    .transform((v) => v.toLowerCase().trim()),
+    .trim()
+    .refine((v) => z.email().safeParse(v).success || TEMP_LOGIN_ID_RE.test(v),
+      "Must be a valid email address or temporary login ID")
+    .transform(normalizeLoginId),
 
   password: z
     .string({ required_error: "Password is required" })
@@ -19,8 +22,10 @@ export const loginSchema = z.object({
 export const forgotPasswordSchema = z.object({
   email: z
     .string({ required_error: "Email is required" })
-    .email("Must be a valid email address")
-    .transform((v) => v.toLowerCase().trim()),
+    .trim()
+    .refine((v) => z.email().safeParse(v).success || TEMP_LOGIN_ID_RE.test(v),
+      "Must be a valid email address or temporary login ID")
+    .transform(normalizeLoginId),
 });
 
 // ── POST /login/updatePassword ────────────────────────────────────────────
@@ -42,4 +47,13 @@ export const requestDeletionSchema = z.object({
     .string({ required_error: "Email is required" })
     .email("Must be a valid email address")
     .transform((v) => v.toLowerCase().trim()),
+});
+
+export const activationRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Must be a valid email address"),
+});
+
+export const activationSchema = activationRequestSchema.extend({
+  otp: z.string().regex(/^\d{6}$/, "OTP must be 6 digits"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
 });

@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import { getPool } from "../config/getPool.js";
 import { buildSouserScope } from "../utils/souserScope.js";
+import env from "../config/env.js";
+import { isActivationAllowedPath } from "../utils/activation.js";
 
 const auth = (req, res, next) => {
   // ✅ FIXED: Support both header formats
@@ -37,7 +39,7 @@ const auth = (req, res, next) => {
                ELSE last_seen
              END
              WHERE id = $1::uuid
-             RETURNING id, business_unit, is_active, preferred_language
+             RETURNING id, business_unit, is_active, preferred_language, email_pending
            )
            SELECT
              account.id,
@@ -103,7 +105,12 @@ const auth = (req, res, next) => {
           // canWriteAnnouncements(req.user.souserScope, bu).
           souser_announcements_write: souserScope.valid && souserScope.writableBusinessUnits.length > 0,
           souserScope,
+          emailPending: currentUser.email_pending ?? false,
         };
+
+        if (env.enforceActivation && currentUser.email_pending && !isActivationAllowedPath(req.originalUrl || req.path)) {
+          return res.status(403).json({ code: "activation_required" });
+        }
       } catch (dbErr) {
         console.error("Auth active-check DB error:", dbErr.message);
         return res.status(503).json({ msg: "Unable to verify current account identity" });

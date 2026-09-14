@@ -239,6 +239,10 @@ export const loadReferenceCodes = async (businessUnit) => {
  * Inserts a bulk_upload_log header record and returns its id.
  */
 export const insertUploadLog = async (log) => {
+  await getPool().query(
+    `UPDATE v4.bulk_upload_log_row SET temp_password = NULL
+      WHERE temp_password IS NOT NULL AND created_at < NOW() - INTERVAL '7 days'`,
+  );
   const { rows } = await getPool().query(
     `INSERT INTO v4.bulk_upload_log
        (business_unit, uploaded_by, file_name, total_rows, success_count, error_count, status)
@@ -265,13 +269,16 @@ export const insertUploadLogRows = async (uploadId, rows) => {
   if (!rows.length) return;
   await getPool().query(
     `INSERT INTO v4.bulk_upload_log_row
-       (upload_id, row_number, user_id, full_name, status, error_detail)
+       (upload_id, row_number, user_id, full_name, status, error_detail, action, temp_login_id, temp_password)
      SELECT $1,
             unnest($2::int[]),
             unnest($3::text[]),
             unnest($4::text[]),
             unnest($5::varchar(10)[]),
-            unnest($6::text[])`,
+            unnest($6::text[]),
+            unnest($7::text[]),
+            unnest($8::text[]),
+            unnest($9::text[])`,
     [
       uploadId,
       rows.map((r) => r.row_number),
@@ -279,6 +286,9 @@ export const insertUploadLogRows = async (uploadId, rows) => {
       rows.map((r) => r.full_name ?? null),
       rows.map((r) => r.status),
       rows.map((r) => r.error_detail ?? null),
+      rows.map((r) => r.action ?? null),
+      rows.map((r) => r.temp_login_id ?? null),
+      rows.map((r) => r.temp_password ?? null),
     ],
   );
 };
@@ -328,7 +338,8 @@ export const getUploadLogs = async (businessUnit, limit = 20) => {
  */
 export const getUploadLogRows = async (uploadId, businessUnit) => {
   const { rows } = await getPool().query(
-    `SELECT r.row_number, r.user_id, r.full_name, r.status, r.error_detail, r.created_at
+    `SELECT r.row_number, r.user_id, r.full_name, r.status, r.error_detail,
+            r.action, r.temp_login_id, r.temp_password, r.created_at
      FROM v4.bulk_upload_log_row r
      JOIN  v4.bulk_upload_log    l ON l.id = r.upload_id
      WHERE r.upload_id    = $1

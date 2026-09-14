@@ -433,6 +433,27 @@ const apiMessages = {
     th: "รหัสผ่านชั่วคราวถูกส่งแล้ว",
     ne: "अस्थायी पासवर्ड पठाइयो।",
   },
+  activation_not_required: {
+    en: "This account does not require activation.", ja: "このアカウントは有効化の必要がありません。",
+    id: "Akun ini tidak memerlukan aktivasi.", vi: "Tài khoản này không cần kích hoạt.",
+    my: "ဤအကောင့်ကို အသက်သွင်းရန် မလိုအပ်ပါ။", km: "គណនីនេះមិនត្រូវការធ្វើឱ្យសកម្មទេ។",
+    bn: "এই অ্যাকাউন্ট সক্রিয় করার প্রয়োজন নেই।", th: "บัญชีนี้ไม่จำเป็นต้องเปิดใช้งาน",
+    ne: "यो खाता सक्रिय गर्न आवश्यक छैन।",
+  },
+  activation_rate_limited: {
+    en: "Please wait before requesting another activation code.", ja: "次の有効化コードを要求する前にしばらくお待ちください。",
+    id: "Harap tunggu sebelum meminta kode aktivasi lain.", vi: "Vui lòng đợi trước khi yêu cầu mã kích hoạt khác.",
+    my: "နောက်ထပ်အသက်သွင်းကုဒ်တောင်းမီ ခဏစောင့်ပါ။", km: "សូមរង់ចាំមុនពេលស្នើសុំលេខកូដមួយទៀត។",
+    bn: "আরেকটি সক্রিয়করণ কোড চাওয়ার আগে অপেক্ষা করুন।", th: "โปรดรอก่อนขอรหัสเปิดใช้งานอีกครั้ง",
+    ne: "अर्को सक्रियता कोड अनुरोध गर्नु अघि पर्खनुहोस्।",
+  },
+  otp_invalid: {
+    en: "The activation code is invalid or expired.", ja: "有効化コードが無効か期限切れです。",
+    id: "Kode aktivasi tidak valid atau kedaluwarsa.", vi: "Mã kích hoạt không hợp lệ hoặc đã hết hạn.",
+    my: "အသက်သွင်းကုဒ် မမှန်ပါ သို့မဟုတ် သက်တမ်းကုန်သွားပါပြီ။", km: "លេខកូដមិនត្រឹមត្រូវ ឬផុតកំណត់។",
+    bn: "সক্রিয়করণ কোডটি অবৈধ বা মেয়াদোত্তীর্ণ।", th: "รหัสเปิดใช้งานไม่ถูกต้องหรือหมดอายุ",
+    ne: "सक्रियता कोड अमान्य वा म्याद सकिएको छ।",
+  },
   login_password_updated: {
     en: "Password updated successfully.",
     ja: "パスワードを更新しました。",

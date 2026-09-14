@@ -61,6 +61,26 @@ export const handleForgotPassword = async (req, res, next) => {
   }
 };
 
+export const requestActivationOtp = async (req, res, next) => {
+  try {
+    await loginService.requestActivationOtp(req.user.id, req.body.email);
+    res.status(204).send();
+  } catch (err) { next(err); }
+};
+
+export const activateAccount = async (req, res, next) => {
+  try {
+    const ipAddress = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || null;
+    const result = await loginService.activateAccount({
+      userId: req.user.id,
+      ...req.body,
+      ipAddress,
+      userAgent: req.headers["user-agent"] || null,
+    });
+    res.status(200).json({ message: getApiMessage("login_success", result.user.preferredLanguage), ...result });
+  } catch (err) { next(err); }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Update Password
 // ─────────────────────────────────────────────────────────────────────────────

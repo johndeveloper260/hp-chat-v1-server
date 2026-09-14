@@ -65,6 +65,8 @@ const env = {
     platformAdminId: process.env.PLATFORM_ADMIN_ID ?? null,
   },
 
+  enforceActivation: process.env.ENFORCE_ACTIVATION === "true",
+
   // Set TRANSLATION_PROVIDER=openai to use GPT-4o mini; defaults to Google.
   translation: {
     provider: process.env.TRANSLATION_PROVIDER || "google", // "google" | "openai"

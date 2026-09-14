@@ -36,6 +36,9 @@ const getUserLang = (req) => {
 const buildErrorBody = (translatedMessage, errorCode) => {
   const body = { error: translatedMessage };
   if (errorCode) body.error_code = errorCode;
+  if (["activation_not_required", "activation_rate_limited", "otp_invalid", "register_email_exists"].includes(errorCode)) {
+    body.code = errorCode;
+  }
   return body;
 };
 

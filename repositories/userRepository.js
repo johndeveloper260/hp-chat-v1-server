@@ -30,13 +30,13 @@ export async function findRegistrationCode(code, client) {
 /**
  * Insert a new user account row and return the generated UUID.
  */
-export async function createUserAccount({ email, passwordHash, businessUnit }, client) {
+export async function createUserAccount({ email, passwordHash, businessUnit, emailPending = false }, client) {
   const { rows } = await db(client).query(
     `INSERT INTO v4.user_account_tbl
-       (email, password_hash, business_unit, is_active, created_at, updated_at)
-     VALUES ($1, $2, $3, true, NOW(), NOW())
+       (email, password_hash, business_unit, email_pending, is_active, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, true, NOW(), NOW())
      RETURNING id AS user_id`,
-    [email, passwordHash, businessUnit],
+    [email, passwordHash, businessUnit, emailPending],
   );
   return rows[0].user_id;
 }
@@ -102,7 +102,7 @@ export async function grantDefaultOfficerRoles(userId, client) {
 export async function findUserByEmail(email, client) {
   const loginQuery = `
     SELECT
-      a.id, a.email, a.password_hash, a.business_unit,
+      a.id, a.email, a.password_hash, a.business_unit, a.email_pending,
       a.is_active, a.preferred_language, a.notification, a.auto_translate_chat, a.translate_exceptions, a.theme_preference, a.created_at AS account_created_at,
       p.user_id,
       COALESCE(p.first_name, su.first_name) AS first_name,
@@ -175,7 +175,7 @@ export async function findUserByEmail(email, client) {
 export async function findUserById(userId, client) {
   const query = `
     SELECT
-      a.id, a.email, a.business_unit,
+      a.id, a.email, a.business_unit, a.email_pending,
       a.is_active, a.preferred_language,
       p.user_id,
       COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END) AS user_type,
@@ -282,6 +282,32 @@ export async function setOtp({ email, otpCode, otpExpiry }, client) {
   await db(client).query(
     `UPDATE v4.user_account_tbl SET otp_code = $1, otp_expiry = $2 WHERE email = $3`,
     [otpCode, otpExpiry, email],
+  );
+}
+
+export async function setOtpByUserId({ userId, otpCode, otpExpiry }, client) {
+  await db(client).query(
+    `UPDATE v4.user_account_tbl SET otp_code = $1, otp_expiry = $2 WHERE id = $3::uuid`,
+    [otpCode, otpExpiry, userId],
+  );
+}
+
+export async function findUserForOtpById(userId, client) {
+  const { rows } = await db(client).query(
+    `SELECT id, email, email_pending, otp_code, otp_expiry
+       FROM v4.user_account_tbl WHERE id = $1::uuid`,
+    [userId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function activateAccount({ userId, email, passwordHash }, client) {
+  await db(client).query(
+    `UPDATE v4.user_account_tbl
+        SET email = $2, password_hash = $3, email_pending = false,
+            otp_code = NULL, otp_expiry = NULL, updated_at = NOW()
+      WHERE id = $1::uuid`,
+    [userId, email, passwordHash],
   );
 }
 

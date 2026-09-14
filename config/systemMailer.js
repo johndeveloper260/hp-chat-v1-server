@@ -97,6 +97,11 @@ export const passwordResetCode = async (emailId, emailTitle, resetCode) => {
   await sendEmail(emailId, emailTitle, html);
 };
 
+export const activationCode = async (emailId, emailTitle, code) => {
+  const html = await renderTemplate("getyourcode", { resetCode: code });
+  await sendEmail(emailId, emailTitle, html);
+};
+
 export const newPasswordMail = async (emailId, emailTitle, password) => {
   const html = await renderTemplate("resetpassword", { password });
   await sendEmail(emailId, emailTitle, html);

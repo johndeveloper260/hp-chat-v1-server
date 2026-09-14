@@ -21,6 +21,11 @@ import {
 import * as userRepo from "../repositories/userRepository.js";
 import * as emailService from "../config/systemMailer.js";
 import { deleteFromS3 } from "../controller/attachmentController.js";
+import { getPool } from "../config/getPool.js";
+import { isTempLogin } from "../config/constants.js";
+import { ConflictError } from "../errors/AppError.js";
+import { syncUserToStream } from "../utils/syncUserToStream.js";
+import { isActivationOtpValid } from "../utils/activation.js";
 
 // Lazy singleton — avoids re-initialising on every request
 let _streamChat;
@@ -125,6 +130,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
     user: {
       id: user.id,
       email: user.email,
+      emailPending: user.email_pending ?? false,
       businessUnit: user.business_unit,
       isActive: user.is_active,
       preferredLanguage: user.preferred_language || "en",
@@ -183,6 +189,7 @@ export async function loginUser({ email, password, ipAddress, userAgent }) {
  * Always returns success to avoid email enumeration.
  */
 export async function handleForgotPassword(email) {
+  if (isTempLogin(email)) return;
   const userId = await userRepo.findUserIdByEmail(email);
 
   // Security: silently succeed even if email not found
@@ -193,6 +200,59 @@ export async function handleForgotPassword(email) {
 
   await userRepo.updatePasswordHashByEmail(email, hashedPassword);
   await emailService.passwordResetCode(email, "Your Temporary Password", resetCode);
+}
+
+const activationOtpRequests = new Map();
+
+const assertPendingAndEmailAvailable = async (userId, email, client) => {
+  const pending = await userRepo.findUserForOtpById(userId, client);
+  if (!pending?.email_pending) {
+    throw new ConflictError("activation_not_required", "activation_not_required");
+  }
+  const existingId = await userRepo.findUserIdByEmail(email, client);
+  if (existingId && String(existingId) !== String(userId)) {
+    throw new ConflictError("register_email_exists", "register_email_exists");
+  }
+  return pending;
+};
+
+export async function requestActivationOtp(userId, email) {
+  const lastRequest = activationOtpRequests.get(String(userId)) ?? 0;
+  if (Date.now() - lastRequest < 60_000) {
+    throw new ValidationError("activation_rate_limited", "activation_rate_limited");
+  }
+  await assertPendingAndEmailAvailable(userId, email);
+  const otpCode = crypto.randomInt(100000, 1000000).toString();
+  const otpExpiry = new Date(Date.now() + 10 * 60_000);
+  await userRepo.setOtpByUserId({ userId, otpCode, otpExpiry });
+  activationOtpRequests.set(String(userId), Date.now());
+  await emailService.activationCode(email, "Activate your HoRenSo+ account", otpCode);
+}
+
+export async function activateAccount({ userId, email, otp, password, ipAddress, userAgent }) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const pending = await assertPendingAndEmailAvailable(userId, email, client);
+    if (!isActivationOtpValid(pending, otp)) {
+      throw new ValidationError("otp_invalid", "otp_invalid");
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await userRepo.activateAccount({ userId, email, passwordHash }, client);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  syncUserToStream(userId).catch((err) =>
+    console.error("[LoginService] Stream activation sync failed:", err.message));
+  const activated = await userRepo.findUserByEmail(email);
+  emailService.newRegistration(email, "Welcome to HoRenSo+", activated?.first_name, null, env.app.frontendUrl)
+    .catch((err) => console.error("[LoginService] Welcome email failed:", err.message));
+  return loginUser({ email, password, ipAddress, userAgent });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

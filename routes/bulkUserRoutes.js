@@ -13,6 +13,8 @@ import {
   getReferenceCodes,
   getUploadHistory,
   getUploadHistoryDetail,
+  exportUploadHistoryDetail,
+  getNewUserTemplate,
 } from "../controller/bulkUserController.js";
 
 const router = express.Router();
@@ -32,6 +34,8 @@ router.get("/export",         auth, requireRole("upload_user_data_write"), expor
 router.post("/import",        auth, requireRole("upload_user_data_write"), upload.single("file"), importUsers);
 router.get("/reference-codes",auth, requireRole("upload_user_data_write"), getReferenceCodes);
 router.get("/history",        auth, requireRole("upload_user_data_write"), getUploadHistory);
+router.get("/template",       auth, requireRole("upload_user_data_write"), getNewUserTemplate);
+router.get("/history/:id/export", auth, requireRole("upload_user_data_write"), exportUploadHistoryDetail);
 router.get("/history/:id",    auth, requireRole("upload_user_data_write"), getUploadHistoryDetail);
 
 export default router;

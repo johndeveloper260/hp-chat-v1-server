@@ -13,6 +13,8 @@ import {
   updatePasswordSchema,
   requestDeletionSchema,
   verifyDeletionSchema,
+  activationRequestSchema,
+  activationSchema,
 } from "../validators/loginValidator.js";
 import {
   loginUser,
@@ -22,6 +24,8 @@ import {
   requestWebDeletion,
   finalizeDeletion,
   adminDeleteUser,
+  requestActivationOtp,
+  activateAccount,
 } from "../controller/loginController.js";
 
 const router = express.Router();
@@ -33,6 +37,8 @@ router.post("/forgot-password", validate(forgotPasswordSchema),  handleForgotPas
 // ── Authenticated ─────────────────────────────────────────────────────────────
 router.post("/updatePassword",  auth, validate(updatePasswordSchema), updatePassword);
 router.delete("/deleteAccount", auth,                                  deleteUserAccount);
+router.post("/activate/request-otp", auth, validate(activationRequestSchema), requestActivationOtp);
+router.post("/activate", auth, validate(activationSchema), activateAccount);
 
 // ── Officer / Admin ───────────────────────────────────────────────────────────
 router.delete("/admin-delete-user/:userId", auth, adminDeleteUser);

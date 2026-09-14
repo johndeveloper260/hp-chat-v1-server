@@ -86,3 +86,22 @@ export const getUploadHistoryDetail = async (req, res, next) => {
     next(err);
   }
 };
+
+export const exportUploadHistoryDetail = async (req, res, next) => {
+  try {
+    const csv = await bulkUserService.exportUploadResultsCsv(req.params.id, req.user.business_unit, req.query.lang ?? "en");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="upload_${req.params.id}_results.csv"`);
+    res.send(csv);
+  } catch (err) { next(err); }
+};
+
+export const getNewUserTemplate = async (req, res, next) => {
+  try {
+    if (req.query.mode !== "new") return res.status(400).json({ error: "mode must be new" });
+    const csv = bulkUserService.getNewUserTemplateCsv(req.query.lang ?? "en");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=bulk_new_users_template.csv");
+    res.send(csv);
+  } catch (err) { next(err); }
+};

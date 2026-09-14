@@ -15,7 +15,13 @@ import * as bulkUserRepo    from "../repositories/bulkUserRepository.js";
 import * as profileRepo     from "../repositories/profileRepository.js";
 import * as companyRepo     from "../repositories/companyRepository.js";
 import { bulkImportRowSchema } from "../validators/bulkUserValidator.js";
-import { syncUserToStream } from "../utils/syncUserToStream.js";
+import { bulkCreateRowSchema } from "../validators/bulkUserValidator.js";
+import { syncUserToStream, createStreamUser } from "../utils/syncUserToStream.js";
+import * as userRepo from "../repositories/userRepository.js";
+import { normalizeLoginId } from "../config/constants.js";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import { classifyBulkRow, registerTempLoginId } from "../utils/bulkUserCreate.js";
 import { formatDate, parseDate, toCsv, parseCsv } from "../utils/csv.js";
 
 // ── Hardcoded reference sets (same as frontend COUNTRY_OPTIONS / GENDER_OPTIONS)
@@ -27,6 +33,7 @@ const VALID_GENDERS       = new Set(["MALE","FEMALE"]);
 
 const COLUMNS = [
   { en: "User ID (Do Not Change)",        ja: "ユーザーID（変更不可）",       field: "user_id" },
+  { en: "Temporary Login ID (New Users Only)", ja: "仮ログインID（新規ユーザーのみ）", field: "temp_login_id" },
   { en: "Last Name",                      ja: "姓",                           field: "last_name" },
   { en: "First Name",                     ja: "名",                           field: "first_name" },
   { en: "Middle Name",                    ja: "ミドルネーム",                  field: "middle_name" },
@@ -135,6 +142,7 @@ const _processRows = async (fileBuffer, officerBU) => {
 
   const succeeded = [];
   const failed    = [];
+  const seenTempLoginIds = new Set();
 
   for (let i = 0; i < rawRows.length; i++) {
     const rowNumber = i + 2; // row 1 is header
@@ -147,6 +155,93 @@ const _processRows = async (fileBuffer, officerBU) => {
 
     const name   = [row.first_name, row.last_name].filter(Boolean).join(" ").trim() || "—";
     const logCtx = { row: rowNumber, user_id: row.user_id || "(missing)", name };
+
+    const rowAction = classifyBulkRow(row);
+    if (rowAction === "missing") {
+      failed.push({ ...logCtx, reason: "Either User ID or Temporary Login ID is required" });
+      continue;
+    }
+    if (rowAction === "conflict") {
+      failed.push({ ...logCtx, reason: "Temporary Login ID must be empty for existing users" });
+      continue;
+    }
+
+    if (rowAction === "create") {
+      if (!registerTempLoginId(seenTempLoginIds, row.temp_login_id)) {
+        failed.push({ ...logCtx, temp_login_id: row.temp_login_id, reason: "Duplicate Temporary Login ID in file" });
+        continue;
+      }
+      const parsedCreate = bulkCreateRowSchema.safeParse(row);
+      if (!parsedCreate.success) {
+        failed.push({ ...logCtx, temp_login_id: row.temp_login_id, reason: parsedCreate.error.issues.map((issue) => issue.message).join("; ") });
+        continue;
+      }
+      const data = parsedCreate.data;
+      if (!validCompanyCodes.has(data.company_code)) {
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: `Company code "${data.company_code}" not found in your business unit` });
+        continue;
+      }
+      if (!sendingOrgCodes.has(data.sending_org)) {
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: `Sending Organization code "${data.sending_org}" is not recognised` });
+        continue;
+      }
+      if (!VALID_COUNTRY_CODES.has(data.country.toUpperCase())) {
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: `Country code "${data.country}" is not recognised` });
+        continue;
+      }
+      if (data.gender && !VALID_GENDERS.has(data.gender.toUpperCase())) {
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: `Gender "${data.gender}" is invalid — accepted values: MALE, FEMALE` });
+        continue;
+      }
+      if (data.visa_type && !visaTypeCodes.has(data.visa_type)) {
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: `Visa Type code "${data.visa_type}" is not recognised` });
+        continue;
+      }
+      const companyLookup = await companyRepo.findByCompanyCode(data.company_code, officerBU);
+      const companyId = companyLookup.rows[0]?.company_id;
+      if (!companyId) {
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: `Company code "${data.company_code}" not found in your business unit` });
+        continue;
+      }
+      const tempPassword = crypto.randomBytes(4).toString("hex");
+      const client = await getPool().connect();
+      try {
+        await client.query("BEGIN");
+        const userId = await userRepo.createUserAccount({
+          email: normalizeLoginId(data.temp_login_id), passwordHash: await bcrypt.hash(tempPassword, 10),
+          businessUnit: officerBU, emailPending: true,
+        }, client);
+        await userRepo.createUserProfile({
+          userId, firstName: data.first_name, middleName: data.middle_name, lastName: data.last_name,
+          userType: "USER", position: data.position, company: companyId, batchNo: data.batch_no,
+          businessUnit: officerBU, phoneNumber: data.phone_number, postalCode: data.postal_code,
+          streetAddress: data.street_address, city: data.city, state: data.state_province,
+        }, client);
+        const profileFields = {};
+        const visaFields = {};
+        for (const col of COLUMNS) {
+          if (["user_id", "temp_login_id", "company_code"].includes(col.field)) continue;
+          const raw = data[col.field] ?? "";
+          const value = col.isDate ? parseDate(raw) : (String(raw).trim() || null);
+          if (PROFILE_FIELDS.has(col.field)) profileFields[col.field] = value;
+          if (VISA_FIELDS.has(col.field)) visaFields[col.field] = value;
+        }
+        profileFields.company = companyId;
+        profileFields.country = data.country.toUpperCase();
+        if (data.gender) profileFields.gender = data.gender.toUpperCase();
+        await bulkUserRepo.bulkUpdateProfile(userId, profileFields, officerBU, client);
+        const defaultExpiry = new Date(); defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 1);
+        await userRepo.createVisaInfo({ userId, visaType: data.visa_type || "Standard Work Visa", visaExpiry: parseDate(data.visa_expiry_date) || defaultExpiry, businessUnit: officerBU }, client);
+        await bulkUserRepo.bulkUpdateVisa(userId, { ...visaFields, visa_type: data.visa_type || "Standard Work Visa", visa_expiry_date: parseDate(data.visa_expiry_date) || defaultExpiry }, client);
+        await createStreamUser(userId, client);
+        await client.query("COMMIT");
+        succeeded.push({ ...logCtx, user_id: userId, action: "created", temp_login_id: data.temp_login_id, temp_password: tempPassword });
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        failed.push({ ...logCtx, temp_login_id: data.temp_login_id, reason: err.code === "23505" ? "Temporary Login ID already in use" : err.message });
+      } finally { client.release(); }
+      continue;
+    }
 
     // ── 1. Schema validation ──────────────────────────────────────────────
     const parsed = bulkImportRowSchema.safeParse(row);
@@ -244,7 +339,7 @@ const _processRows = async (fileBuffer, officerBU) => {
       await bulkUserRepo.bulkUpdateProfile(user_id, profileFields, officerBU, client);
       await bulkUserRepo.bulkUpdateVisa(user_id, visaFields, client);
       await client.query("COMMIT");
-      succeeded.push(logCtx);
+      succeeded.push({ ...logCtx, action: "updated" });
 
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
@@ -323,11 +418,13 @@ export const startImportJob = async (fileBuffer, officerBU, officerId = null, fi
       const logRows = [
         ...succeeded.map((r) => ({
           row_number: r.row, user_id: r.user_id, full_name: r.name,
-          status: "success", error_detail: null,
+          status: "success", error_detail: null, action: r.action,
+          temp_login_id: r.temp_login_id, temp_password: r.temp_password,
         })),
         ...failed.map((r) => ({
           row_number: r.row, user_id: r.user_id, full_name: r.name,
-          status: "error", error_detail: r.reason,
+          status: "error", error_detail: r.reason, action: r.action,
+          temp_login_id: r.temp_login_id, temp_password: null,
         })),
       ];
       await bulkUserRepo.insertUploadLogRows(logId, logRows);
@@ -384,3 +481,17 @@ export const getUploadHistory = async (businessUnit) => {
 export const getUploadHistoryDetail = async (uploadId, businessUnit) => {
   return bulkUserRepo.getUploadLogRows(uploadId, businessUnit);
 };
+
+export const exportUploadResultsCsv = async (uploadId, businessUnit, lang = "en") => {
+  const rows = await bulkUserRepo.getUploadLogRows(uploadId, businessUnit);
+  const headers = lang === "ja"
+    ? ["行", "処理", "仮ログインID", "氏名", "ユーザーID", "仮パスワード", "ステータス", "エラー"]
+    : ["Row", "Action", "Temporary Login ID", "Full Name", "User ID", "Temporary Password", "Status", "Error"];
+  return toCsv([headers, ...rows.map((r) => [r.row_number, r.action, r.temp_login_id, r.full_name, r.user_id, r.temp_password, r.status, r.error_detail])]);
+};
+
+// New-user rows never carry a User ID, so the template omits that column
+// rather than shipping one that must always be left blank. The importer maps
+// columns by header, so a file without it parses as create rows.
+export const getNewUserTemplateCsv = (lang = "en") =>
+  toCsv([COLUMNS.filter((column) => column.field !== "user_id").map((column) => getHeader(column, lang))]);

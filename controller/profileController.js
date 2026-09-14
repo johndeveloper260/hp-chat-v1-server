@@ -25,7 +25,7 @@ export const getUserAvatar = async (req, res, next) => {
 export const getBUSettings = async (req, res, next) => {
   try {
     const settings = await profileService.getBUSettings(req.user.business_unit, req.user.id);
-    res.json(settings);
+    res.json({ ...settings, emailPending: req.user.emailPending ?? false });
   } catch (err) { next(err); }
 };
 
@@ -124,12 +124,12 @@ export const searchUsers = async (req, res, next) => {
 
 export const adminResetUserPassword = async (req, res, next) => {
   try {
-    await profileService.adminResetUserPassword(
+    const result = await profileService.adminResetUserPassword(
       req.params.userId,
       req.body.newPassword,
       req.user.business_unit,
     );
-    res.json({ message: getApiMessage("update_success", lang(req)) });
+    res.json({ message: getApiMessage("update_success", lang(req)), ...result });
   } catch (err) { next(err); }
 };
 

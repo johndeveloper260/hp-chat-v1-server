@@ -6,6 +6,7 @@
  * via parseDate() which returns null for any invalid/blank value.
  */
 import { z } from "zod";
+import { TEMP_LOGIN_ID_RE } from "../config/constants.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -60,3 +61,29 @@ export const bulkImportRowSchema = z.object({
   joining_date:              optStr(20,  "Employment Start Date"),
   assignment_start_date:     optStr(20,  "Employment End Date"),
 }).passthrough(); // allow extra/unknown keys without error
+
+export const bulkCreateRowSchema = z.object({
+  temp_login_id: z.string().regex(TEMP_LOGIN_ID_RE, "Temporary Login ID must be 3–50 characters: letters, digits, . _ -"),
+  first_name: reqStr("First Name", 100),
+  last_name: optStr(100, "Last Name"),
+  middle_name: optStr(100, "Middle Name"),
+  company_code: reqStr("Company Code", 50),
+  batch_no: reqStr("Batch Number", 50),
+  sending_org: reqStr("Sending Organization", 50),
+  country: reqStr("Country", 10),
+  position: optStr(100, "Position"),
+  company_joining_date: optStr(20, "Company Joining Date"),
+  city: optStr(100, "City"), state_province: optStr(100, "State / Province"),
+  street_address: optStr(255, "Street Address"), postal_code: optStr(20, "Postal Code"),
+  birthdate: optStr(20, "Date of Birth"), gender: optStr(10, "Gender"),
+  phone_number: optStr(30, "Phone Number"), emergency_contact_name: optStr(150, "Emergency Contact Name"),
+  emergency_contact_number: optStr(30, "Emergency Contact Number"),
+  emergency_email: z.string().email("Emergency Email is not a valid email address").optional().or(z.literal("")),
+  emergency_contact_address: optStr(255, "Emergency Contact Address"),
+  visa_type: optStr(50, "Visa Type"), visa_number: optStr(50, "Visa Number"),
+  visa_issue_date: optStr(20, "Visa Issue Date"), visa_expiry_date: optStr(20, "Visa Expiry Date"),
+  passport_no: optStr(30, "Passport Number"), passport_name: optStr(150, "Passport Name"),
+  passport_expiry: optStr(20, "Passport Expiry Date"), passport_issuing_country: optStr(50, "Passport Issuing Country"),
+  issuing_authority: optStr(150, "Issuing Authority"), joining_date: optStr(20, "Employment Start Date"),
+  assignment_start_date: optStr(20, "Employment End Date"),
+}).passthrough();

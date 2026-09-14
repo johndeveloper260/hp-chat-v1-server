@@ -174,6 +174,7 @@ export const adminResetUserPassword = async (targetUserId, newPassword, officerB
   const passwordHash = await bcrypt.hash(newPassword, 10);
   const rowCount = await userRepo.updatePasswordHash(targetUserId, passwordHash);
   if (rowCount === 0) throw new NotFoundError("user_not_found");
+  return { newPassword };
 };
 
 // ── Language preference ────────────────────────────────────────────────────────
