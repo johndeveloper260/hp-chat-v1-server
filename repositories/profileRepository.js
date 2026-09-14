@@ -40,6 +40,30 @@ export const getBUSettings = async (businessUnit) => {
   return rows[0] ?? null;
 };
 
+/**
+ * Returns the caller's current company and its feature flags — the same join
+ * the login query uses, so a flag flipped after login can be re-read live.
+ */
+export const getCompanyFlags = async (userId) => {
+  const { rows } = await getPool().query(
+    `SELECT p.company,
+            COALESCE(
+              c.company_name ->> a.preferred_language,
+              c.company_name ->> 'en',
+              (SELECT value FROM jsonb_each_text(c.company_name) LIMIT 1)
+            ) AS company_name,
+            c.ticketing      AS company_ticketing,
+            c.flight_tracker AS company_flight_tracker,
+            c.company_form   AS company_form
+     FROM v4.user_account_tbl a
+     LEFT JOIN v4.user_profile_tbl p ON a.id = p.user_id
+     LEFT JOIN v4.company_tbl c      ON p.company::uuid = c.company_id
+     WHERE a.id = $1::uuid`,
+    [userId],
+  );
+  return rows[0] ?? null;
+};
+
 // ── Search users ──────────────────────────────────────────────────────────────
 
 export const searchUsers = async (lang, businessUnit, { company, batch_no, name, country, sending_org, visa_type, passport_expiry_within, visa_expiry_within, user_type, status = "all" } = {}) => {

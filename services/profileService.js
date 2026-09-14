@@ -18,6 +18,7 @@ import {
   ValidationError,
 } from "../errors/AppError.js";
 import { isSouser } from "../utils/souserScope.js";
+import { buildCompanyFlags } from "../utils/sessionFlags.js";
 
 const VALID_LANGUAGES = ["en", "ja", "id", "vi"];
 
@@ -46,15 +47,25 @@ const assertPersonalRecordAccess = (requestor, targetUserId) => {
 
 // ── BU settings ───────────────────────────────────────────────────────────────
 
-/** Returns live BU feature flags (e.g. lock_screen_expire) for the caller's BU. */
-export const getBUSettings = async (businessUnit) => {
-  const row = await profileRepo.getBUSettings(businessUnit);
+/**
+ * Returns live BU feature flags (e.g. lock_screen_expire) for the caller's BU,
+ * plus the caller's current company flags (company_form, company_ticketing,
+ * company_flight_tracker). Clients call this on boot/foreground and merge it
+ * over the login payload, so anything an officer can toggle after login must
+ * be returned here or it stays stale until the next re-login.
+ */
+export const getBUSettings = async (businessUnit, userId) => {
+  const [row, companyRow] = await Promise.all([
+    profileRepo.getBUSettings(businessUnit),
+    userId ? profileRepo.getCompanyFlags(userId) : null,
+  ]);
   return {
     lockScreenExpire:     row?.lock_screen_expire      ?? false,
     lockScreenExpireDays: row?.lock_screen_expire_days ?? 14,
     bu_souser_enabled:    row?.souser_enabled           ?? false,
     task_enabled:         row?.task_enabled             ?? false,
     bu_assessment_enabled: row?.assessment_enabled      ?? false,
+    ...buildCompanyFlags(companyRow),
   };
 };
 

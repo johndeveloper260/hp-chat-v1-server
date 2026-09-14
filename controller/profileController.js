@@ -24,7 +24,7 @@ export const getUserAvatar = async (req, res, next) => {
 /** GET /profile/bu-settings — returns live BU flags for the caller's business unit. */
 export const getBUSettings = async (req, res, next) => {
   try {
-    const settings = await profileService.getBUSettings(req.user.business_unit);
+    const settings = await profileService.getBUSettings(req.user.business_unit, req.user.id);
     res.json(settings);
   } catch (err) { next(err); }
 };
