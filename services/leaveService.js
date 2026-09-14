@@ -91,7 +91,13 @@ export const getLeaveTemplate = async (requestor, queryParams) => {
   const context       = await getRequesterLeaveContext(requestor);
   const business_unit = context.businessUnit;
   const template_id   = queryParams.template_id;
-  const company       = isOfficer ? (queryParams.company_id || context.company) : context.company;
+  // Officers fetching by ID are scoped to their BU only. Their own company is
+  // not a meaningful default here — a coordinator applying on behalf belongs
+  // to a different company than the template, and a client that omits
+  // company_id would otherwise get a 404 for a form it just listed.
+  const company = isOfficer
+    ? (queryParams.company_id || (template_id ? null : context.company))
+    : context.company;
 
   const row = await leaveRepo.findLeaveTemplate({
     templateId: template_id,

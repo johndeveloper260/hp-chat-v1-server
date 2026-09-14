@@ -75,6 +75,11 @@ export const findCompanyTemplates = async (company, businessUnit, publishedOnly 
  * Fetch a single template.
  * Pass `templateId` to get it by ID; otherwise fetches the latest for
  * the given company + businessUnit.
+ *
+ * By ID, `company` may be null: the row is then scoped to the business unit
+ * only. Callers pass null for officers, who may already list every company's
+ * templates in their BU, so pinning the lookup to one company only ever
+ * turns a valid on-behalf request into a 404.
  */
 export const findLeaveTemplate = async ({
   templateId,
@@ -83,12 +88,19 @@ export const findLeaveTemplate = async ({
   publishedOnly = false,
 } = {}) => {
   if (templateId) {
+    const params = [templateId, businessUnit, publishedOnly];
+    let companyClause = "";
+    if (company) {
+      params.push(company);
+      companyClause = `AND company_id = $${params.length}`;
+    }
     const { rows } = await getPool().query(
       `SELECT template_id, version, config, fields, title, description, category, is_published
        FROM v4.leave_template_tbl
-       WHERE template_id = $1 AND company_id = $2 AND business_unit = $3 AND is_active = true
-         AND ($4::boolean IS FALSE OR is_published = true)`,
-      [templateId, company, businessUnit, publishedOnly],
+       WHERE template_id = $1 AND business_unit = $2 AND is_active = true
+         AND ($3::boolean IS FALSE OR is_published = true)
+         ${companyClause}`,
+      params,
     );
     return rows[0] ?? null;
   }
