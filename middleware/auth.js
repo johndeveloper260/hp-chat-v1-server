@@ -46,6 +46,7 @@ const auth = (req, res, next) => {
              account.business_unit,
              account.is_active,
              account.preferred_language,
+             account.email_pending,
              COALESCE(p.user_type, CASE WHEN su.id IS NOT NULL THEN 'souser' END) AS user_type,
              p.company,
              su.country AS souser_country,
