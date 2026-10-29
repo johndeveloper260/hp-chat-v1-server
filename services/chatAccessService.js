@@ -139,7 +139,15 @@ export const assertCanChatWithAll = async (actorId, targetIds, identityLoader = 
   if (identities.some((identity) => !identity || !identity.isActive)) {
     throw new ForbiddenError("chat_contact_not_permitted", "api_errors.chat.contact_not_permitted");
   }
-  // Check every pair: an officer must not bridge two unrelated organisations.
+  assertPairsAllowed(actorId, identities);
+  return ids.filter((id) => id !== String(actorId));
+};
+
+/**
+ * Check every pair: an officer must not bridge two unrelated organisations.
+ * Every identity passed in must already be loaded and active.
+ */
+const assertPairsAllowed = (actorId, identities) => {
   for (let i = 0; i < identities.length; i++) {
     for (let j = i + 1; j < identities.length; j++) {
       const left = identities[i], right = identities[j];
@@ -152,7 +160,6 @@ export const assertCanChatWithAll = async (actorId, targetIds, identityLoader = 
       }
     }
   }
-  return ids.filter((id) => id !== String(actorId));
 };
 
 export const listChannelMemberIds = async (channel) => {
@@ -202,7 +209,19 @@ export const addScopedChannelMember = async (actorId, channelId, targetId, depen
   if (!members.includes(String(actorId))) {
     throw new ForbiddenError("chat_not_channel_member", "api_errors.chat.not_channel_member");
   }
-  await assertCanChatWithAll(actorId, [...members, String(targetId)], dependencies.loadIdentity ?? loadIdentity);
+  const identityLoader = dependencies.loadIdentity ?? loadIdentity;
+  const [actor, target] = await Promise.all([identityLoader(String(actorId)), identityLoader(String(targetId))]);
+  if (!canChat(actor, target)) {
+    throw new ForbiddenError("chat_contact_not_permitted", "api_errors.chat.contact_not_permitted");
+  }
+  // Existing members that are deactivated or gone from the DB are skipped, not
+  // fatal: they cannot read or post, so they widen nobody's audience, and older
+  // deactivations left them in Stream channels. They are left in place — removal
+  // is a separate, deliberate action.
+  const others = members.filter((id) => id !== String(actorId) && id !== String(targetId));
+  const existing = (await Promise.all(others.map((id) => identityLoader(id))))
+    .filter((identity) => identity?.isActive);
+  assertPairsAllowed(actorId, [actor, ...existing, target]);
   await channel.addMembers([String(targetId)]);
 };
 

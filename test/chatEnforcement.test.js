@@ -5,7 +5,10 @@ const { createChatChannel, addScopedChannelMember, pruneOutOfScopeChannels, list
 const { createChatChannelSchema } = await import("../validators/chatValidator.js");
 const so = (id, org = "A", bus = ["BU"]) => ({ id, userType: "SOUSER", isActive: true, sendingOrg: org, businessUnits: bus });
 const officer = { id: "off", userType: "OFFICER", isActive: true, isPrivileged: true, businessUnits: ["BU"] };
-const identities = { a: so("a"), b: so("b", "B"), friend: so("friend"), off: officer };
+const user = (id, company = "C1", isActive = true) => ({ id, userType: "USER", isActive, company, businessUnits: ["BU"] });
+const identities = { a: so("a"), b: so("b", "B"), friend: so("friend"), off: officer,
+  u1: user("u1"), u2: user("u2", "C2"), inactiveUser: user("inactiveUser", "C1", false),
+  inactiveSouser: { ...so("inactiveSouser", "B"), isActive: false } };
 const loadIdentity = async (id) => identities[id] ?? null;
 
 test("server refuses mixed-organisation group even when its creator is an officer", async () => {
@@ -34,6 +37,38 @@ test("adding a member validates against existing members, not just the officer",
   const channel = { queryMembers: async () => ({ members: [{ user_id: "off" }, { user_id: "a" }] }), addMembers: async () => { added = true; } };
   await assert.rejects(addScopedChannelMember("off", "group", "b", { chat: { channel: () => channel }, loadIdentity }), { statusCode: 403 });
   assert.equal(added, false);
+});
+const memberChannel = (ids, added) => ({
+  queryMembers: async () => ({ members: ids.map((user_id) => ({ user_id })) }),
+  addMembers: async (ids) => added.push(...ids),
+});
+test("an inactive existing member does not block adding a new member", async () => {
+  const added = [];
+  const chat = { channel: () => memberChannel(["off", "u1", "inactiveUser", "inactiveSouser"], added) };
+  await addScopedChannelMember("off", "group", "u2", { chat, loadIdentity });
+  assert.deepEqual(added, ["u2"]);
+});
+test("a member missing from the DB does not block adding a new member", async () => {
+  const added = [];
+  const chat = { channel: () => memberChannel(["off", "u1", "ghost"], added) };
+  await addScopedChannelMember("off", "group", "u2", { chat, loadIdentity });
+  assert.deepEqual(added, ["u2"]);
+});
+test("an inactive or missing target is still refused", async () => {
+  const added = [];
+  const chat = { channel: () => memberChannel(["off", "u1"], added) };
+  await assert.rejects(addScopedChannelMember("off", "group", "inactiveUser", { chat, loadIdentity }), { statusCode: 403 });
+  await assert.rejects(addScopedChannelMember("off", "group", "ghost", { chat, loadIdentity }), { statusCode: 403 });
+  assert.deepEqual(added, []);
+});
+test("SOUSER cross-organisation add is still refused alongside inactive members", async () => {
+  const added = [];
+  const chat = { channel: () => memberChannel(["off", "a", "inactiveUser", "ghost"], added) };
+  await assert.rejects(addScopedChannelMember("off", "group", "b", { chat, loadIdentity }), { statusCode: 403 });
+  // Target is a USER, but an active SOUSER member must still share their org with them.
+  await assert.rejects(addScopedChannelMember("off", "group", "u1", { chat, loadIdentity }), { statusCode: 403 });
+  await addScopedChannelMember("off", "group", "friend", { chat, loadIdentity });
+  assert.deepEqual(added, ["friend"]);
 });
 test("outsider cannot add members through admin SDK", async () => {
   const channel = { queryMembers: async () => ({ members: [{ user_id: "off" }] }) };
