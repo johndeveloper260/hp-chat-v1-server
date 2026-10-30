@@ -1396,6 +1396,17 @@ const apiMessages = {
     th: "เฉพาะเจ้าหน้าที่เท่านั้นที่สามารถลบไฟล์ได้",
     ne: "केवल अफिसरहरूले मात्र फाइल मेटाउन सक्छन्",
   },
+  folder_access_denied: {
+    en: "You don't have access to this folder or file",
+    ja: "このフォルダーまたはファイルへのアクセス権がありません",
+    id: "Anda tidak memiliki akses ke folder atau file ini",
+    vi: "Bạn không có quyền truy cập thư mục hoặc tệp này",
+    my: "ဤဖိုင်တွဲ သို့မဟုတ် ဖိုင်ကို ဝင်ရောက်ခွင့် မရှိပါ",
+    km: "អ្នកមិនមានសិទ្ធិចូលប្រើថត ឬឯកសារនេះទេ",
+    bn: "এই ফোল্ডার বা ফাইলে আপনার অ্যাক্সেস নেই",
+    th: "คุณไม่มีสิทธิ์เข้าถึงโฟลเดอร์หรือไฟล์นี้",
+    ne: "तपाईंसँग यो फोल्डर वा फाइलमा पहुँच छैन",
+  },
   file_in_use: {
     en: "This file is used in {{count}} announcement(s). Remove it from those announcements before deleting.",
     ja: "このファイルは{{count}}件のお知らせで使用されています。削除する前に、それらのお知らせから取り外してください。",

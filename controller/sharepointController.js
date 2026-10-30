@@ -25,8 +25,8 @@ export const getFolders = async (req, res, next) => {
 export const createFolder = async (req, res, next) => {
   try {
     const { name, parent_id, company_ids } = req.body;
-    const { id: userId, userType, business_unit: businessUnit } = req.user;
-    const folder = await spService.createFolder({ name, parent_id, company_ids, userId, userType, businessUnit });
+    const { id: userId, userType, company: userCompany, business_unit: businessUnit } = req.user;
+    const folder = await spService.createFolder({ name, parent_id, company_ids, userId, userType, userCompany, businessUnit });
     res.status(201).json(folder);
   } catch (err) {
     next(err);
@@ -65,6 +65,8 @@ export const generateUploadUrl = async (req, res, next) => {
     const { fileName, fileType, folderId } = req.body;
     const result = await spService.generateUploadUrl({
       fileName, fileType, folderId,
+      userType:     req.user.userType,
+      userCompany:  req.user.company,
       businessUnit: req.user.business_unit,
     });
     res.json(result);
@@ -76,10 +78,10 @@ export const generateUploadUrl = async (req, res, next) => {
 export const confirmFileUpload = async (req, res, next) => {
   try {
     const { folder_id, display_name, s3_key, s3_bucket, file_type, file_size } = req.body;
-    const { id: userId, business_unit: businessUnit } = req.user;
+    const { id: userId, userType, company: userCompany, business_unit: businessUnit } = req.user;
     const file = await spService.confirmFileUpload({
       folder_id, display_name, s3_key, s3_bucket,
-      file_type, file_size, userId, businessUnit,
+      file_type, file_size, userId, userType, userCompany, businessUnit,
     });
     res.status(201).json(file);
   } catch (err) {
@@ -91,6 +93,8 @@ export const getFileViewUrl = async (req, res, next) => {
   try {
     const url = await spService.getFileViewUrl({
       id:           req.params.id,
+      userType:     req.user.userType,
+      userCompany:  req.user.company,
       businessUnit: req.user.business_unit,
     });
     res.json({ url });
@@ -143,6 +147,8 @@ export const getBreadcrumb = async (req, res, next) => {
   try {
     const result = await spService.getBreadcrumb({
       folderId:     req.params.folderId,
+      userType:     req.user.userType,
+      userCompany:  req.user.company,
       businessUnit: req.user.business_unit,
     });
     res.json(result);

@@ -62,6 +62,8 @@ export const copyFromSharepoint = async (req, res, next) => {
       relation_id,
       userBU: req.user.business_unit,
       userId: req.user.id,
+      userType: req.user.userType,
+      userCompany: req.user.company,
     });
     res.status(201).json(attachment);
   } catch (err) {
@@ -80,6 +82,8 @@ export const linkSharepointToChat = async (req, res, next) => {
       channelId: channel_id,
       userBU: req.user.business_unit,
       userId: req.user.id,
+      userType: req.user.userType,
+      userCompany: req.user.company,
     });
     res.status(201).json(attachment);
   } catch (err) {

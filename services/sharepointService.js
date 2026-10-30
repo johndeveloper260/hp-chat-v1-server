@@ -17,14 +17,45 @@ import { NotFoundError, ForbiddenError, ValidationError } from "../errors/AppErr
 const OFFICER_TYPES = ["officer", "admin"];
 const isOfficer = (userType) => OFFICER_TYPES.includes(userType?.toLowerCase());
 
+// ─── Access ───────────────────────────────────────────────────────────────────
+
+/**
+ * Non-officers may only reach a folder whose ROOT folder lists their company.
+ * Checked on every ID-based entry point, because "Copy link" URLs
+ * (/files/<folderId>?file=<fileId>) jump straight past the root listing.
+ * Officers/admins keep full access within their BU — a no-op for them, the
+ * callers' own BU checks still apply.
+ * 404 when the folder is missing or in another BU, 403 when it's out of scope.
+ */
+export const assertFolderAccess = async ({ folderId, userType, userCompany, businessUnit }) => {
+  if (isOfficer(userType)) return;
+
+  const { exists, allowed } = await spRepo.findFolderCompanyAccess(folderId, businessUnit, userCompany);
+  if (!exists) throw new NotFoundError("record_not_found");
+  if (!allowed) throw new ForbiddenError("folder_access_denied", "api_errors.files.access_denied");
+};
+
+/** Loads a file within the BU and applies assertFolderAccess to its folder. */
+export const findAccessibleFile = async ({ fileId, userType, userCompany, businessUnit }) => {
+  const file = await spRepo.findFileWithFolderBU(fileId, businessUnit);
+  if (!file) throw new NotFoundError("record_not_found");
+
+  await assertFolderAccess({ folderId: file.folder_id, userType, userCompany, businessUnit });
+  return file;
+};
+
 // ─── Folders ──────────────────────────────────────────────────────────────────
 
 /**
  * Returns { folders, files } for the given parent folder.
  * Officers see all root folders; trainees see only company-scoped root folders.
- * Any user can navigate into sub-folders once the parent is accessible.
+ * Trainees opening a sub-folder by ID are checked against its root's companies.
  */
 export const getFolders = async ({ userType, userCompany, businessUnit, parent_id }) => {
+  if (parent_id) {
+    await assertFolderAccess({ folderId: parent_id, userType, userCompany, businessUnit });
+  }
+
   let folders;
 
   if (isOfficer(userType)) {
@@ -41,12 +72,15 @@ export const getFolders = async ({ userType, userCompany, businessUnit, parent_i
   return { folders, files };
 };
 
-export const createFolder = async ({ name, parent_id, company_ids, userId, userType, businessUnit }) => {
+export const createFolder = async ({ name, parent_id, company_ids, userId, userType, userCompany, businessUnit }) => {
   if (!isOfficer(userType) && !parent_id) {
     throw new ForbiddenError("officer_only_create", "api_errors.files.officer_only_create");
   }
   if (!name || !name.trim()) {
     throw new ValidationError("folder_name_required", "api_errors.files.folder_name_required");
+  }
+  if (parent_id) {
+    await assertFolderAccess({ folderId: parent_id, userType, userCompany, businessUnit });
   }
 
   return spRepo.insertFolder({ name, parent_id, userId, company_ids, business_unit: businessUnit });
@@ -123,13 +157,14 @@ export const deleteFolder = async ({ id, userType, businessUnit }) => {
  * Returns a presigned PUT URL for direct-to-S3 upload.
  * S3 key pattern: sharepoint/{folderId}/{timestamp}-{sanitizedFilename}
  */
-export const generateUploadUrl = async ({ fileName, fileType, folderId, businessUnit }) => {
+export const generateUploadUrl = async ({ fileName, fileType, folderId, userType, userCompany, businessUnit }) => {
   if (!fileName || !fileType || !folderId) {
     throw new ValidationError("missing_upload_params");
   }
 
   const exists = await spRepo.verifyFolderBU(folderId, businessUnit);
   if (exists === 0) throw new NotFoundError("record_not_found");
+  await assertFolderAccess({ folderId, userType, userCompany, businessUnit });
 
   const sanitized = fileName.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
   const s3Key = `sharepoint/${folderId}/${Date.now()}-${sanitized}`;
@@ -147,12 +182,13 @@ export const generateUploadUrl = async ({ fileName, fileType, folderId, business
 /** Saves the confirmed file record to DB after the S3 upload has completed. */
 export const confirmFileUpload = async ({
   folder_id, display_name, s3_key, s3_bucket,
-  file_type, file_size, userId, businessUnit,
+  file_type, file_size, userId, userType, userCompany, businessUnit,
 }) => {
   if (!folder_id || !s3_key) throw new ValidationError("missing_confirm_params");
 
   const exists = await spRepo.verifyFolderBU(folder_id, businessUnit);
   if (exists === 0) throw new NotFoundError("record_not_found");
+  await assertFolderAccess({ folderId: folder_id, userType, userCompany, businessUnit });
 
   return spRepo.insertFile({
     folder_id, display_name, s3_key, s3_bucket,
@@ -161,9 +197,8 @@ export const confirmFileUpload = async ({
 };
 
 /** Returns a URL for viewing a file — CloudFront when configured, S3 presigned otherwise. */
-export const getFileViewUrl = async ({ id, businessUnit }) => {
-  const file = await spRepo.findFileWithFolderBU(id, businessUnit);
-  if (!file) throw new NotFoundError("record_not_found");
+export const getFileViewUrl = async ({ id, userType, userCompany, businessUnit }) => {
+  const file = await findAccessibleFile({ fileId: id, userType, userCompany, businessUnit });
 
   if (env.aws.cloudfrontDomain) {
     return `https://${env.aws.cloudfrontDomain}/${file.s3_key}`;
@@ -233,7 +268,8 @@ export const getStorageQuota = async ({ businessUnit }) => {
 
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
-export const getBreadcrumb = async ({ folderId, businessUnit }) => {
+export const getBreadcrumb = async ({ folderId, userType, userCompany, businessUnit }) => {
+  await assertFolderAccess({ folderId, userType, userCompany, businessUnit });
   const breadcrumb = await spRepo.findBreadcrumb(folderId, businessUnit);
   return { breadcrumb };
 };

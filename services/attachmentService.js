@@ -20,7 +20,7 @@ import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "..
 import { getS3Key }         from "../utils/getS3Key.js";
 import { clearAvatarCache } from "./profileService.js";
 import * as attachRepo      from "../repositories/attachmentRepository.js";
-import * as spRepo          from "../repositories/sharepointRepository.js";
+import { findAccessibleFile } from "./sharepointService.js";
 import * as commentsRepo    from "../repositories/commentsRepository.js";
 import { createNotification } from "./notificationService.js";
 import { isAnnouncementVisible, canModifyAnnouncement } from "./announcementAccess.js";
@@ -200,15 +200,15 @@ const isSharepointOwned = (s3Key) =>
  * (see sharepointService.deleteFile / deleteFolder).
  */
 export const copyFromSharepointFile = async ({
-  fileId, relation_type, relation_id, userBU, userId,
+  fileId, relation_type, relation_id, userBU, userId, userType, userCompany,
 }) => {
   if (!fileId || !relation_type || !relation_id) {
     throw new ValidationError("missing_copy_params");
   }
 
-  // SharePoint file must exist within the caller's business unit
-  const file = await spRepo.findFileWithFolderBU(fileId, userBU);
-  if (!file) throw new NotFoundError("record_not_found");
+  // SharePoint file must exist within the caller's BU and, for non-officers,
+  // sit under a root folder their company can see
+  const file = await findAccessibleFile({ fileId, userType, userCompany, businessUnit: userBU });
 
   // Target record (e.g. the announcement) must exist within the caller's BU
   const parentExists = await checkRelationAccess(relation_type, relation_id, userBU, userId);
@@ -228,14 +228,13 @@ export const copyFromSharepointFile = async ({
 };
 
 export const linkSharepointFileToChat = async ({
-  fileId, channelId, userBU, userId,
+  fileId, channelId, userBU, userId, userType, userCompany,
 }) => {
   if (!fileId || !channelId) {
     throw new ValidationError("missing_chat_link_params");
   }
 
-  const file = await spRepo.findFileWithFolderBU(fileId, userBU);
-  if (!file) throw new NotFoundError("record_not_found");
+  const file = await findAccessibleFile({ fileId, userType, userCompany, businessUnit: userBU });
 
   await assertChatChannelMember(channelId, userId);
 

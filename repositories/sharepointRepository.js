@@ -62,6 +62,34 @@ export const findFolderById = async (id, businessUnit, client) => {
   return rows[0] ?? null;
 };
 
+/**
+ * Company access to a folder is decided by its ROOT folder's company_ids.
+ * Walks parent_id up to the root in one recursive query.
+ * Returns { exists, allowed }: exists = false when the folder is missing or in
+ * another BU; allowed = false when the root doesn't list the company, or when
+ * the chain never reaches a root in this BU (broken / cyclic data fails closed).
+ */
+export const findFolderCompanyAccess = async (folderId, businessUnit, userCompany) => {
+  const { rows } = await getPool().query(
+    `WITH RECURSIVE chain AS (
+       SELECT id, parent_id, company_ids, 0 AS depth
+       FROM v4.sharepoint_folders
+       WHERE id = $1 AND business_unit = $2
+       UNION ALL
+       SELECT f.id, f.parent_id, f.company_ids, c.depth + 1
+       FROM v4.sharepoint_folders f
+       JOIN chain c ON f.id = c.parent_id
+       WHERE f.business_unit = $2 AND c.depth < 64
+     )
+     SELECT COUNT(*)::int AS hops,
+            COALESCE(BOOL_OR(parent_id IS NULL AND company_ids @> $3::jsonb), false) AS allowed
+     FROM chain`,
+    [folderId, businessUnit, JSON.stringify([userCompany])],
+  );
+  const row = rows[0];
+  return { exists: (row?.hops ?? 0) > 0, allowed: row?.allowed === true };
+};
+
 export const verifyFolderBU = async (folderId, businessUnit, client) => {
   const { rowCount } = await db(client).query(
     `SELECT 1 FROM v4.sharepoint_folders WHERE id = $1 AND business_unit = $2`,
@@ -172,7 +200,7 @@ export const insertFile = async ({
 /** Fetch a file while verifying the parent folder belongs to the given BU. */
 export const findFileWithFolderBU = async (id, businessUnit) => {
   const { rows } = await getPool().query(
-    `SELECT f.s3_key, f.s3_bucket, f.display_name, f.file_type, f.file_size
+    `SELECT f.folder_id, f.s3_key, f.s3_bucket, f.display_name, f.file_type, f.file_size
      FROM v4.sharepoint_files f
      JOIN v4.sharepoint_folders fld ON f.folder_id = fld.id
      WHERE f.id = $1 AND fld.business_unit = $2`,
