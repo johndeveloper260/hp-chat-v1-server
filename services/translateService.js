@@ -10,6 +10,7 @@
 import { v2 } from "@google-cloud/translate";
 import env from "../config/env.js";
 import { ValidationError } from "../errors/AppError.js";
+import { splitForTranslation, mapWithConcurrency } from "../utils/translationChunks.js";
 
 const { Translate } = v2;
 
@@ -49,10 +50,10 @@ const googleTranslate = async (text, targetLang) => {
 
 const sanitizeOpenAIError = (text) => text.replace(/sk-[A-Za-z0-9_*.-]+/g, "sk-***");
 
-const getTranslationMaxTokens = (text) => {
-  const estimatedOutputTokens = Math.ceil(text.length / 2);
-  return Math.min(4096, Math.max(1000, estimatedOutputTokens));
-};
+// Scripts like Burmese, Khmer, Thai and Bengali can cost several tokens per
+// character, so budget generously — max_tokens is a ceiling, not a charge.
+const getTranslationMaxTokens = (text) =>
+  Math.min(16384, Math.max(1000, text.length * 4));
 
 const hasMissingLines = (original, translated) => {
   const originalLines = original.split(/\r?\n/).filter((line) => line.trim()).length;
@@ -73,7 +74,7 @@ const gptTranslate = async (text, targetLang) => {
         {
           role: "system",
           content:
-            `Translate the chat message to language code "${targetLang}". ` +
+            `Translate the text to language code "${targetLang}". ` +
             `Translate every line completely. Do not summarize, omit, merge, or shorten any line. ` +
             `Preserve the original line breaks, line order, emoji, punctuation, and informality. ` +
             `Reply ONLY with valid JSON: {"translated":"<text>","source":"<ISO 639-1 code>"}.`,
@@ -110,6 +111,13 @@ const gptTranslate = async (text, targetLang) => {
 };
 
 // ── Unified export ─────────────────────────────────────────────────────────
+//
+// Long texts (announcements) are split into chunks translated in parallel:
+// one huge request can exceed the output token budget or Heroku's 30s
+// request timeout.
+
+const MAX_CHUNK_CHARS = 1000;
+const MAX_PARALLEL_CHUNKS = 6;
 
 export const translateText = async (text, targetLang) => {
   if (!text || !targetLang || targetLang === "nil") {
@@ -119,7 +127,20 @@ export const translateText = async (text, targetLang) => {
     );
   }
 
-  return env.translation.provider === "openai"
-    ? gptTranslate(text, targetLang)
-    : googleTranslate(text, targetLang);
+  const translateChunk = env.translation.provider === "openai" ? gptTranslate : googleTranslate;
+  const chunks = splitForTranslation(text, MAX_CHUNK_CHARS);
+  if (chunks.length === 1) return translateChunk(text, targetLang);
+
+  const results = await mapWithConcurrency(chunks, MAX_PARALLEL_CHUNKS, (chunk) =>
+    chunk.text.trim() ? translateChunk(chunk.text, targetLang) : null,
+  );
+  return {
+    original: text,
+    translated: chunks
+      .map((chunk, i) => (results[i]?.translated ?? chunk.text) + chunk.sep)
+      .join(""),
+    targetLanguage: targetLang,
+    detectedSource:
+      results.find((r) => r && r.detectedSource !== "unknown")?.detectedSource || "unknown",
+  };
 };
