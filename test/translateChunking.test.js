@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitForTranslation } from "../utils/translationChunks.js";
+import { splitForTranslation, extractLines } from "../utils/translationChunks.js";
 
 const rebuild = (chunks) => chunks.map((c) => c.text + c.sep).join("");
 
@@ -49,4 +49,20 @@ test("text with no break points is hard-split", () => {
   const chunks = splitForTranslation(text, 1000);
   assert.deepEqual(chunks.map((c) => c.text.length), [1000, 1000, 500]);
   assert.equal(rebuild(chunks), text);
+});
+
+test("extractLines keeps blank lines and line endings when rebuilding", () => {
+  const text = "\n日時：11月5日\r\n場所：本社\n\n  \n詳細は後日\nお知らせします。";
+  const { lines, rebuild } = extractLines(text);
+  assert.deepEqual(lines, ["日時：11月5日", "場所：本社", "詳細は後日", "お知らせします。"]);
+  assert.equal(rebuild(lines), text);
+  assert.equal(
+    rebuild(["Date: Nov 5", "Place: HQ", "Details will be", "announced later."]),
+    "\nDate: Nov 5\r\nPlace: HQ\n\n  \nDetails will be\nannounced later.",
+  );
+});
+
+test("extractLines keeps the original line when a translation comes back empty", () => {
+  const { rebuild } = extractLines("a\nb");
+  assert.equal(rebuild(["A", ""]), "A\nb");
 });

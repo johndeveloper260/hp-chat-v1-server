@@ -51,6 +51,27 @@ export const splitForTranslation = (text, maxChars) => {
   return chunks;
 };
 
+// Pull out the non-empty lines of a text. rebuild(translatedLines) puts them
+// back in place, keeping blank lines and line endings exactly; an empty
+// translation keeps the original line.
+export const extractLines = (text) => {
+  const parts = text.split(/(\r?\n)/);
+  const indexes = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    if (parts[i].trim()) indexes.push(i);
+  }
+  return {
+    lines: indexes.map((i) => parts[i]),
+    rebuild: (translatedLines) => {
+      const out = [...parts];
+      indexes.forEach((partIndex, k) => {
+        out[partIndex] = translatedLines[k]?.trim() ? translatedLines[k] : parts[partIndex];
+      });
+      return out.join("");
+    },
+  };
+};
+
 export const mapWithConcurrency = async (items, limit, fn) => {
   const results = new Array(items.length);
   let next = 0;
