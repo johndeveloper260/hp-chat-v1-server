@@ -8,6 +8,7 @@
 import { getPool }                         from "../config/getPool.js";
 import env                                 from "../config/env.js";
 import { getS3Client, deleteFromS3, getPresignedUrl } from "../utils/s3Client.js";
+import { signFileUrl }                     from "../utils/cloudfrontSigner.js";
 import { getSignedUrl }                    from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand }                from "@aws-sdk/client-s3";
 import * as spRepo                         from "../repositories/sharepointRepository.js";
@@ -196,12 +197,15 @@ export const confirmFileUpload = async ({
   });
 };
 
-/** Returns a URL for viewing a file — CloudFront when configured, S3 presigned otherwise. */
+/**
+ * Returns a URL for viewing a file — a short-lived signed CloudFront URL when
+ * configured, S3 presigned otherwise. Clients fetch a fresh one on every open.
+ */
 export const getFileViewUrl = async ({ id, userType, userCompany, businessUnit }) => {
   const file = await findAccessibleFile({ fileId: id, userType, userCompany, businessUnit });
 
   if (env.aws.cloudfrontDomain) {
-    return `https://${env.aws.cloudfrontDomain}/${file.s3_key}`;
+    return signFileUrl(file.s3_key);
   }
 
   return getPresignedUrl(file.s3_bucket, file.s3_key, 3600);

@@ -9,6 +9,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
+import { generateKeyPairSync, verify } from "node:crypto";
 
 let state;
 const reset = () => {
@@ -66,7 +67,7 @@ const dependencies = {
 };
 
 globalThis.__sharepointAccessTestDependencies = dependencies;
-const PARENTS = ["/services/sharepointService.js", "/repositories/sharepointRepository.js"];
+const PARENTS = ["/services/sharepointService.js", "/repositories/sharepointRepository.js", "/utils/cloudfrontSigner.js"];
 const hooks = registerHooks({
   resolve(specifier, context, next) {
     const parent = context.parentURL ? new URL(context.parentURL).pathname : "";
@@ -153,6 +154,68 @@ test("an unknown file is 404", async () => {
 test("an officer can view any file in the BU", async () => {
   reset();
   assert.equal(await service.getFileViewUrl({ ...officer, id: "other-file" }), "https://cdn.test/sharepoint/other-sub/b.pdf");
+});
+
+// ── Signed CloudFront URLs ───────────────────────────────────────────────────
+
+const awsEnv = dependencies["../config/env.js"].default.aws;
+const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+
+/** Configures signing keys for the duration of fn. */
+const withSigningKeys = async (fn) => {
+  awsEnv.cloudfrontKeyPairId = "K2TESTKEYPAIR";
+  awsEnv.cloudfrontPrivateKey = privateKey.export({ type: "pkcs1", format: "pem" }).toString();
+  try { await fn(); } finally {
+    delete awsEnv.cloudfrontKeyPairId;
+    delete awsEnv.cloudfrontPrivateKey;
+  }
+};
+
+/** Asserts url is a valid canned-policy CloudFront URL for resource, expiring in ~ttl seconds. */
+const assertSigned = (url, resource, ttl = 300) => {
+  const parsed = new URL(url);
+  assert.equal(`${parsed.origin}${parsed.pathname}`, resource);
+  assert.equal(parsed.searchParams.get("Key-Pair-Id"), "K2TESTKEYPAIR");
+  const expires = Number(parsed.searchParams.get("Expires"));
+  const now = Math.floor(Date.now() / 1000);
+  assert.ok(expires > now + ttl - 10 && expires <= now + ttl + 1, `Expires ${expires} not ~${ttl}s out`);
+
+  // CloudFront's canned policy, signed RSA-SHA1, URL-safe base64 (+ → -, = → _, / → ~)
+  const policy = JSON.stringify({ Statement: [{ Resource: resource, Condition: { DateLessThan: { "AWS:EpochTime": expires } } }] });
+  const signature = Buffer.from(parsed.searchParams.get("Signature").replace(/-/g, "+").replace(/_/g, "=").replace(/~/g, "/"), "base64");
+  assert.ok(verify("RSA-SHA1", Buffer.from(policy), publicKey, signature), "signature does not verify");
+};
+
+test("with signing keys configured, a Files view URL is signed and expires in 5 minutes", async () => {
+  reset();
+  await withSigningKeys(async () => {
+    const url = await service.getFileViewUrl({ ...trainee, id: "own-file" });
+    assertSigned(url, "https://cdn.test/sharepoint/own-sub/a.pdf");
+  });
+});
+
+test("company access is still checked before anything is signed", async () => {
+  reset();
+  await withSigningKeys(() =>
+    rejectsWith(() => service.getFileViewUrl({ ...trainee, id: "other-file" }), 403, "api_errors.files.access_denied"));
+});
+
+test("without signing keys the Files view URL falls back to unsigned (rollout)", async () => {
+  reset();
+  assert.equal(await service.getFileViewUrl({ ...trainee, id: "own-file" }), "https://cdn.test/sharepoint/own-sub/a.pdf");
+});
+
+test("without a CloudFront domain the S3 presigned fallback is unchanged", async () => {
+  reset();
+  const domain = awsEnv.cloudfrontDomain;
+  awsEnv.cloudfrontDomain = undefined;
+  try {
+    await withSigningKeys(async () => {
+      assert.equal(await service.getFileViewUrl({ ...trainee, id: "own-file" }), "presigned:sharepoint/own-sub/a.pdf");
+    });
+  } finally {
+    awsEnv.cloudfrontDomain = domain;
+  }
 });
 
 // ── getBreadcrumb ────────────────────────────────────────────────────────────

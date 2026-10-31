@@ -18,6 +18,7 @@ import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import env                  from "../config/env.js";
 import { getS3Client, deleteFromS3, getPresignedUrl as getDownloadUrl } from "../utils/s3Client.js";
 import { getS3Key }         from "../utils/getS3Key.js";
+import { cloudfrontUrl, isSharepointKey } from "../utils/cloudfrontSigner.js";
 import { clearAvatarCache } from "./profileService.js";
 import * as attachRepo      from "../repositories/attachmentRepository.js";
 import { findAccessibleFile } from "./sharepointService.js";
@@ -183,14 +184,12 @@ export const createAttachment = async ({
 
 // ─── 2b. Link a SharePoint file into a relation's attachments ─────────────────
 
-// SharePoint file objects live under this S3 prefix (see sharepointService
-// generateUploadUrl). A "link from Files" attachment shares the file's exact
-// s3_key, so this prefix marks an attachment as a reference whose underlying
-// S3 object is OWNED by /files — it must never be deleted on the attachment side.
-export const SHAREPOINT_KEY_PREFIX = "sharepoint/";
-
-const isSharepointOwned = (s3Key) =>
-  typeof s3Key === "string" && s3Key.startsWith(SHAREPOINT_KEY_PREFIX);
+// SharePoint file objects live under the "sharepoint/" S3 prefix (see
+// sharepointService generateUploadUrl). A "link from Files" attachment shares the
+// file's exact s3_key, so this prefix marks an attachment as a reference whose
+// underlying S3 object is OWNED by /files — it must never be deleted on the
+// attachment side.
+const isSharepointOwned = isSharepointKey;
 
 /**
  * References an existing SharePoint file from a relation (e.g. an announcement)
@@ -278,8 +277,9 @@ export const getViewingUrl = async (attachmentId, userBU, userId = null) => {
   if (parentExists === 0) throw new ForbiddenError("forbidden");
 
   // Serve via CloudFront when configured — cached at the edge, reduces S3 egress.
+  // A file linked from /files keeps its "sharepoint/" key, so cloudfrontUrl signs it.
   if ((relation_type === "announcements" || relation_type === "profile" || relation_type === "inquiries" || relation_type === "return_home" || relation_type === "task" || relation_type === "subtask" || relation_type === "app_support" || relation_type === CHAT_RELATION_TYPE) && env.aws.cloudfrontDomain) {
-    return `https://${env.aws.cloudfrontDomain}/${s3_key}`;
+    return cloudfrontUrl(s3_key);
   }
 
   return getDownloadUrl(s3_bucket, s3_key, 3600);

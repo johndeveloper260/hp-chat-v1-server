@@ -47,6 +47,11 @@ const env = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     bucket: process.env.S3_BUCKET_NAME,
     cloudfrontDomain: process.env.CLOUDFRONT_DOMAIN, // e.g. xxxxxxxxxxxx.cloudfront.net
+    // Signs SharePoint (Files) URLs — see utils/cloudfrontSigner.js. Optional:
+    // without them Files URLs are served unsigned.
+    cloudfrontKeyPairId: process.env.CLOUDFRONT_KEY_PAIR_ID, // public key ID from the CloudFront key group
+    // PEM contents; literal "\n" sequences (single-line env values) become newlines
+    cloudfrontPrivateKey: process.env.CLOUDFRONT_PRIVATE_KEY?.replace(/\\n/g, "\n"),
   },
 
   google: {
