@@ -10,6 +10,7 @@ import connectDB from "./config/db.js";
 import { scheduleStreamSync, runStreamSync } from "./jobs/streamSyncJob.js";
 import slidingExpiration from "./middleware/slidingExpiration.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { isAllowedOrigin } from "./config/corsOrigins.js";
 
 import register from "./routes/registerRoute.js";
 import login from "./routes/loginRoute.js";
@@ -41,24 +42,10 @@ const app = express();
 const httpServer = createServer(app);
 
 // --- 1. CORS Configuration ---
-const whitelist = [
-  // Legacy Heroku frontend URLs
-  process.env.NODE_ENV === "production"
-    ? "https://hp-chat-v1-prod-fe23bd464547.herokuapp.com"
-    : "https://hp-chat-v1-dev-0d0d5d3944dd.herokuapp.com",
-  // Firebase Hosting URLs
-  "https://hp-chat-web.web.app", // Production
-  "https://hp-chat-web--dev-13u7zg05.web.app", // Dev channel
-  // Custom domain (when connected)
-  "https://app.horensoplus.com",
-  "https://horensoplus.com",
-  // Local development
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
+// Allow-list and Firebase preview-channel rule live in config/corsOrigins.js.
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || whitelist.includes(origin) || origin === "null") {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
